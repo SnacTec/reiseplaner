@@ -50,6 +50,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Tagesseite (Karte + Details eines Tages) öffnet aus Reiseplan (Tagesüberschrift) bzw. Mein Tag („Details ›“) als eigene Seite:
   am Handy ohne Kopf/untere Leiste, feste Leiste `#pgbar` „‹ Herkunft · Tag N · Ort“ (`DAYFROM`, Klasse `body.dpage`).
   Übersichtskarte (ganze Route) über Menü → „Übersichtskarte“, gleiche Seite. PC unverändert.
+  Am Handy keine Tagesleiste (`.days`) mehr; auf der Tagesseite Pfeile `#pgnav`. ToDos (Menü) ebenfalls als Seite mit `#pgbar`.
 - Reise-Mappe ist Hauptseite (`showMappe`, `mappeView`, Hash `#mappe`). Im Reiseplan je Tag „Details ›“ (`.tdd`).
   Tageswechsel auf der Tagesseite ersetzt den Verlauf (`nav(hash,true)`), Zurück führt direkt zur Herkunft.
 - Einträge: kein Wischen-Löschen mehr (nur ToDos); Löschen per Antippen im Fenster (Tipps: `tipDlg` „Aus dem Plan entfernen“).
