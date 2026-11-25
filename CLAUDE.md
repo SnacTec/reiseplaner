@@ -27,6 +27,8 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Bei jeder Formatänderung alle drei anpassen.
 - `wizard.js` – Reise-Assistent (neue Reise ohne Claude), `editor.js` – Reise bearbeiten/löschen; beide erst beim Öffnen geladen.
 - `mapgen.js` + `world.json` – automatische Übersichtskarte für Reisen ohne eigene Karte (Natural Earth, gemeinfrei).
+- App Check (reCAPTCHA Enterprise, unsichtbar): Schlüssel `APPCHECK_SITE_KEY` in `firebase-config.js` (leer = aus),
+  Start im Lader (`window.__AC`), Status unter Einstellungen → Konto, Anleitung `docs/APP-CHECK.md`.
 - `functions/` – Cloud Function `mapLink` (Google-Maps-Kurzlinks → Koordinaten), Anleitung `docs/CLOUD-FUNCTION.md`.
   Nur mit `firebase deploy --only functions` hochladen (Regeln nie per CLI – Platzhalter!).
 
@@ -41,7 +43,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Vorsicht bei Code, der beim Start läuft: `const`/`let` erst nach ihrer Zeile nutzbar
   (Startfehler „Cannot access … before initialization“). Ladebildschirm zeigt solche Fehler an.
 
-## Aufbau der App (Stand R66)
+## Aufbau der App (Stand R67)
 - Untere Leiste: Karte · Reiseplan · **Mein Tag (Mitte)** · An Bord · Menü.
 - Menü: Suche, ToDos, Reise-Mappe, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
 - **Große Ansichten = eigene Seite** (`asPage()` bzw. Klasse `.dlg.full.page`, oben „‹“): Deckplan, Getränke,

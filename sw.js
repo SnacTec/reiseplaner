@@ -1,6 +1,6 @@
 // Service Worker: App offline verfügbar machen.
 // Bei jeder Änderung an den App-Dateien VERSION erhöhen.
-const VERSION = 'v65';
+const VERSION = 'v66';
 const APP = 'rp-app-' + VERSION;
 const LIB = 'rp-lib-v1';     // Firebase-SDK und Schriften (versioniert, ändern sich nicht)
 const TILES = 'rp-tiles-v1';
@@ -9,7 +9,7 @@ const TILE_MAX = 3000;
 
 const SHELL = ['./', 'app.js', 'firebase-config.js', 'manifest.webmanifest', 'mapgen.js', 'world.json', 'wizard.js', 'editor.js', 'tzlookup.js', 'airports.txt', 'tripcheck.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
-const SDK = ['app', 'auth', 'firestore', 'storage'].map(n => `https://www.gstatic.com/firebasejs/10.14.1/firebase-${n}-compat.js`);
+const SDK = ['app', 'auth', 'firestore', 'storage', 'app-check'].map(n => `https://www.gstatic.com/firebasejs/10.14.1/firebase-${n}-compat.js`);
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {

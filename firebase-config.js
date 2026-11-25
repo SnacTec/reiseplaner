@@ -8,3 +8,6 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "97052290110",
   appId: "1:97052290110:web:a434750d12c436eabf356f"
 };
+// App Check (reCAPTCHA Enterprise, unsichtbar): öffentlicher Website-Schlüssel. Leer = App Check aus.
+// Anleitung: docs/APP-CHECK.md
+window.APPCHECK_SITE_KEY = "";

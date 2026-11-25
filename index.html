@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&!window.__SEED)addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone)document.documentElement.classList.add('pwa');
@@ -1102,6 +1103,8 @@ html[data-xmas] .hb.on{color:#14532d}
   const cfg=window.FIREBASE_CONFIG;
   if(!window.firebase||!cfg||!cfg.apiKey)return fail('Keine Verbindung zu Firebase. Bitte mit Internet neu laden.');
   firebase.initializeApp(cfg);
+  // App Check: weist bei jeder Anfrage nach, dass sie aus dieser App kommt (unsichtbar, siehe docs/APP-CHECK.md)
+  window.__AC={on:false,err:''};if(window.APPCHECK_SITE_KEY){try{if(!firebase.appCheck)throw new Error('Modul nicht geladen');const ac=firebase.appCheck();ac.activate(new firebase.appCheck.ReCaptchaEnterpriseProvider(window.APPCHECK_SITE_KEY),true);window.__AC={on:true,ac,err:''}}catch(e){window.__AC={on:false,err:String(e&&e.message||e)}}}
   const auth=firebase.auth(),db=firebase.firestore();
   const persist=db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
   // erst aus dem Gerätespeicher, sonst vom Server

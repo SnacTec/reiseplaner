@@ -570,7 +570,7 @@ async function placeSearch(q,near,any){const one=async qq=>{const bb=any?'':trip
 const MAPFN=window.__TEST_MAPLINK||('https://europe-west3-'+((window.FIREBASE_CONFIG||{}).projectId||'')+'.cloudfunctions.net/mapLink');
 async function mapResolve(gurl){if(!gurl||navigator.onLine===false)return null;if(!/^https:\/\/(maps\.app\.goo\.gl|goo\.gl|(www\.|maps\.)?google\.)/i.test(gurl))return {found:false};
   let tok='test';if(!window.__TEST_MAPLINK){if(!FBX.user||TS.mode!=='db')return null;try{tok=await FBX.user.getIdToken()}catch(e){return null}}
-  try{const r=await fetch(MAPFN,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({url:gurl,trip:TRIP_ID}),signal:AbortSignal.timeout(15000)});
+  try{const r=await fetch(MAPFN,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok,...(await acToken().then(t=>t?{'X-Firebase-AppCheck':t}:{}))},body:JSON.stringify({url:gurl,trip:TRIP_ID}),signal:AbortSignal.timeout(15000)});
     if(r.status===400)return {found:false};if(!r.ok)return null;const j=await r.json();return j.found&&j.lat!=null?{lat:+j.lat,lon:+j.lon,name:j.name||'',found:true}:{found:false,name:j.name||''}}catch(e){return null}}
 /* Nachholen: Einträge mit Google-Link, aber ohne Pin (z. B. offline geteilt) bekommen ihren Ort, sobald Netz da ist */
 let gResBusy=false;
@@ -775,11 +775,16 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R66';
+const APP_VER='25.11. · R67';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
-   '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+'</p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
+   '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
 function kontoDlg(){openSheet('<div class="hd"><h3 style="margin:0">Konto</h3></div>'+kontoHTML())}
+/* App-Check-Status für die Anzeige (Konto/Einstellungen) */
+async function acToken(){const A=window.__AC;if(!A||!A.on)return null;try{return (await Promise.race([A.ac.getToken(false),new Promise((_,no)=>setTimeout(()=>no(new Error('Zeitüberschreitung')),8000))])).token}catch(e){A.err=String(e&&e.message||e);return null}}
+async function acStatus(){const A=window.__AC;if(!A)return '';if(!A.on)return A.err?'🛡 App Check: Fehler ('+A.err+')':'🛡 App Check: aus';
+  if(navigator.onLine===false)return '🛡 App Check: aktiv (offline – Prüfung beim nächsten Netz)';const t=await acToken();return t?'🛡 App Check: aktiv ✓':'🛡 App Check: kein Nachweis ✗ ('+(A.err||'unbekannt')+')'}
+new MutationObserver(()=>{document.querySelectorAll('[data-acst]:not([data-done])').forEach(e=>{e.dataset.done=1;acStatus().then(t=>{e.textContent=t||''})})}).observe(document.body,{childList:true,subtree:true});
 /* Private Listen: liegen unter users/<uid>/lists|tasks (nur für den Besitzer lesbar, per Firestore-Regel). */
 const PRIV=new Set();
 const isPrivList=id=>{const l=TS.lists.find(x=>x.id===id);return !!(l&&l.priv)};

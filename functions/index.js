@@ -13,12 +13,15 @@ exports.mapLink = onRequest({ region: 'europe-west3', memory: '256MiB', maxInsta
   if (ORIGINS.includes(o)) res.set('Access-Control-Allow-Origin', o);
   res.set('Vary', 'Origin');
   if (req.method === 'OPTIONS') {
-    res.set('Access-Control-Allow-Methods', 'POST').set('Access-Control-Allow-Headers', 'Authorization, Content-Type').set('Access-Control-Max-Age', '86400');
+    res.set('Access-Control-Allow-Methods', 'POST').set('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Firebase-AppCheck').set('Access-Control-Max-Age', '86400');
     return res.status(204).send('');
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
   try {
     const tok = (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    // App Check: erst nur protokollieren; mit APPCHECK_ENFORCE=1 (Umgebungsvariable) werden Anfragen ohne Nachweis abgelehnt
+    const ac = req.get('x-firebase-appcheck'), acOk = ac ? !!(await admin.appCheck().verifyToken(ac).catch(() => null)) : false;
+    if (!acOk) { if (process.env.APPCHECK_ENFORCE === '1') return res.status(401).json({ error: 'App Check fehlt' }); console.log('mapLink ohne gültigen App-Check-Nachweis'); }
     const user = await admin.auth().verifyIdToken(tok).catch(() => null);
     if (!user) return res.status(401).json({ error: 'nicht angemeldet' });
     const { url, trip } = req.body || {};
