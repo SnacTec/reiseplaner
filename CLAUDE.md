@@ -46,7 +46,10 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   (Startfehler „Cannot access … before initialization“). Ladebildschirm zeigt solche Fehler an.
 
 ## Aufbau der App (Stand R67)
-- Untere Leiste: Karte · Reiseplan · **Mein Tag (Mitte)** · An Bord · Menü.
+- Untere Leiste: Mappe · Reiseplan · **Mein Tag (Mitte)** · An Bord · Menü (keine „Karte“ mehr).
+- Tagesseite (Karte + Details eines Tages) öffnet aus Reiseplan (Tagesüberschrift) bzw. Mein Tag („Details ›“) als eigene Seite:
+  am Handy ohne Kopf/untere Leiste, feste Leiste `#pgbar` „‹ Herkunft · Tag N · Ort“ (`DAYFROM`, Klasse `body.dpage`).
+  Übersichtskarte (ganze Route) über Menü → „Übersichtskarte“, gleiche Seite. PC unverändert.
 - Menü: Suche, ToDos, Reise-Mappe, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
 - **Große Ansichten = eigene Seite** (`asPage()` bzw. Klasse `.dlg.full.page`, oben „‹“): Deckplan, Getränke,
   Suche, Einstellungen, Reise-Mappe, Spiele-Lobby. Quiz und Spider sind eigene Vollbild-Seiten (`.dlg.full`).
