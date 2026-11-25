@@ -130,7 +130,7 @@ function fEditDlg(id){const f=FILES.find(x=>x.id===id);if(!f)return;const sel=fS
   <label>Kategorie<select name="c">${Object.entries(FCAT).map(([k,v])=>`<option value="${k}" ${k===f.cat?'selected':''}>${v[0]} ${v[1]}</option>`).join('')}</select></label>
   <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Verknüpft mit</div>${fDayChips(sel)}</div>
   <p class="src" style="margin:0">${esc(f.name||'')} · ${fSize(f.size||0)}${f.priv?' · 🔒 nur für dich':''}${f.by?' · von '+esc(f.by):''}</p>
-  <div class="btns"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" data-close>Abbrechen</button><button class="chip" type="button" id="fdel">Löschen</button></div></form>`,d=>{
+  <div class="btns"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" data-close>Abbrechen</button><button class="chip del" type="button" id="fdel">Löschen</button></div></form>`,d=>{
     const fm=d.querySelector('#fef');fBindDays(d,sel);
     fm.onsubmit=ev=>{ev.preventDefault();fPut({...f,title:fm.t.value.trim()||f.title,cat:fm.c.value,...fSplit(sel)});closeDlg()};
     d.querySelector('#fdel').onclick=()=>{const old={...f};if(f.pending)upOp('readwrite',st=>st.delete(f.id)).then(upCount);FILES=FILES.filter(x=>x.id!==f.id);fStore();if(TS.mode==='db'&&dbh)delDoc('files',f.id);closeDlg();fChanged();
@@ -633,7 +633,7 @@ function addPointDlg(day,pre,ed){pre=pre||{};
   ${(E?V.dk:pre.dk)?'':'<div id="apl"></div>'}
   <div class="two" id="apw"></div><label>Dauer (Min)<input name="s" type="number" min="5" max="720" value="${E?(+V.s||60):60}"></label>
   <label>Notiz (optional)<textarea name="note" maxlength="1000" rows="2" class="autoh">${esc((E?V.note:pre.note)||'')}</textarea></label>
-  <div class="btns"><button class="chip btn" type="submit">${E?'Speichern':'Hinzufügen'}</button>${E?'<button class="chip" type="button" id="apdel">Löschen</button>':''}<button class="chip" type="button" data-close>Abbrechen</button></div></form>`,d=>{
+  <div class="btns"><button class="chip btn" type="submit">${E?'Speichern':'Hinzufügen'}</button><button class="chip" type="button" data-close>Abbrechen</button>${E?'<button class="chip del" type="button" id="apdel">Löschen</button>':''}</div></form>`,d=>{
     const f=d.querySelector('#apf'),sync=()=>{const p=byDay(+f.day.value),at=f.at?f.at.value:(E?V.at||'':''),tv=f.t?f.t.value:(E?(+V.t||0):0);
       d.querySelector('#apw').innerHTML=`<label>Uhrzeit (optional)<input name="at" type="time" value="${esc(at)}"></label>`+(p.kind==='port'?`<label>Weg (Min)<input name="t" type="number" min="0" max="240" value="${+tv||0}"></label>`:'')};
     if(f.day.tagName==='SELECT')f.day.onchange=()=>{sync();plDraw()};sync();
@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R92';
+const APP_VER='25.11. · R93';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -962,7 +962,7 @@ function listDlg(id){
   openSheet(`<div class="hd"><h3 style="margin:0">${l?'Liste bearbeiten':'Neue Liste'}</h3></div>
   <form class="sform" id="lf"><label>Name<input name="n" required maxlength="60" value="${esc(l?l.name:'')}" placeholder="z. B. Einpacken"></label>
   ${TS.mode==='db'?`<label class="pick" style="flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink)"><input type="checkbox" name="pv" ${l&&l.priv?'checked':''} style="width:auto"> 🔒 Nur für mich (die anderen sehen diese Liste nicht)</label>`:''}
-  <div class="btns"><button class="chip btn" type="submit">Speichern</button>${l?'<button class="chip" type="button" id="ldel">Liste löschen</button>':''}<button class="chip" type="button" data-close>Abbrechen</button></div></form>`,d=>{
+  <div class="btns"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" data-close>Abbrechen</button>${l?'<button class="chip del" type="button" id="ldel">Liste löschen</button>':''}</div></form>`,d=>{
     const f=d.querySelector('#lf');
     f.onsubmit=ev=>{ev.preventDefault();const n=f.n.value.trim();if(!n)return;
       const pv=!!(f.pv&&f.pv.checked);
@@ -983,7 +983,7 @@ function taskDlg(id,focusSub){
   <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Unteraufgaben</div><div id="subs"></div>
   <div class="srow"><input type="text" id="subn" maxlength="100" placeholder="Neue Unteraufgabe" aria-label="Neue Unteraufgabe"><button type="button" id="suba" aria-label="Unteraufgabe hinzufügen">+</button></div></div>
   <label>Liste<select name="list">${TS.lists.map(l=>`<option value="${l.id}" ${l.id===t.list?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
-  <div class="btns">${isNew?'<button class="chip btn" type="submit">Hinzufügen</button><button class="chip" type="submit" data-fin="1">Fertig</button>':'<button class="chip btn" type="submit">Speichern</button>'}${isNew?'':'<button class="chip" type="button" id="tdel">Löschen</button>'}<button class="chip" type="button" data-close>${isNew?'Schließen':'Abbrechen'}</button></div>${isNew?'<p class="src" id="added"></p><p class="src">Tipp: Enter fügt die Aufgabe hinzu, das Fenster bleibt offen. Mehrere Zeilen einfügen legt jede Zeile als eigene Aufgabe an.</p>':''}</form>`,d=>{
+  <div class="btns">${isNew?'<button class="chip btn" type="submit">Hinzufügen</button><button class="chip" type="submit" data-fin="1">Fertig</button>':'<button class="chip btn" type="submit">Speichern</button>'}<button class="chip" type="button" data-close>${isNew?'Schließen':'Abbrechen'}</button>${isNew?'':'<button class="chip del" type="button" id="tdel">Löschen</button>'}</div>${isNew?'<p class="src" id="added"></p><p class="src">Tipp: Enter fügt die Aufgabe hinzu, das Fenster bleibt offen. Mehrere Zeilen einfügen legt jede Zeile als eigene Aufgabe an.</p>':''}</form>`,d=>{
     const f=d.querySelector('#tf2'),box=d.querySelector('#subs'),inp=d.querySelector('#subn');
     const draw=()=>{box.innerHTML=subs.map((x,i)=>`<div class="srow"><input type="checkbox" data-sc="${i}" ${x.done?'checked':''} aria-label="Erledigt"><input type="text" data-st2="${i}" value="${esc(x.text)}" maxlength="100"><button type="button" data-sr="${i}" aria-label="Entfernen">✕</button></div>`).join('');
       box.querySelectorAll('[data-sc]').forEach(c=>c.onchange=()=>{subs[+c.dataset.sc].done=c.checked});
