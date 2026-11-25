@@ -189,8 +189,10 @@ function fView(list,i){fvClose(true);const o=document.createElement('div');o.id=
   show()}
 function fvClose(){if(!fv)return;if(fv.url)URL.revokeObjectURL(fv.url);fv.o.remove();fv=null}
 /* Mappe (eigene Seite) */
-function mappeDlg(){
-  openSheet('<div class="hd"><h3 style="margin:0">Reise-Mappe</h3><button class="x" data-close aria-label="Schließen">✕</button></div><button class="chip btn" id="fmadd" style="width:100%;justify-content:center;padding:12px;margin:0 0 10px">+ Datei hochladen</button><div class="sfield"><svg class="sfi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="fmq" type="search" placeholder="In der Mappe suchen" autocomplete="off" value="'+esc(fmQ)+'"><button type="button" class="sfx" aria-label="Eingabe löschen">✕</button></div><div class="drtabs" id="fmc"></div><div id="fmlist"></div>',d=>{asPage();
+let mappeView=false;
+function mappeDlg(){showMappe()}
+function mappePanel(){return '<div class="eyebrow">Dateien der Reise</div><h2>Reise-Mappe</h2><button class="chip btn" id="fmadd" style="width:100%;justify-content:center;padding:12px;margin:0 0 10px">+ Datei hochladen</button><div class="sfield"><svg class="sfi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="fmq" type="search" placeholder="In der Mappe suchen" autocomplete="off" value="'+esc(fmQ)+'"><button type="button" class="sfx" aria-label="Eingabe löschen">✕</button></div><div class="drtabs" id="fmc"></div><div id="fmlist"></div>'}
+function mappeBind(d){
     const box=d.querySelector('#fmlist'),cb=d.querySelector('#fmc');
     fmRb=()=>{const q=nrm(fmQ.trim()),L=FILES.filter(f=>!q||nrm(f.title+' '+(f.name||'')+' '+(FCAT[f.cat]||['',''])[1]).includes(q));
       cb.innerHTML='<button class="chip'+(fmCat==='all'?' on':'')+'" data-fc="all">Alle '+L.length+'</button>'+Object.entries(FCAT).filter(([k])=>L.some(f=>f.cat===k)).map(([k,v])=>'<button class="chip'+(fmCat===k?' on':'')+'" data-fc="'+k+'">'+v[0]+' '+v[1]+' '+L.filter(f=>f.cat===k).length+'</button>').join('');
@@ -199,10 +201,11 @@ function mappeDlg(){
       const cats=Object.keys(FCAT).filter(k=>(fmCat==='all'||fmCat===k)&&L.some(f=>f.cat===k));
       box.innerHTML=cats.map(k=>'<h3 class="drh">'+FCAT[k][0]+' '+FCAT[k][1]+'</h3>'+L.filter(f=>f.cat===k).sort((a,b)=>(b.ts||0)-(a.ts||0)).map(f=>'<div class="frow"><button class="fopen" data-fopen="'+f.id+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span class="fic">'+fIcon(f)+'</span>')+'<span class="ftx"><b>'+esc(f.title)+'</b><small>'+[f.pending?'⏳ wird hochgeladen':'',fWhere(f)||'keinem Tag zugeordnet',f.priv?'🔒 nur für dich':'',fSize(f.size||0)].filter(Boolean).join(' · ')+' <i class="foff" data-foff="'+f.id+'"></i></small></span></button><button class="lnk" data-fedit="'+f.id+'" aria-label="Bearbeiten">Bearbeiten</button></div>').join('')).join('')||'<p class="empty">Nichts gefunden.</p>';
       box.querySelectorAll('[data-foff]').forEach(i=>{const f=FILES.find(x=>x.id===i.dataset.foff);if(f)fCached(f).then(h=>{i.textContent=h?'· ✓ offline':'';i.classList.toggle('on',h)})});
-      box.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>{const id=b.dataset.fedit;dlgReturn=mappeDlg;fEditDlg(id)})};
+      box.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>{const id=b.dataset.fedit;fEditDlg(id)})};
     d.querySelector('#fmq').oninput=e=>{fmQ=e.target.value;fmRb()};
-    d.querySelector('#fmadd').onclick=()=>{dlgReturn=mappeDlg;fUploadDlg()};
-    fmRb()})}
+    d.querySelector('#fmadd').onclick=()=>{fUploadDlg()};
+    fmRb()}
+function showMappe(fromHash){if(fromHash!==true)saveScroll();todoView=true;bordView=false;tripView=false;todayView=false;mappeView=true;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;hideTip2();if(fromHash!==true)nav('#mappe');navMark()}
 /* Am Tag: Dateien anzeigen, „+ Datei“ */
 function filesDayHTML(p,compact,withEntry){const L=fOfDay(p.day);if(compact&&!L.length)return '';
   const chips=L.length?'<div class="fday">'+L.map(f=>'<button class="fchip" data-fopen="'+f.id+'" data-fday="'+p.day+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span>'+fIcon(f)+'</span>')+esc(f.title)+'</button>').join('')+'</div>':'';
@@ -559,8 +562,8 @@ function plannerHTML(p){return dayView(p)+addArea(p)}
 let lastHash=null,dlgPushed=false,scrollMem={},noSave=false;
 const saveScroll=()=>{const p=$('#panel');if(p)scrollMem[lastHash||'']={p:p.scrollTop,w:scrollY}};
 function restoreScroll(h){const m=scrollMem[h]||{p:0,w:0};noSave=true;const p=$('#panel');if(p){p.style.scrollBehavior='auto';p.scrollTop=m.p;p.style.scrollBehavior=''}window.scrollTo({top:m.w,behavior:'instant'});setTimeout(()=>{noSave=false},120)}
-function nav(hash){
-  try{const cur=location.hash||'';if(cur!==hash){history.pushState({v:1},'',location.pathname+location.search+hash)}lastHash=hash}catch(e){}
+function nav(hash,repl){
+  try{const cur=location.hash||'';if(cur!==hash){history[repl?'replaceState':'pushState']({v:1},'',location.pathname+location.search+hash)}lastHash=hash}catch(e){}
 }
 function dlgOpened(){if(!dlgPushed){dlgPushed=true;try{history.pushState({dlg:1},'',location.href)}catch(e){dlgPushed=false}}}
 /* ---------- Sheet-Dialog ---------- */
@@ -798,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R84';
+const APP_VER='25.11. · R85';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -908,7 +911,7 @@ function tip2Html(el,html){
 let todoView=false;bordView=false;
 function showTodo(list,fromHash){
   if(fromHash!==true)saveScroll();
-  todoView=true;bordView=false;tripView=false;sel=null;if(list)tdList=list;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;hideTip2();
+  todoView=true;bordView=false;tripView=false;mappeView=false;sel=null;if(list)tdList=list;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;hideTip2();
   if(fromHash!==true)nav('#todos');
 }
 function tdBanner(){
@@ -1032,7 +1035,7 @@ function tripPanel(onlyP){
     const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
     const col=p.kind==='port'?'var(--port)':p.kind==='sea'?'#6f8fa3':'var(--accent)';
     const T='';
-    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button></div>`;
+    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button><button class="lnk tdd" data-open data-d="${p.day}">Details ›</button></div>`;
     const addE=onlyP?'':`<div class="dyadd"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button></div>`,addF=onlyP?'':`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
     const hd=onlyP?'':head;
     const fl=onlyP?'':fRowsHTML(p);
@@ -2144,7 +2147,7 @@ function portPanel(p){
 function renderPanel(){
   const a=$('#panel');const keep=a.scrollTop;
   const p=sel==null?null:byDay(sel);
-  a.innerHTML=V(p?portPanel(p):todoView&&bordView?bordPanel():todoView?todoPanel():tripView?(todayView?todayPanel():tripPanel()):homePanel());if(!p&&todoView&&!bordView)bindTodo(a);if(!p&&bordView)bindBord(a);
+  a.innerHTML=V(p?portPanel(p):todoView&&bordView?bordPanel():todoView&&mappeView?mappePanel():todoView?todoPanel():tripView?(todayView?todayPanel():tripPanel()):homePanel());if(!p&&todoView&&mappeView)mappeBind(a);else if(!p&&todoView&&!bordView)bindTodo(a);if(!p&&bordView)bindBord(a);
   if(!p&&todayView&&!window.__SEED&&typeof duelCard==='function')try{const h=duelCard();if(h){a.insertAdjacentHTML('beforeend',h);const g=a.querySelector('#duelgo');if(g)g.onclick=()=>quizDlg(qzDay()&&qzDay().done||(QZ.daily&&QZ.daily[TODAY])?undefined:'daily')}}catch(e){}
   a.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(b.dataset.t));a.querySelectorAll('[data-tdn]').forEach(b=>b.onclick=()=>tdStep(+b.dataset.tdn));a.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>stepDay(sel+ +b.dataset.dn));
   a.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>setTab('ex'));
@@ -2343,8 +2346,8 @@ function todayPanel(){
 function tdStep(v){const tp=D.ports.find(q=>q.date===TODAY),cur=todayOff||(tp?tp.day:0);let i=v===0?null:cur+v;
   if(i!==null){if(i>D.ports.length)return;if(i<1){if(tp)return;i=null}}
   todayOff=(i===null||(tp&&i===tp.day))?null:i;renderPanel();$('#panel').scrollTop=0;window.scrollTo(0,0)}
-function showToday(fromHash){if(fromHash!==true){saveScroll();todayOff=null}tripView=true;todoView=false;bordView=false;todayView=true;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#heute');}
-function showTrip(fromHash){if(fromHash!==true)saveScroll();tripView=true;todoView=false;bordView=false;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#plan');}
+function showToday(fromHash){if(fromHash!==true){saveScroll();todayOff=null}mappeView=false;tripView=true;todoView=false;bordView=false;todayView=true;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#heute');}
+function showTrip(fromHash){if(fromHash!==true)saveScroll();mappeView=false;tripView=true;todoView=false;bordView=false;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#plan');}
 /* Tag wechseln per Wischen oder ‹ › : Leseposition halten statt nach oben zur Karte springen */
 let daySwipe=false;
 function stepDay(i){
@@ -2354,7 +2357,7 @@ function stepDay(i){
   if(mob)window.scrollTo({top:inPanel?Math.max(0,pnl.getBoundingClientRect().top+window.scrollY-8):y,behavior:'instant'});
 }
 let DAYFROM='trip';
-function select(day,fromHash,keep){if(todayView)DAYFROM='today';else if(tripView)DAYFROM='trip';else if(bordView)DAYFROM='bord';else if(todoView)DAYFROM='todo';bordView=false;
+function select(day,fromHash,keep){const inPage=!todayView&&!tripView&&!todoView;if(todayView)DAYFROM='today';else if(tripView)DAYFROM='trip';else if(mappeView)DAYFROM='mappe';else if(bordView)DAYFROM='bord';else if(todoView)DAYFROM='todo';bordView=false;todayView=false;mappeView=false;
   if(!fromHash&&!keep)saveScroll();
   tripView=false;todoView=false;bordView=false;hideTip2();
   if(day!==sel){tab='ov';addMode=null;expKey=null;openSec=new Set();filt=new Set(Object.keys(TYPES))}
@@ -2362,10 +2365,10 @@ function select(day,fromHash,keep){if(todayView)DAYFROM='today';else if(tripView
   renderDays();renderBar();
   if(p&&pm(p))drawPort(p,keep);else drawOverview(keep&&false);
   renderPanel();$('#panel').scrollTop=0;
-  if(!fromHash&&!keep)nav(day==null?'':'#tag-'+day);
+  if(!fromHash&&!keep)nav(day==null?'':'#tag-'+day,inPage);
   if(matchMedia('(max-width:860px)').matches&&!fromHash&&!keep&&!daySwipe)window.scrollTo({top:0,behavior:'smooth'});
 }
-function fromHash(){const h=location.hash||'';if(h===lastHash)return;lastHash=h;noSave=true;if(h==='#plan')showTrip(true);else if(h==='#heute')showToday(true);else if(h==='#todos'||h==='#listen')showTodo(null,true);else if(h==='#bord')setTimeout(()=>showBord(true),0);else{const m=/^#tag-(\d+)$/.exec(h);select(m&&byDay(+m[1])?+m[1]:null,true)}restoreScroll(h)}
+function fromHash(){const h=location.hash||'';if(h===lastHash)return;lastHash=h;noSave=true;if(h==='#plan')showTrip(true);else if(h==='#heute')showToday(true);else if(h==='#todos'||h==='#listen')showTodo(null,true);else if(h==='#bord')setTimeout(()=>showBord(true),0);else if(h==='#mappe')showMappe(true);else{const m=/^#tag-(\d+)$/.exec(h);select(m&&byDay(+m[1])?+m[1]:null,true)}restoreScroll(h)}
 try{history.scrollRestoration='manual'}catch(e){}
 addEventListener('popstate',()=>{
   // eigenes history.back() beim Schließen: kommt auf Android verzögert an und darf keinen neu geöffneten Dialog schließen
@@ -2424,7 +2427,7 @@ function fitMap(){const mc=document.querySelector('.mapcol'),bn=document.getElem
   const top=mc.getBoundingClientRect().top+window.scrollY,bh=bn&&getComputedStyle(bn).display!=='none'?bn.offsetHeight:0;
   const h=Math.max(260,Math.floor(window.innerHeight-top-bh));if(document.body.style.getPropertyValue('--fitmap')!==h+'px'){document.body.style.setProperty('--fitmap',h+'px');if(typeof M!=='undefined'&&M){measure();applyVB()}}}
 addEventListener('resize',()=>setTimeout(fitMap,60));addEventListener('orientationchange',()=>setTimeout(fitMap,250));
-function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=k==='todo'&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const ph=k==='map'&&matchMedia('(max-width:860px)').matches;document.body.classList.toggle('dpage',ph);if(ph){const lb={trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan',pp=sel!=null?byDay(sel):null;$('#pgback span').textContent=lb;$('#pgttl').textContent=pp?'Tag '+pp.day+' · '+pp.name:'Übersichtskarte'}}{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
+function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':mappeView?'mappe':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=(k==='todo'||k==='mappe')&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const ph=k==='map'&&matchMedia('(max-width:860px)').matches;document.body.classList.toggle('dpage',ph);if(ph){const lb={trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos',mappe:'Mappe'}[DAYFROM]||'Reiseplan',pp=sel!=null?byDay(sel):null;$('#pgback span').textContent=lb;$('#pgttl').textContent=pp?'Tag '+pp.day+' · '+pp.name:'Übersichtskarte'}}{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
 function goTop(){const w=$('#panel');if(w)w.scrollTop=0;window.scrollTo(0,0)}
 /* Globale Suche über alles */
 const nrm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -2458,10 +2461,10 @@ function searchDlg(){
   });
 }
 $('#pgback').onclick=()=>$('#mback').click();
-$('#mback').onclick=()=>{const f={today:showToday,bord:showBord,todo:()=>showTodo()}[DAYFROM]||showTrip;if(history.state&&history.state.v&&history.length>1)history.back();else f()};
+$('#mback').onclick=()=>{const f={today:showToday,bord:showBord,mappe:showMappe,todo:()=>showTodo()}[DAYFROM]||showTrip;if(history.state&&history.state.v&&history.length>1)history.back();else f()};
 $('#srchb').onclick=searchDlg;$('#drkb').onclick=drinksDlg;$('#dkb').onclick=()=>deckDlg();
 document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.onclick=()=>{hideTip2();const k=b.dataset.n;
-  if(k==='mappe')mappeDlg();else if(k==='trip')showTrip();else if(k==='todo')showTodo();else if(k==='bord')showBord();else if(k==='today')showToday();else if(k==='srch')menuDlg();
+  if(k==='mappe')showMappe();else if(k==='trip')showTrip();else if(k==='todo')showTodo();else if(k==='bord')showBord();else if(k==='today')showToday();else if(k==='srch')menuDlg();
   else if(k==='map'){mapMin=false;const L=(tripView||todoView)?LASTMAP:null;select(L?L.sel:null);applyMin();goTop();
     if(L)setTimeout(()=>{if(!M)return;measure();vb={x:L.cx-L.u*cw/2,y:L.cy-L.u*ch/2,w:L.u*cw,h:L.u*ch};applyVB()},90)}});
 try{if(!window.__SEED){if(localStorage.getItem('rp-seen'))$('.sub').hidden=true;else localStorage.setItem('rp-seen','1')}}catch(e){}
@@ -3175,7 +3178,7 @@ function spiderDlg(){
 let dkSrOpen=null;
 
 /* ---------- An Bord: Sammelseite für alles auf dem Schiff ---------- */
-function showBord(fromHash){if(fromHash!==true)saveScroll();todoView=true;bordView=true;tripView=false;todayView=false;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#bord');navMark()}
+function showBord(fromHash){if(fromHash!==true)saveScroll();mappeView=false;todoView=true;bordView=true;tripView=false;todayView=false;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#bord');navMark()}
 function bordDay(){const t=D.ports.find(q=>q.date===TODAY);return t&&t.kind!=='end'?t:D.ports[0]}
 function bordPanel(){const p=bordDay(),r=dinRow(p),v=dinVenue(),c=myCab(),ci=c&&cabInfo(c),isT=p.date===TODAY;
   const nFav=typeof FAV!=='undefined'?FAV.k.size:0;
@@ -3204,7 +3207,7 @@ function menuDlg(){
    '<button data-m="q">'+ic('<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M15 11.5h.01M17.5 13.5h.01"/>')+'<span>Spiele</span></button>'+
    '<button data-m="o">'+ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')+'<span>Einstellungen</span></button>'+(FBX.on?'<button data-m="k">'+ic('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>')+'<span>Konto'+(FBX.user?' ('+esc(FBX.user.email||'')+')':'')+'</span></button>':'')+'</div>',d=>{
     const go=(f,swap)=>{if(swap){f();return}closeDlg();setTimeout(f,40)};
-    d.querySelector('[data-m=s]').onclick=()=>go(searchDlg,1);d.querySelector('[data-m=t]').onclick=()=>go(()=>showTodo());d.querySelector('[data-m=d]').onclick=()=>go(drinksDlg,1);d.querySelector('[data-m=u]').onclick=()=>go(()=>{if(todayView)DAYFROM='today';else if(tripView)DAYFROM='trip';else if(bordView)DAYFROM='bord';mapMin=false;select(null);applyMin();goTop()});d.querySelector('[data-m=p]').onclick=()=>go(deckDlg,1);d.querySelector('[data-m=q]').onclick=()=>go(gamesDlg,1);{const v=document.createElement('p');v.className='src';v.style.cssText='margin:10px 0 0;text-align:center';v.textContent=(TRIP.title||'Reise')+' · App-Version '+APP_VER;d.appendChild(v);if(TS.mode==='db'){const i=syncInfo(),w=document.createElement('button');w.className='lnk';w.style.cssText='display:block;margin:4px auto 0;font-size:13px';w.textContent=(i.off?'⚠ Offline':i.k==='busy'?'⟳ Wird synchronisiert':'☁︎ Alles synchron')+' ›';w.onclick=()=>{syncDlg()};d.appendChild(w)}}d.querySelector('[data-m=o]').onclick=()=>go(offlineDlg,1);const k=d.querySelector('[data-m=k]');if(k)k.onclick=()=>go(kontoDlg,1)});
+    d.querySelector('[data-m=s]').onclick=()=>go(searchDlg,1);d.querySelector('[data-m=t]').onclick=()=>go(()=>showTodo());d.querySelector('[data-m=d]').onclick=()=>go(drinksDlg,1);d.querySelector('[data-m=u]').onclick=()=>go(()=>{if(todayView)DAYFROM='today';else if(tripView)DAYFROM='trip';else if(mappeView)DAYFROM='mappe';else if(bordView)DAYFROM='bord';mapMin=false;select(null);applyMin();goTop()});d.querySelector('[data-m=p]').onclick=()=>go(deckDlg,1);d.querySelector('[data-m=q]').onclick=()=>go(gamesDlg,1);{const v=document.createElement('p');v.className='src';v.style.cssText='margin:10px 0 0;text-align:center';v.textContent=(TRIP.title||'Reise')+' · App-Version '+APP_VER;d.appendChild(v);if(TS.mode==='db'){const i=syncInfo(),w=document.createElement('button');w.className='lnk';w.style.cssText='display:block;margin:4px auto 0;font-size:13px';w.textContent=(i.off?'⚠ Offline':i.k==='busy'?'⟳ Wird synchronisiert':'☁︎ Alles synchron')+' ›';w.onclick=()=>{syncDlg()};d.appendChild(w)}}d.querySelector('[data-m=o]').onclick=()=>go(offlineDlg,1);const k=d.querySelector('[data-m=k]');if(k)k.onclick=()=>go(kontoDlg,1)});
 }
 function simLocal(){const p=D.ports.find(q=>q.date===todayStr())||D.ports[0];return new Date(nowMs()+tzOf(p)*36e5).toISOString().slice(0,16)}
 function simSet(v){if(!v)return;const day=v.slice(0,10),p=D.ports.find(q=>q.date===day),tz=p?tzOf(p):-4,ms=Date.parse(v+':00Z')-tz*36e5;

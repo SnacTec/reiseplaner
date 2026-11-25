@@ -426,7 +426,7 @@ details.sec>summary span{color:var(--muted);font-weight:500;margin-left:6px}
 .tsubn.on{background:var(--soft);color:var(--ink)}
 .tchev{color:var(--muted);font-size:22px;line-height:1;padding:0 2px}
 .tsubs2{padding:4px 0 10px 34px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}.tsubs2 .tsubadd{align-self:flex-start}
-@media(max-width:860px){body.v-todo .mapcol,body.v-todo .days{display:none}}
+@media(max-width:860px){body.v-todo .mapcol,body.v-todo .days{display:none}body.v-todo #panel{min-height:calc(100dvh - 160px)}}
 .tdtabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 10px;padding:2px}
 @media(max-width:860px){.tdtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-2px;margin-right:-2px;-webkit-overflow-scrolling:touch}.tdtabs::-webkit-scrollbar{display:none}}
 .tdtab{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 14px/1.2 var(--body);cursor:pointer}
@@ -651,6 +651,7 @@ html[data-special] .tl-txt{color:#fff;font-weight:800}
 .tdt:hover{text-decoration:underline}
 .tday.empty .tdt{font-weight:600;color:var(--muted)}
 .tdl{font-weight:500;color:var(--muted)}
+.tdh .tdd{flex:none;font-size:14px;padding:9px 0 6px}
 .trw{display:grid;grid-template-columns:46px 1fr;gap:8px;align-items:start;padding:7px 0;border-top:1px solid var(--line)}
 .trw .tm{font:700 12.5px var(--head);font-variant-numeric:tabular-nums;text-align:right}
 .trw .tm small{display:block;font-weight:500;color:var(--muted);font-family:inherit}
