@@ -386,12 +386,13 @@ function undoToast(msg,restore,ms){ms=ms||7000;let t=document.getElementById('to
   const b=t.querySelector('.tundo');if(b)b.onclick=()=>{clearTimeout(undoT);try{restore()}catch(e){}t.innerHTML='<span class="tmsg">Wiederhergestellt.</span>';undoT=setTimeout(()=>t.className='',1800)};
   undoT=setTimeout(()=>{t.className=''},ms)}
 /* Meldung wegwischen (seitlich oder nach unten) */
-{let tx=null;document.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('#toast.show');if(!t||e.target.closest('button'))return;tx={t,x:e.clientX,y:e.clientY,id:e.pointerId};t.style.transition='none'},true);
+{let tx=null;document.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('#toast.show');if(!t)return;tx={t,x:e.clientX,y:e.clientY,id:e.pointerId};t.style.transition='none'},true);
   document.addEventListener('pointermove',e=>{if(!tx||e.pointerId!==tx.id)return;const dx=e.clientX-tx.x,dy=Math.max(0,e.clientY-tx.y);tx.dx=dx;tx.dy=dy;tx.t.style.transform=`translate(calc(-50% + ${dx}px),${dy}px)`;tx.t.style.opacity=String(Math.max(.2,1-Math.max(Math.abs(dx)/220,dy/120)))},true);
-  const end=e=>{if(!tx||e.pointerId!==tx.id)return;const t=tx.t,go=Math.abs(tx.dx||0)>70||(tx.dy||0)>40;tx=null;t.style.transition='';
+  const end=e=>{if(!tx||e.pointerId!==tx.id)return;const t=tx.t,go=Math.abs(tx.dx||0)>70||(tx.dy||0)>40,moved=Math.abs(tx.dx||0)>8||(tx.dy||0)>8;tx=null;if(moved)window.__toastSw=Date.now();t.style.transition='';
     if(go){clearTimeout(undoT);t.style.transform=`translate(calc(-50% + ${(t.style.transform.match(/\+ (-?[\d.]+)px/)||[0,0])[1]>0?'':'-'}120vw),0)`;t.style.opacity='0';setTimeout(()=>{t.className='';t.style.transform='';t.style.opacity=''},250)}
     else{t.style.transform='';t.style.opacity=''}};
-  document.addEventListener('pointerup',end,true);document.addEventListener('pointercancel',end,true)}
+  document.addEventListener('pointerup',end,true);document.addEventListener('pointercancel',end,true);
+  document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#toast')&&Date.now()-(window.__toastSw||0)<400){e.stopPropagation();e.preventDefault()}},true)}
 function infoToast(msg,label,fn,ms){ms=ms||9000;undoToast(msg,fn,ms);const b=document.querySelector('#toast .tundo');if(b){b.textContent=label;b.onclick=()=>{clearTimeout(undoT);fn()}}}
 if(navigator.serviceWorker)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='rp-update'&&!window.__updShown){window.__updShown=1;infoToast('Neue App-Version geladen.','Neu laden',()=>location.reload(),12000)}});
 addEventListener('rp-trip-updated',()=>infoToast('Reisedaten wurden aktualisiert.','Neu laden',()=>location.reload()));
@@ -808,7 +809,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R94';
+const APP_VER='25.11. · R95';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
