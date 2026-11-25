@@ -5,6 +5,10 @@ Läuft im Browser und als installierte App, auch offline. Daten liegen in Fireba
 
 Dieses Repository enthält nur die App selbst, **keine Reisedaten**.
 
+**Eigene Kopie?** Gern – aber bitte ein **eigenes Firebase-Projekt** anlegen und `firebase-config.js`
+(inkl. App-Check-Schlüssel) durch die eigenen Werte ersetzen. Die hier eingetragenen Schlüssel funktionieren
+nur auf der Original-Adresse und für die freigegebenen Konten.
+
 ## Eine Reise anlegen
 - **In der App:** Einstellungen → 🧳 Reisen → „+ Neue Reise anlegen“ (Assistent).
 - **Per Import-Datei** (z. B. von einem KI-Assistenten erstellt):

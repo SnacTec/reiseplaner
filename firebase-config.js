@@ -10,4 +10,4 @@ window.FIREBASE_CONFIG = {
 };
 // App Check (reCAPTCHA Enterprise, unsichtbar): öffentlicher Website-Schlüssel. Leer = App Check aus.
 // Anleitung: docs/APP-CHECK.md
-window.APPCHECK_SITE_KEY = "";
+window.APPCHECK_SITE_KEY = "6LeAJjIuAAAAAMcHAUBgVoeh6nuooENNiiJtbl81";
