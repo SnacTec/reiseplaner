@@ -515,7 +515,7 @@ function dayView(p,today){
     o+=mk(hm(c.back),`🚢 Zurück an Bord <span class="pf">· ${pf}</span>`,c.slack<0?'bad':c.slack<30?'warnc':'');
     const ex=[c.fee?`Eintritt ca. ${moneyU(c.fee*2,c.u)} für zwei`:'',c.cost?`Taxi ca. ${moneyU(c.cost,c.u)} pro Auto`:''].filter(Boolean).join(' · ');
     if(ex)o+=`<p class="src mkx">${esc(ex)} (Richtwerte)</p>`;return o};
-  h+=travelTop(p);
+  h+=travelTop(p,1);
   if(port&&CRUISE)h+=mk(hm(c.W.on),'🚢 Ab Schiff');
   const EMPTY=!c.rows.length;if(EMPTY&&!embMarks(p).length)h+=`<p class="dempty">Noch nichts geplant.</p>`;
   const EX=embMarks(p),exFlush=a=>{while(EX.length&&(a==null||EX[0].a<=a)){const x=EX.shift();h+=mk(x.t,x.h)}};
@@ -531,7 +531,7 @@ function dayView(p,today){
   exFlush(null);h+=back();
   h+=`<div class="dyadd"><button class="lnk addpt" ${today?`data-addpt="${p.day}"`:'data-addmode="eigen"'}>+ Eintrag</button></div>`;
   h+=travelBottom(p)+fRowsHTML(p)+`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}">+ Datei</button></div>`;
-  return h+`</div>`;
+  return tvDayHTML(p,'out')+h+`</div>`+tvDayHTML(p,'back');
 }
 function addArea(p){
   const port=p.kind==='port',modes=[];
@@ -798,7 +798,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R80';
+const APP_VER='25.11. · R81';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1781,7 +1781,7 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
     const h=hb.offsetHeight,y=r.bottom+8+h<innerHeight?r.bottom+8:r.top-8-h;hb.style.left=x+'px';hb.style.top=Math.max(8,y)+'px';
     hb.style.setProperty('--ax',(r.left+r.width/2-x)+'px');hb.classList.toggle('up',y<r.top)},true);
   ['scroll','resize'].forEach(ev=>addEventListener(ev,hide,true))}
-function tvDayHTML(p){let h='';['out','back'].forEach(k=>{const o=TRV[k];if(o&&(o.segs||[]).some(x=>x.dd===p.date||x.ad===p.date))h+=tvBlock(k,'open')});return h}
+function tvDayHTML(p,only){let h='';(only?[only]:['out','back']).forEach(k=>{const o=TRV[k];if(o&&(o.segs||[]).some(x=>x.dd===p.date||x.ad===p.date))h+=tvBlock(k,'open')});return h}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-tv]');if(!b||e.target.closest('a'))return;e.stopPropagation();tvDlg(b.dataset.tv)},true);
 /* Flughäfen (OpenFlights) offline */
 let APC=null;async function airportsLoad(){if(APC)return APC;const t=await (await fetch('airports.txt')).text();if(!/\|/.test(t))throw new Error('fehlt');
