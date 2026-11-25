@@ -798,7 +798,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R79';
+const APP_VER='25.11. · R80';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -2320,7 +2320,7 @@ function todayPanel(){
   if((TODAY>=first&&TODAY<=last)||(todayOff&&byDay(todayOff))){
     const tp=D.ports.find(q=>q.date===TODAY);const p=todayOff&&byDay(todayOff)?byDay(todayOff):tp,isT=p===tp;
     const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
-    return `${dnavHTML(p,'tdn')}${isT?'':`<p style="margin:0 0 8px"><button class="chip btn" data-tdn="0">${tp?'Zurück zu heute (Tag '+tp.day+')':(TODAY<first?'Zurück zum Countdown':'Zurück')}</button></p>`}<div class="dhd"><span class="tdk">${isT?'Heute · ':''}Tag ${p.day} · ${esc(fmtDate(p.date))}${land?' · '+esc(land):''}</span><h2>${esc(p.name)}</h2></div>${aabHTML(p)}${isT?nowNextHTML(p):''}${tipHTML('today')}${infoHTML(p)}<div class="todayh"><h3>Tagesplan</h3><button class="lnk" data-open data-d="${p.day}">Tageskarte ›</button></div>${dayView(p,1)}`;
+    return `${dnavHTML(p,'tdn')}${isT?'':`<p style="margin:0 0 8px"><button class="chip btn" data-tdn="0">${tp?'Zurück zu heute (Tag '+tp.day+')':(TODAY<first?'Zurück zum Countdown':'Zurück')}</button></p>`}<div class="dhd"><span class="tdk">${isT?'Heute · ':''}Tag ${p.day} · ${esc(fmtDate(p.date))}${land?' · '+esc(land):''}</span><h2>${esc(p.name)}</h2></div>${(x=>x?`<div class="nowbox">${x}</div>`:'')(aabHTML(p)+(isT?nowNextHTML(p):''))}${tipHTML('today')}${infoHTML(p)}<div class="todayh"><h3>Tagesplan</h3><button class="lnk" data-open data-d="${p.day}">Tageskarte ›</button></div>${dayView(p,1)}`;
   }
   const ship=(document.querySelector('.tl-ship')||{}).outerHTML||'';
   if(TODAY>last)return `<div class="eyebrow">Mein Tag</div><div class="hero"><div class="hship">${ship}</div><h2>Willkommen zu Hause</h2><p>Die Reise ist vorbei. Schön war’s.</p></div><p><button class="chip btn" data-trip>Reiseplan ansehen</button></p>`;
