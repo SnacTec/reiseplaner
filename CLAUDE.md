@@ -50,7 +50,9 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Tagesseite (Karte + Details eines Tages) öffnet aus Reiseplan (Tagesüberschrift) bzw. Mein Tag („Details ›“) als eigene Seite:
   am Handy ohne Kopf/untere Leiste, feste Leiste `#pgbar` „‹ Herkunft · Tag N · Ort“ (`DAYFROM`, Klasse `body.dpage`).
   Übersichtskarte (ganze Route) über Menü → „Übersichtskarte“, gleiche Seite. PC unverändert.
-- Menü: Suche, ToDos, Reise-Mappe, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
+- Reise-Mappe ist Hauptseite (`showMappe`, `mappeView`, Hash `#mappe`). Im Reiseplan je Tag „Details ›“ (`.tdd`).
+  Tageswechsel auf der Tagesseite ersetzt den Verlauf (`nav(hash,true)`), Zurück führt direkt zur Herkunft.
+- Menü: Suche, ToDos, Übersichtskarte, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
 - **Große Ansichten = eigene Seite** (`asPage()` bzw. Klasse `.dlg.full.page`, oben „‹“): Deckplan, Getränke,
   Suche, Einstellungen, Reise-Mappe, Spiele-Lobby. Quiz und Spider sind eigene Vollbild-Seiten (`.dlg.full`).
   **Kurze Aktionen = halbes Fenster** (Menü, Abendessen, Ausflug, Eintrag/Aufgabe/Datei bearbeiten).
