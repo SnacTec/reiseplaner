@@ -83,8 +83,8 @@ test('anreise: Flug + Mietwagen, Zeitumstellung', async ({ browser, base }) => {
   await p.fill('[data-s="0|dd"]', '2099-08-10'); await p.fill('[data-s="0|dt"]', '06:00'); await p.fill('[data-s="0|ad"]', '2099-08-10'); await p.fill('[data-s="0|at"]', '09:30');
   await p.click('#tvadd'); await p.waitForTimeout(300); await p.click('[data-sm="1|car"]'); await p.waitForTimeout(200); await pick('[data-pl="1|t"]', 'Musterstadt'); await p.fill('[data-s="1|dt"]', '11:00');
   await p.click('#tvf button[type=submit]'); await p.waitForTimeout(2500);
-  const s = await p.locator('.tvb').first().innerText();
-  await c.close(); ok(/Uhr 1 Std\. zurückstellen/.test(s) && /Reisedauer gesamt/.test(s), s.replace(/\n/g, ' | ')); ok(!p.errs.length, p.errs.join(' | '));
+  await p.click('.tvb summary'); await p.waitForTimeout(300); const s = await p.locator('.tvb').first().innerText();
+  await c.close(); ok(/Uhr −1 Std\./.test(s) && /⏱/.test(s) && /🔁|📍/.test(s), s.replace(/\n/g, ' | ')); ok(!p.errs.length, p.errs.join(' | '));
 });
 
 /* ---------- Teilen aus Google Maps ---------- */

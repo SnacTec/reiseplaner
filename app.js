@@ -775,7 +775,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R68';
+const APP_VER='25.11. · R69';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1708,17 +1708,33 @@ function tvSum(o){const S=(o&&o.segs||[]).filter(s=>s.f&&s.t&&s.dd&&s.dt);if(!S.
   for(let i=1;i<S.length;i++){const p=S[i-1];if(p.ad&&p.at){lay.push({at:p.t,min:(utcOf(S[i].dd,S[i].dt,S[i].f.tz)-utcOf(p.ad,p.at,p.t.tz))/6e4})}}
   const shift=arr!=null&&a.f.tz&&z.t.tz?tzOffAt(z.t.tz,z.ad,z.at)-tzOffAt(a.f.tz,a.dd,a.dt):0;
   return {S,a,z,dep,arr,dur:arr!=null?(arr-dep)/6e4:null,lay,shift,plus:z.ad&&z.ad>a.dd?Math.round((new Date(z.ad)-new Date(a.dd))/864e5):0,home:arr!=null&&a.f.tz?localOf(arr,a.f.tz):null}}
-function tvBlock(k,compact){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
-  if(!o)return compact?'':`<div class="tvb add"><button class="lnk" data-tv="${k}">+ ${lbl} eintragen</button><small>Flug, Zug oder Auto – mit Zeitumstellung</small></div>`;
-  const sm=x=>x.m||o.mode,mixed=(o.segs||[]).some(x=>sm(x)!==sm(o.segs[0])),m=TVM[sm((o.segs||[])[0]||{})]||TVM[o.mode]||TVM.plane,s=tvSum(o);if(!s)return `<div class="tvb" data-tv="${k}" role="button" tabindex="0"><b>${m[0]} ${lbl}</b><small>noch unvollständig · antippen</small></div>`;
-  const pn=p=>p.c||(p.a&&!/\d{4,5} /.test(p.n)?p.n+', '+p.a.replace(/^\d{4,5}\s+/,''):p.n);
-  const legs=s.S.map(x=>`${mixed?(TVM[sm(x)]||TVM.plane)[0]+' ':''}${esc(pn(x.f))} ${x.dt} → ${esc(pn(x.t))} ${x.at?(x.calc?'ca. ':'')+x.at:'?'}${x.ad&&x.ad>x.dd?' <sup>+'+Math.round((new Date(x.ad)-new Date(x.dd))/864e5)+'</sup>':''}${x.no?' · '+esc(x.no):''}${sm(x)==='car'&&x.km?` <span class="tvk">· ${x.km.toLocaleString('de-DE')} km · ${durTxt(x.min)}</span>`:''}`).join('<br>');
-  const allPlane=s.S.every(x=>sm(x)==='plane');
-  const info=[s.dur!=null?(allPlane?'Flugdauer ':'Reisedauer gesamt ')+durTxt(s.dur):'',!mixed&&s.S[0].km?s.S.reduce((a,x)=>a+(x.km||0),0).toLocaleString('de-DE')+' km':'',s.lay.map(l=>(allPlane?'Umstieg ':'Wechsel ')+esc(l.at.c||l.at.n)+' '+durTxt(l.min)).join(' · ')].filter(Boolean).join(' · ');
-  const sh=s.shift?`<p class="tvz">🕒 Bei Ankunft Uhr <b>${Math.abs(s.shift)} Std. ${s.shift<0?'zurückstellen':'vorstellen'}</b>${s.home&&k==='out'?` · ${s.z.at} Uhr dort = ${s.home.t} Uhr zu Hause${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}`:''}</p>`:'';
+/* Kurzname eines Halts: Flughafen „FRA Frankfurt“, erste Adresse nur Ort, weitere Adressen „Ort · Straße“ */
+function tvShort(p,first){if(!p)return '?';if(p.c)return p.c+' '+p.n;let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}
+  const city=a.replace(/^\d{4,5}\s+/,'').trim(),street=/\d/.test(n)?n.replace(/\s*\d+\s*[a-zA-Z]?\s*$/,''):'';
+  return city?(first||!street?city:city+' · '+street):n}
+/* An-/Abreise als Zeitleiste: mode 'open' = aufgeklappt, sonst zugeklappt (außer an den Reisetagen selbst) */
+function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
+  if(!o)return mode==='sum'?'':`<div class="tvb add"><button class="lnk" data-tv="${k}">+ ${lbl} eintragen</button><small>Flug, Zug oder Auto – mit Zeitumstellung</small></div>`;
+  const sm=x=>x.m||o.mode,s=tvSum(o),ic=[...new Set((o.segs||[]).map(x=>(TVM[sm(x)]||TVM.plane)[0]))].join('');
+  if(!s)return `<div class="tvb"><div class="tvh"><b>${ic} ${lbl}</b><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div><small>noch unvollständig</small></div>`;
+  const plus=x=>x.ad&&x.ad>x.dd?'<sup>+'+Math.round((new Date(x.ad)-new Date(x.dd))/864e5)+'</sup>':'';
+  const row=(t,i,name,sub,cls)=>`<div class="tvr${cls?' '+cls:''}"><span class="tvt">${t}</span><span class="tvi">${i}</span><span class="tvn"><b>${name}</b>${sub?`<small>${sub}</small>`:''}</span></div>`;
+  let h='',merged=false;const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
+  s.S.forEach((x,j)=>{const m=sm(x),ico=(TVM[m]||TVM.plane)[0];
+    if(!merged)h+=row(x.dt,ico,esc(tvShort(x.f,j===0)),legSub(x));merged=false;
+    const nx=s.S[j+1],tA=x.at?(x.calc?'~':'')+x.at+plus(x):'?';
+    if(!nx){h+=row(tA,m==='plane'?'🛬':'🏁',esc(tvShort(x.t)),'','end');return}
+    const wait=x.ad&&x.at?(utcOf(nx.dd,nx.dt,nx.f.tz)-utcOf(x.ad,x.at,x.t.tz))/6e4:null,w=wait!=null&&wait>=0?durTxt(wait):'';
+    if(tvShort(nx.f)===tvShort(x.t)){ // gleicher Ort: Umstieg in einer Zeile, weiter mit der nächsten Strecke
+      h+=row(tA,'🔁',esc(tvShort(x.t)),[w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
+    else h+=row(tA,'📍',esc(tvShort(x.t)),w?'⏱ '+w+' bis zur Weiterreise':'','mid')});
+  const chips=[s.dur!=null?`<span>⏱ ${durTxt(s.dur)}</span>`:'',s.shift?`<span class="w">🕒 Uhr ${s.shift>0?'+':'−'}${Math.abs(s.shift)} Std.</span>`:'',s.shift&&s.home&&k==='out'?`<span>🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}</span>`:''].filter(Boolean).join('');
   const cs=s.S.filter(x=>sm(x)==='car').pop(),nav=cs&&cs.t.lat!=null?`<a class="lnk" href="https://www.google.com/maps/dir/?api=1&origin=${cs.f.lat},${cs.f.lon}&destination=${cs.t.lat},${cs.t.lon}&travelmode=driving" target="_blank" rel="noopener">Navigation ›</a>`:'';
-  return `<div class="tvb" data-tv="${k}" role="button" tabindex="0"><b>${m[0]} ${lbl} · ${fmtDate(s.a.dd)}${s.plus?' – '+fmtDate(s.z.ad):''}</b><span class="tvl">${legs}</span>${info?`<small>${info}</small>`:''}${embWarn(k,s)}${compact?'':sh}${!compact&&(o.ref||o.note)?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}${nav}</div>`}
-function tvDayHTML(p){let h='';['out','back'].forEach(k=>{const o=TRV[k];if(o&&(o.segs||[]).some(x=>x.dd===p.date||x.ad===p.date))h+=tvBlock(k)});return h}
+  const head=`${ic} ${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
+  const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}<div class="acts">${nav}<button class="lnk" data-tv="${k}">Bearbeiten ›</button></div>`;
+  const now=TODAY>=s.a.dd&&TODAY<=(s.z.ad||s.a.dd),open=mode==='open'||(mode!=='sum'&&now);
+  return `<details class="tvb"${open?' open':''}><summary><b>${head}</b><small class="tvs">${sumTxt}</small><i aria-hidden="true">›</i></summary>${body}</details>`}
+function tvDayHTML(p){let h='';['out','back'].forEach(k=>{const o=TRV[k];if(o&&(o.segs||[]).some(x=>x.dd===p.date||x.ad===p.date))h+=tvBlock(k,'open')});return h}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-tv]');if(!b||e.target.closest('a'))return;e.stopPropagation();tvDlg(b.dataset.tv)},true);
 /* Flughäfen (OpenFlights) offline */
 let APC=null;async function airportsLoad(){if(APC)return APC;const t=await (await fetch('airports.txt')).text();if(!/\|/.test(t))throw new Error('fehlt');
@@ -2268,13 +2284,13 @@ function todayPanel(){
   // Countdown bis zur eingetragenen Abreise (erste Teilstrecke), sonst bis zum ersten Reisetag
   const p1=D.ports[0],ts=TRV.out&&tvSum(TRV.out),dep=ts?Math.round((dd(ts.a.dd)-dd(TODAY))/DAY):left;
   const big=dep<=0?'Heute geht’s los!':dep===1?'Morgen geht’s los!':'Noch '+dep+' Tage';
-  const until=ts?`bis zur Abreise am ${esc(fmtDate(ts.a.dd))} um ${esc(ts.a.dt)} ab ${esc(plTxt(ts.a.f))}.<br>${CRUISE?'Einschiffung':'Erster Tag'} am ${esc(fmtDate(first))}${p1?' in '+esc(p1.name):''}.`
+  const until=ts?`bis zur Abreise am ${esc(fmtDate(ts.a.dd))} um ${esc(ts.a.dt)} ab ${esc(tvShort(ts.a.f,1))}.<br>${CRUISE?'Einschiffung':'Erster Tag'} am ${esc(fmtDate(first))}${p1?' in '+esc(p1.name):''}.`
     :CRUISE?`bis zur Einschiffung am ${esc(fmtDate(first))}${p1?' in '+esc(p1.name):''}.`:`bis zum Reisestart am ${esc(fmtDate(first))}${p1?' · erster Ort: '+esc(p1.name):''}.`;
   return `<div class="eyebrow">Mein Tag</div><div class="hero"><div class="hship">${ship}</div><div class="hbig">${big}</div><p>${until}<br>Danach ${TRIP_NIGHTS} Nächte${TRIP.region?' '+esc(TRIP.region):''}.</p></div>
   <div class="hcards">
   <div class="hc"><b>Aufgaben</b><span>${open.length?open.length+' offen'+(due.length?', '+due.length+' jetzt fällig':''):'alles erledigt'}</span>${nx.map(t=>`<small>${esc(fmtDate(t.due))} · ${esc(t.text)}</small>`).join('')}<button class="lnk" data-golist>ToDos öffnen ›</button></div>
   <div class="hc"><b>${HAS_EX?'Ausflüge':'Tagesplan'}</b><span>${HAS_EX?`${n} gewählt · ${eur(sum)} p. P.`:own+' '+(own===1?'Eintrag':'Einträge')}</span><small>${own?own+' eigene'+(own>1?' Einträge':'r Eintrag')+' im Plan':'Noch keine eigenen Einträge'}</small><button class="lnk" data-trip>Reiseplan öffnen ›</button></div>
-  ${tvBlock('out')}<div class="hc"><b>Tag 1</b><span>${esc(p1.name)}</span><small>${esc(p1.times||(CRUISE?'Einschiffung':'Start'))}</small><button class="lnk" data-tdn="1">Ansehen ›</button></div></div>
+  ${tvBlock('out','sum')}<div class="hc"><b>Tag 1</b><span>${esc(p1.name)}</span><small>${esc(p1.times||(CRUISE?'Einschiffung':'Start'))}</small><button class="lnk" data-tdn="1">Ansehen ›</button></div></div>
   <p class="src">Ab dem ${esc(fmtDate(first))} zeigt diese Seite jeden Tag den Plan für heute.</p>`;
 }
 function tdStep(v){const tp=D.ports.find(q=>q.date===TODAY),cur=todayOff||(tp?tp.day:0);let i=v===0?null:cur+v;

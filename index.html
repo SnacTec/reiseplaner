@@ -786,8 +786,23 @@ input[type=time].empty{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3
 input[type=date].empty:focus,input[type=time].empty:focus{color:inherit;background-image:none}
 .tvrow{display:flex;flex-direction:column;gap:3px}.tvlbl{font-size:12px;color:var(--muted)}.tvlbl small{font-size:11.5px}
 /* An- und Abreise */
-.tvb{display:block;margin:10px 0;padding:11px 13px;border:1.5px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--panel));cursor:pointer}
-.tvb>b{display:block;font:700 15px var(--head);margin-bottom:3px}.tvb .tvl{display:block;font:600 14px var(--head);font-variant-numeric:tabular-nums;line-height:1.5}
+
+
+.tvb{display:block;margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;background:var(--panel)}
+.tvb>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}
+.tvb>summary::-webkit-details-marker{display:none}
+.tvb>summary b{font:700 15px var(--head)}.tvb>summary .tvs{grid-column:1;margin:1px 0 0}
+.tvb>summary i{grid-column:2;grid-row:1/3;font-style:normal;color:var(--muted);transition:transform .15s}.tvb[open]>summary i{transform:rotate(90deg)}
+.tvb[open]>summary .tvs{display:none}
+.tvh{display:flex;justify-content:space-between;align-items:center}
+.tvtl{margin:8px 0 4px}
+.tvr{display:grid;grid-template-columns:50px 24px 1fr;gap:6px;align-items:baseline;padding:3px 0}
+.tvr .tvt{font:700 13.5px var(--head);font-variant-numeric:tabular-nums;text-align:right}.tvr .tvt sup{font-size:10px;color:var(--warn)}
+.tvr .tvn b{font-weight:600;font-size:14.5px}.tvr .tvn small{display:block;margin:0;color:var(--muted);font-size:12.5px}
+.tvr.mid .tvn b{font-weight:500}
+.tvc{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}.tvc span{font-size:12.5px;padding:3px 9px;border-radius:999px;background:var(--soft);color:var(--ink)}
+.tvc span.w{background:color-mix(in srgb,var(--warn) 22%,var(--soft));font-weight:600}
+.tvb .acts{margin-top:6px;display:flex;gap:16px}
 .tvb small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}.tvb .lnk{margin-top:4px;display:inline-block}
 .tvb.add{background:none;border-style:dashed;cursor:default}.tvb.add small{margin-top:2px}
 .tvk{font-weight:500;color:var(--muted);font-size:12.5px}
