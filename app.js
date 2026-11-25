@@ -362,7 +362,7 @@ function swDelete(code){const [k,d,x]=code.split('|');
   if(k==='trm'){const u=planSnap(+d),n=rmName(+d,+x);plan[+d].splice(+x,1);savePlan();renderPanel();renderDays();updatePills();{const pp=byDay(+d);if(sel===+d&&pp&&pm(pp))drawPort(pp,true)}undoToast(`„${n}“ aus Tag ${d} entfernt.`,u)}
   else{const p=byDay(+d),e=p&&p.ex.find(z=>z.c===x);if(e){const u=picksSnap();setPick(p,e,false);savePlan();renderPanel();renderDays();updatePills();undoToast(`Ausflug ${e.c} abgewählt.`,u)}}}
 (function(){let st=null;
-  document.addEventListener('pointerdown',e=>{const r=e.target.closest&&e.target.closest('.swr>[data-swdel]');if(!r||e.button>0||e.target.closest('input,select,textarea'))return;st={r,x:e.clientX,y:e.clientY,id:e.pointerId,on:false,dx:0}});
+  document.addEventListener('pointerdown',e=>{const r=e.target.closest&&e.target.closest('.swr>[data-swdel]');if(!r||!/^task\|/.test(r.dataset.swdel)||e.button>0||e.target.closest('input,select,textarea'))return;st={r,x:e.clientX,y:e.clientY,id:e.pointerId,on:false,dx:0}});
   document.addEventListener('pointermove',e=>{if(!st||e.pointerId!==st.id)return;if(sortLift){st=null;return}const dx=e.clientX-st.x,dy=e.clientY-st.y;
     if(!st.on){if(Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)){st=null;return}if(dx<-10&&Math.abs(dx)>Math.abs(dy)*1.4){st.on=true;st.r.classList.add('drag');st.r.parentElement.classList.add('swiping');try{st.r.setPointerCapture(e.pointerId)}catch(x){}}else return}
     st.dx=Math.min(0,dx);st.r.style.transform=`translateX(${st.dx}px)`});
@@ -372,7 +372,7 @@ function swDelete(code){const [k,d,x]=code.split('|');
   window.addEventListener('click',e=>{if(Date.now()-swJust<300){e.stopPropagation();e.preventDefault()}},true);
 })();
 /* Einmalige Tipps: erscheinen, bis man sie mit „Verstanden“ schließt */
-const TIPS={todo:'Antippen bearbeitet · nach links wischen löscht · lange drücken und ziehen sortiert.',plan:'Eigenen Eintrag antippen zum Bearbeiten · nach links wischen löscht · lange drücken und an eine andere Stelle ziehen legt ihn auf diese Uhrzeit.',
+const TIPS={todo:'Antippen bearbeitet · nach links wischen löscht · lange drücken und ziehen sortiert.',plan:'Eintrag antippen zum Bearbeiten oder Löschen · lange drücken und an eine andere Stelle ziehen legt ihn auf diese Uhrzeit.',
   port:'Die Stecknadel rechts auf der Karte zeigt Restaurants, Strände, Läden und mehr aus OpenStreetMap.',deck:'Kategorie antippen (z. B. Bars) zeigt alle Treffer an Bord, sortiert nach Nähe. „Weg“ beschreibt den Weg dorthin.',
   today:'Nach links oder rechts wischen wechselt den Tag.'};
 const tipDone=()=>{try{return JSON.parse(localStorage.getItem('rp-tips')||'[]')}catch(e){return []}};
@@ -528,12 +528,12 @@ function dayView(p,today){
     const lv=rowLive(p,r),g=r.q.g;
     const meta=[r.b!=null?`bis ${hm(r.b)}`:`${r.st} Min`,r.tour?`${eur(r.e.p)} p. P.`:'',g.o,!r.tour&&!r.x?(g.f?`Eintritt ca. ${moneyU(g.f,g.u)} p. P.`:g.f===0?'Eintritt frei':''):''].filter(Boolean).join(' · ');
     const del=r.tour?`tcx|${p.day}|${esc(r.e.c)}`:`trm|${p.day}|${r.pi}`;
-    const act=r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}"`:r.x?(r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}"`:`data-pedit="${p.day}|${r.pi}"`):`data-bopen="poi|${r.s.i}"`;
+    const act=r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}"`:r.x?(r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}"`:`data-pedit="${p.day}|${r.pi}"`):`data-tipdlg="${p.day}|${r.s.i}"`;
     h+=`<div class="blk${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="t">${r.a==null?'–':hm(r.a)}</div><div class="swr blkw"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="c" style="--c:${rowColor(r)}" data-swdel="${del}" ${act} tabindex="0" role="button">${lv==='live'?liveBadge(p,r):''}<h4>${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}</h4><div class="m">${esc(meta)}${r.x&&r.s.dk?` · <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${r.x&&g.n?`<div class="m">${esc(g.n)}</div>`:''}</div></div></div>`;
   });
   exFlush(null);h+=back();
-  h+=`<div class="dyadd"><button class="lnk addpt" ${today?`data-addpt="${p.day}"`:'data-addmode="eigen"'}>+ Eintrag</button></div>`;
-  h+=travelBottom(p)+fRowsHTML(p)+`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}">+ Datei</button></div>`;
+  if(!today)h+=`<div class="dyadd"><button class="lnk addpt" data-addmode="eigen">+ Eintrag</button></div>`;
+  h+=travelBottom(p)+fRowsHTML(p)+(today?'':`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}">+ Datei</button></div>`);
   return tvDayHTML(p,'out')+h+`</div>`+tvDayHTML(p,'back');
 }
 function addArea(p){
@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R85';
+const APP_VER='25.11. · R86';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1036,7 +1036,7 @@ function tripPanel(onlyP){
     const col=p.kind==='port'?'var(--port)':p.kind==='sea'?'#6f8fa3':'var(--accent)';
     const T='';
     const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button><button class="lnk tdd" data-open data-d="${p.day}">Details ›</button></div>`;
-    const addE=onlyP?'':`<div class="dyadd"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button></div>`,addF=onlyP?'':`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
+    const addE='',addF='';
     const hd=onlyP?'':head;
     const fl=onlyP?'':fRowsHTML(p);
     const tt=travelTop(p,!onlyP),tb=travelBottom(p,1);
@@ -1046,7 +1046,7 @@ function tripPanel(onlyP){
       const meta=[`${r.st} Min`,lt,r.q.g.o].filter(Boolean).join(' · ');
       const del=r.tour?`tcx|${p.day}|${esc(r.e.c)}`:`trm|${p.day}|${r.pi}`;
       const lv=rowLive(p,r);
-      return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb${r.x||r.tour?' tpl':''}" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:''}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
+      return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb tpl" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:`data-tipdlg="${p.day}|${r.s.i}" role="button" tabindex="0"`}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
     const foot=c.port&&CRUISE&&onlyP?`<div class="tmeta" style="margin-top:6px">Liegezeit ${esc(p.times)} · zurück am Schiff ca. ${hm(c.back)}</div>`:'';
     return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${addE}${tb}${fl}${addF}${foot}</div>`;
   }).join('');
@@ -1440,6 +1440,7 @@ document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;c
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-bopen]');if(!b)return;const [k,v]=b.dataset.bopen.split('|');const p=byDay(sel);if(!p)return;if(k==='ex'){setTab('ex');setTimeout(()=>{const i=p.ex.findIndex(x=>x.c===v);if(i>=0)focusCard('ex',i)},30)}else{setTab('poi');setTimeout(()=>focusCard('poi',+v),30)}});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pedit]');if(!b||e.target.closest('button.tx'))return;e.stopPropagation();const [d,i]=b.dataset.pedit.split('|');addPointDlg(+d,null,{day:+d,pi:+i})},true);
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest&&e.target.closest('[data-pedit]');if(!b||e.target!==b)return;e.preventDefault();const [d,i]=b.dataset.pedit.split('|');addPointDlg(+d,null,{day:+d,pi:+i})});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-tipdlg]');if(!b||e.target.closest('[data-dkgo]'))return;e.stopPropagation();const [d,i]=b.dataset.tipdlg.split('|');tipDlg(+d,+i)},true);
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pinfo]');if(!b)return;e.stopPropagation();const [d,i]=b.dataset.pinfo.split('|');placeDlg(+d,+i)},true);
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest&&e.target.closest('[data-pinfo][role=button]');if(!b||e.target!==b)return;e.preventDefault();const [d,i]=b.dataset.pinfo.split('|');placeDlg(+d,+i)});
 /* Infobox Veranstalter-Ausflug */
@@ -1651,9 +1652,10 @@ function tipDlg(day,i){const P=byDay(day),q=P&&(P.pois||[])[i];if(!q)return;cons
   openSheet(`<div class="hd"><h3 style="margin:0">${esc(q.n)}<small class="hds">Tipp · Tag ${P.day} · ${esc(fmtDate(P.date))} · ${esc(P.name)}</small></h3></div>
   <p style="margin:0 0 10px;display:flex;gap:6px;flex-wrap:wrap"><span class="tag" style="background:${c.c};color:#fff">${tipIcon(q)} ${esc(TYPES[q.t][0])}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km vom Hafen</span></p>
   <p style="margin:0 0 8px">${esc(q.d||'')}</p>${q.g?`<p class="src" style="margin:0">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}
-  ${inPl?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan von Tag ${P.day}</p>`:''}
+  ${inPl?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan von Tag ${P.day}</p><div class="btns bar"><button class="chip del" id="tprm" style="margin-left:auto">Aus dem Plan entfernen</button></div>`:''}
   ${!inPl&&q.g?'<div class="btns bar"><button class="chip btn" id="tpadd">+ Plan</button></div>':''}
   <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="tpday">Tag ${P.day} öffnen ›</button><a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">Google Maps ›</a></div>`,d=>{
+    const rm=d.querySelector('#tprm');if(rm)rm.onclick=()=>{closeDlg();const u=planSnap(P.day),L=plan[P.day]||[],j=L.findIndex(s=>!s.x&&s.i===i);if(j>=0){L.splice(j,1);savePlan();refreshPlan(P);renderDays();updatePills();undoToast(`„${q.n}“ aus Tag ${P.day} entfernt.`,u)}};
     const a=d.querySelector('#tpadd');if(a)a.onclick=()=>{closeDlg();planAdd(P,i);undoToast(`„${q.n}“ zu Tag ${P.day} hinzugefügt.`,()=>{const L=plan[P.day]||[],j=L.findIndex(s=>!s.x&&s.i===i);if(j>=0){L.splice(j,1);savePlan();refreshPlan(P)}})};
     d.querySelector('#tpday').onclick=()=>{closeDlg();setTimeout(()=>{select(P.day);setTab('poi');setTimeout(()=>focusCard('poi',i),40)},60)}})}
 function pm(p){return !!(p&&p.lat!=null&&p.ox!=null&&(p.pois||(plan[p.day]||[]).some(s=>s.x&&s.lat!=null)))}
@@ -2164,7 +2166,7 @@ function renderPanel(){
     a.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const i=+b.dataset.add;if((plan[p.day]||[]).some(s=>s.i===i)){window.scrollTo(0,0);$('#panel').scrollTop=0;return}planAdd(p,i)});
     a.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const u=planSnap(p.day),n=rmName(p.day,+b.dataset.rm);plan[p.day].splice(+b.dataset.rm,1);savePlan();refreshPlan(p);undoToast(`„${n}“ aus Tag ${p.day} entfernt.`,u)});
     a.querySelectorAll('[data-mv]').forEach(b=>b.onclick=()=>{const n=+b.dataset.mv,m=n+ +b.dataset.d,L=plan[p.day];if(m<0||m>=L.length)return;[L[n],L[m]]=[L[m],L[n]];savePlan();refreshPlan(p)});
-    a.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const s=plan[p.day][+b.dataset.st];s.s=Math.max(5,(s.s||(p.pois&&p.pois[s.i]?p.pois[s.i].g.s:60))+ +b.dataset.d);savePlan();refreshPlan(p)});
+    a.querySelectorAll('button[data-st]').forEach(b=>b.onclick=()=>{const s=plan[p.day][+b.dataset.st];s.s=Math.max(5,(s.s||(p.pois&&p.pois[s.i]?p.pois[s.i].g.s:60))+ +b.dataset.d);savePlan();refreshPlan(p)});
     a.querySelectorAll('[data-at]').forEach(b=>b.onchange=()=>{plan[p.day][+b.dataset.at].at=b.value;savePlan();refreshPlan(p)});
     a.querySelectorAll('[data-xdesel]').forEach(b=>b.onclick=()=>{const e=p.ex.find(x=>x.c===b.dataset.xdesel);if(e){const u=picksSnap();setPick(p,e,false);refreshPlan(p);undoToast(`Ausflug ${e.c} abgewählt.`,u)}});
     const cf=a.querySelector('#cf');if(cf)cf.onsubmit=ev=>{ev.preventDefault();const f=new FormData(cf),n=String(f.get('n')||'').trim();if(!n)return;
@@ -2463,7 +2465,7 @@ function searchDlg(){
 $('#pgback').onclick=()=>$('#mback').click();
 $('#mback').onclick=()=>{const f={today:showToday,bord:showBord,mappe:showMappe,todo:()=>showTodo()}[DAYFROM]||showTrip;if(history.state&&history.state.v&&history.length>1)history.back();else f()};
 $('#srchb').onclick=searchDlg;$('#drkb').onclick=drinksDlg;$('#dkb').onclick=()=>deckDlg();
-document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.onclick=()=>{hideTip2();const k=b.dataset.n;
+document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.onclick=()=>{hideTip2();const k=b.dataset.n,HS={trip:'#plan',today:'#heute',bord:'#bord',mappe:'#mappe',todo:'#todos'},cur=sel==null?(todayView?'today':tripView?'trip':todoView?(bordView?'bord':mappeView?'mappe':'todo'):''):'',same=cur===k;if(HS[k])setTimeout(()=>same?goTop():restoreScroll(HS[k]),0);
   if(k==='mappe')showMappe();else if(k==='trip')showTrip();else if(k==='todo')showTodo();else if(k==='bord')showBord();else if(k==='today')showToday();else if(k==='srch')menuDlg();
   else if(k==='map'){mapMin=false;const L=(tripView||todoView)?LASTMAP:null;select(L?L.sel:null);applyMin();goTop();
     if(L)setTimeout(()=>{if(!M)return;measure();vb={x:L.cx-L.u*cw/2,y:L.cy-L.u*ch/2,w:L.u*cw,h:L.u*ch};applyVB()},90)}});
