@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R90';
+const APP_VER='25.11. · R91';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1468,17 +1468,17 @@ function osmDlg(q,opt){opt=opt||{};
   const gm=opt.gurl||'https://www.google.com/maps/search/'+encodeURIComponent(nm==='Ohne Namen'?q.lat+','+q.lon:nm)+'/@'+q.lat+','+q.lon+',17z';
   const row=(k,v)=>v?`<div class="osmrow"><span>${k}</span><div>${v}</div></div>`:'';
   const safeUrl=u=>/^https?:\/\//i.test(u)?u:'https://'+u;
+  const tday=sel!=null&&byDay(sel)?sel:osmDayFor(q),occ=[];if(q.id)D.ports.forEach(X=>(plan[X.day]||[]).forEach((s,k)=>{if(s&&s.osm===q.id)occ.push({day:X.day,pi:k})}));
   openSheet(`<div class="hd"><h3 style="margin:0">${esc(nm)}</h3></div>
   <p style="margin:0 0 10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="tag" style="background:${OSMG[q.g].c};color:#fff">${OSMG[q.g].i} ${esc(osmKind(q))}</span>${t.cuisine?`<span class="tag">${esc(t.cuisine.replace(/_/g,' ').replace(/;/g,', '))}</span>`:''}${km!=null?`<span class="tag">${km<1?Math.round(km*100)*10+' m':km.toFixed(1).replace('.',',')+' km'} vom Hafen ${esc(pt.name)}</span>`:''}</p>
   ${row('Öffnungszeiten',t.opening_hours?esc(t.opening_hours):'')}${row('Adresse',esc(adr))}${row('Website',web?`<a href="${esc(safeUrl(web))}" target="_blank" rel="noopener">${esc(web.replace(/^https?:\/\//,'').replace(/\/$/,''))}</a>`:'')}${row('Telefon',ph?`<a href="tel:${esc(ph.replace(/[^+\d]/g,''))}">${esc(ph)}</a>`:'')}${row('Info',esc(t.description||''))}${row('Betreiber',esc(t.operator||t.brand||''))}
-  ${pl?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan: Tag ${pl.day} · ${esc(byDay(pl.day).name)}${(plan[pl.day][pl.pi]||{}).at?' · '+esc(plan[pl.day][pl.pi].at)+' Uhr':''}</p>${opt.note&&!opt.note.startsWith(osmKind(q))?`<p class="src" style="margin:2px 0 0">${esc(opt.note)}</p>`:''}`:''}
-  <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${pl?`<button class="chip btn" id="osmmap" style="padding:8px 14px">Auf der Karte zeigen</button>${pl.pi>=0?'<button class="chip" id="osmedit" style="padding:8px 14px">Bearbeiten</button>':''}`:`<button class="chip btn" id="osmadd" style="padding:8px 14px">+ Zu Tag ${sel!=null&&byDay(sel)?sel:osmDayFor(q)} hinzufügen</button><button class="chip" id="osmoth" style="padding:8px 14px">Anderer Tag …</button>`}</div><div class="acts" style="margin-top:8px"><a class="lnk" href="${esc(gm)}" target="_blank" rel="noopener">In Karten-App öffnen ›</a></div>
+  ${occ.length?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Schon im Tagesplan: ${occ.map(o=>'Tag '+o.day+((plan[o.day][o.pi]||{}).at?' ('+esc(plan[o.day][o.pi].at)+')':'')).join(', ')}</p>`:''}${pl?`${opt.note&&!opt.note.startsWith(osmKind(q))?`<p class="src" style="margin:2px 0 0">${esc(opt.note)}</p>`:''}`:''}
+  <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="chip btn" id="osmadd" style="padding:8px 14px">${pl&&pl.day===tday?'+ Noch einmal zu Tag '+tday:'+ Zu Tag '+tday+' hinzufügen'}</button><button class="chip" id="osmoth" style="padding:8px 14px">Anderer Tag …</button></div><div class="acts" style="margin-top:8px">${pl&&pl.pi>=0?`<button class="lnk" id="osmedit">Eintrag an Tag ${pl.day} bearbeiten ›</button>`:''}<a class="lnk" href="${esc(gm)}" target="_blank" rel="noopener">In Karten-App öffnen ›</a></div>
   <p class="src" style="margin:12px 0 0">Daten: © OpenStreetMap-Mitwirkende. Angaben können veraltet sein.</p>`,d=>{
-    const om=d.querySelector('#osmmap');if(om)om.onclick=()=>placeShow(pl.day,q.lat,q.lon);
     const oe=d.querySelector('#osmedit');if(oe)oe.onclick=()=>{closeDlg();setTimeout(()=>addPointDlg(pl.day,null,{day:pl.day,pi:pl.pi}),30)};
     const oAdd=dd=>{closeDlg();setTimeout(()=>addPointDlg(dd,{n:nm,note:osmKind(q)+(t.opening_hours?' · '+t.opening_hours:''),lat:q.lat,lon:q.lon,osm:q.id,o:{g:q.g,t:q.t}}),30)};
     const oo=d.querySelector('#osmoth');if(oo)oo.onclick=()=>{oo.parentElement.outerHTML='<div class="tpdays">'+D.ports.map(X=>`<button class="chip" data-tpd="${X.day}"><b>Tag ${X.day}</b> ${esc(X.name.split(' / ')[0])}</button>`).join('')+'</div>';d.querySelectorAll('[data-tpd]').forEach(b=>b.onclick=()=>oAdd(+b.dataset.tpd))};
-    const oa=d.querySelector('#osmadd');if(oa)oa.onclick=()=>{closeDlg();setTimeout(()=>addPointDlg(sel!=null&&byDay(sel)?sel:osmDayFor(q),{n:nm,note:osmKind(q)+(t.opening_hours?' · '+t.opening_hours:''),lat:q.lat,lon:q.lon,osm:q.id,o:{g:q.g,t:q.t}}),30)};
+    const oa=d.querySelector('#osmadd');if(oa)oa.onclick=()=>{closeDlg();setTimeout(()=>addPointDlg(tday,{n:nm,note:osmKind(q)+(t.opening_hours?' · '+t.opening_hours:''),lat:q.lat,lon:q.lon,osm:q.id,o:{g:q.g,t:q.t}}),30)};
   });
 }
 /* Gerätespeicher dauerhaft halten (sonst darf der Browser bei Platzmangel löschen) */
@@ -1656,17 +1656,17 @@ function tipDlg(day,i){const P=byDay(day),q=P&&(P.pois||[])[i];if(!q)return;cons
   // schon im Plan? (am eigenen Tag als Tipp oder an einem anderen Tag als eigener Eintrag mit gleicher Lage)
   const where=[];D.ports.forEach(X=>(plan[X.day]||[]).forEach((s,k)=>{if((X.day===day&&!s.x&&s.i===i)||(s.x&&s.lat===q.lat&&s.lon===q.lon))where.push({d:X.day,k})}));
   const addTo=d=>{const X=byDay(d);if(!X)return;closeDlg();const u=planSnap(d);
-    if(d===day)planAdd(P,i);else{(plan[d]=plan[d]||[]).push({x:1,n:q.n,lat:q.lat,lon:q.lon,s:Math.max(5,(q.g&&q.g.s)||60),t:0,at:'',note:''});savePlan();refreshPlan(X)}
+    if(d===day&&!(plan[d]||[]).some(s=>!s.x&&s.i===i))planAdd(P,i);else{(plan[d]=plan[d]||[]).push({x:1,n:q.n,lat:q.lat,lon:q.lon,s:Math.max(5,(q.g&&q.g.s)||60),t:0,at:'',note:''});savePlan();refreshPlan(X)}
     undoToast(`„${q.n}“ zu Tag ${d} hinzugefügt.`,u)};
   openSheet(`<div class="hd"><h3 style="margin:0">${esc(q.n)}<small class="hds">${same?`Tipp · Tag ${P.day} · ${esc(fmtDate(P.date))} · ${esc(P.name)}`:`Tipp aus Tag ${P.day} · ${esc(P.name)}`}</small></h3></div>
   <p style="margin:0 0 10px;display:flex;gap:6px;flex-wrap:wrap"><span class="tag" style="background:${c.c};color:#fff">${tipIcon(q)} ${esc(TYPES[q.t][0])}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km vom Hafen</span></p>
   <p style="margin:0 0 8px">${esc(q.d||'')}</p>${q.g?`<p class="src" style="margin:0">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}
   ${where.length?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan von Tag ${[...new Set(where.map(x=>x.d))].join(', ')}</p>`:''}
-  <div class="btns bar">${where.some(x=>x.d===tgt)?`<button class="chip del" id="tprm" style="margin-left:auto">Aus Tag ${tgt} entfernen</button>`:`<button class="chip btn" id="tpadd">${same?'+ Zum Tagesplan':'+ Zu Tag '+tgt+' hinzufügen'}</button><button class="chip" id="tpoth">Anderer Tag …</button>`}</div>
+  <div class="btns bar"><button class="chip btn" id="tpadd">${where.some(x=>x.d===tgt)?'+ Noch einmal zu Tag '+tgt:same?'+ Zum Tagesplan':'+ Zu Tag '+tgt+' hinzufügen'}</button><button class="chip" id="tpoth">Anderer Tag …</button>${where.some(x=>x.d===tgt)?`<button class="chip del" id="tprm" style="margin-left:auto">Aus Tag ${tgt} entfernen</button>`:''}</div>
   <div class="acts" style="margin-top:10px"><a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">Google Maps ›</a></div>`,d=>{
     const rm=d.querySelector('#tprm');if(rm)rm.onclick=()=>{const x=where.find(x=>x.d===tgt);if(!x)return;closeDlg();const u=planSnap(tgt),n=q.n;plan[tgt].splice(x.k,1);savePlan();refreshPlan(T);undoToast(`„${n}“ aus Tag ${tgt} entfernt.`,u)};
     const a=d.querySelector('#tpadd');if(a)a.onclick=()=>addTo(tgt);
-    const o=d.querySelector('#tpoth');if(o)o.onclick=()=>{d.querySelector('.btns.bar').outerHTML='<div class="tpdays">'+D.ports.map(X=>`<button class="chip${X.day===tgt?' on':''}" data-tpd="${X.day}"><b>Tag ${X.day}</b> ${esc(X.name.split(' / ')[0])}</button>`).join('')+'</div>';
+    const o=d.querySelector('#tpoth');if(o)o.onclick=()=>{o.parentElement.outerHTML='<div class="tpdays">'+D.ports.map(X=>`<button class="chip${X.day===tgt?' on':''}" data-tpd="${X.day}"><b>Tag ${X.day}</b> ${esc(X.name.split(' / ')[0])}</button>`).join('')+'</div>';
       d.querySelectorAll('[data-tpd]').forEach(b=>b.onclick=()=>addTo(+b.dataset.tpd))}})}
 function pm(p){return !!(p&&p.lat!=null&&p.ox!=null&&(p.pois||(plan[p.day]||[]).some(s=>s.x&&s.lat!=null)))}
 let mapMin=false;
