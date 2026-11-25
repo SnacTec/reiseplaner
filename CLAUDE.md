@@ -65,7 +65,10 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Umgebung (OpenStreetMap) = weißer Kreis mit Symbol; gemeinsamer Filter + Legende im 📍-Knopf (`CAT`, `mapPins`, `tipDlg`).
 - Route kommt aus den Reisedaten (`route`, siehe docs/DATEN.md), sonst automatisch (Schiff: Bögen, sonst gerade Linien).
 - Tagesansicht: Kopf (Datum · Land, Name), eine Infozeile (`infoHTML`: Liegezeit, an Bord, Zeitunterschied mit Sommerzeit
-  `deOff`, Wetter; antippen = Details), kompakte Karten („bis 13:00“), Bord-Zeilen in zeitlicher Reihenfolge.
+  `deOff`, Wetter; antippen = Details), Tagesplan als eine Karte (`dayView`, Klasse `.dcard`) – dieselbe in „Mein Tag“.
+- Einheitlicher Tages-Stil (Reiseplan, Tageskarte, Mein Tag): Kopf zweizeilig (grau „Tag · Datum · Land“, darunter Ort),
+  Einträge ohne Trennstriche, darunter „+ Eintrag“, dann Strich, Dateien als Zeilen (`fRowsHTML`) und „+ Datei“ (`.dyadd`).
+  Dateien hängen an Tagen (`days`) oder An-/Abreise (`tv`). Chips mit Erklärung per `data-hint`.
   Ziehgriff unter der Karte (klein/mittel/groß, `rp-map-size`). Wischen in der Infozeile wechselt den Tag nicht.
 - Reisearten: `CRUISE` (kreuzfahrt oder Schiff) steuert die Wortwahl; `V()` macht aus Hafen → Ort usw.
   Veranstalter-Ausflüge, Fabriken, Quellen nur, wenn Daten da sind (`HAS_EX`, `HAS_FA`, `HAS_SRC`).
