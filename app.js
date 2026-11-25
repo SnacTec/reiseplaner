@@ -784,7 +784,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R71';
+const APP_VER='25.11. · R72';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1701,7 +1701,7 @@ const TKEY='rp-'+TRIP_ID+'-travel';let TRV={};try{TRV=JSON.parse(localStorage.ge
 const TVM={plane:['✈️','Flug'],train:['🚆','Zug'],car:['🚗','Auto'],bus:['🚌','Bus']};
 function tvStore(){try{localStorage.setItem(TKEY,JSON.stringify(TRV))}catch(e){}}
 function tvInit(db){db.collection('travel').onSnapshot({includeMetadataChanges:true},s=>{s.docs.forEach(d=>{if(!d.metadata.hasPendingWrites)SYNC['travel:'+d.id]=d.data()});
-  const o={};s.docs.forEach(d=>o[d.id]=d.data());TRV=o;tvStore();sChanged()},()=>{})}
+  const o={};s.docs.forEach(d=>o[d.id]=d.data());TRV=o;tvFillA.d={};tvStore();sChanged()},()=>{})}
 function tvPut(k,o){TRV[k]=o;tvStore();if(TS.mode==='db'&&dbh)putDoc('travel',{id:k,...o});sChanged()}
 function tvDel(k){delete TRV[k];tvStore();if(TS.mode==='db'&&dbh)delDoc('travel',k);sChanged()}
 const tzOffAt=(z,date,time)=>{try{const v=new Intl.DateTimeFormat('en-US',{timeZone:z,timeZoneName:'shortOffset'}).formatToParts(new Date(date+'T'+(time||'12:00')+':00Z')).find(x=>x.type==='timeZoneName').value;
@@ -1721,9 +1721,11 @@ function tvSum(o){const S=(o&&o.segs||[]).filter(s=>s.f&&s.t&&s.dd&&s.dt);if(!S.
 function tvShort(p,first){if(!p)return '?';if(p.c)return p.c+' '+p.n;let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}
   const city=a.replace(/^\d{4,5}\s+/,'').trim(),street=/\d/.test(n)?n.replace(/\s*\d+\s*[a-zA-Z]?\s*$/,''):'';
   return city?(first||!street?city:city+' · '+street):n}
-async function tvFillA(k){tvFillA.d[k]=1;const o=TRV[k];if(!o||navigator.onLine===false)return;let ch=0;
+async function tvFillA(k){const o=TRV[k];if(!o||navigator.onLine===false)return;
+  if(FBX.on&&!(TS.mode==='db'&&dbh))return; // erst nach dem Laden vom Server ergänzen, sonst überschreibt der Server-Stand es wieder
+  tvFillA.d[k]=1;let ch=0;
   for(const x of o.segs||[])for(const pl of [x.f,x.t]){if(!pl||pl.a||pl.c||pl.lat==null)continue;const n=pl.n||'',i=n.indexOf(',');if(i>0&&/\d/.test(n.slice(0,i))){pl.a=n.slice(i+1).trim();pl.n=n.slice(0,i).trim();ch=1;continue}
-    try{const j=await (await fetch(PHOTON.replace(/api\/?$/,'reverse')+'?lat='+pl.lat+'&lon='+pl.lon+'&lang=de')).json(),r=((j.features||[])[0]||{}).properties||{},c=r.city||r.town||r.village||'';if(c){pl.a=(r.postcode?r.postcode+' ':'')+c;ch=1}}catch(e){}}
+    try{const j=await (await fetch(PHOTON.replace(/api\/?$/,'reverse')+'?lat='+pl.lat+'&lon='+pl.lon+'&lang=de')).json(),r=((j.features||[])[0]||{}).properties||{},c=r.city||r.town||r.village||r.locality||r.county||'';if(c){pl.a=(r.postcode?r.postcode+' ':'')+c;ch=1}}catch(e){}}
   if(ch)tvPut(k,o)}
 tvFillA.d={};
 /* An-/Abreise als Zeitleiste: mode 'open' = aufgeklappt, sonst zugeklappt (außer an den Reisetagen selbst) */
