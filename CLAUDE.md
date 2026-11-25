@@ -37,6 +37,8 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - **Testen:** `node tests/run.js` (alle Funktionstests, ca. 3 Min, nur mit den erfundenen Beispielreisen, ohne Firebase) und
   bei Layout-Änderungen `node tests/screens.js vorher` → ändern → `node tests/screens.js nachher` (Handy/Tablet/PC-Vergleich).
   Details in `tests/README.md`. Neue Funktionen bekommen einen Test in `tests/run.js`.
+  **Mit dem Nutzer abgestimmt:** reine Optik (Abstände, Texte, Anordnung) ohne Testlauf, nur Screenshots;
+  Logik (Speichern, Import, Datum/Zeit, Sync, Dateien) immer voller Lauf. Teilläufe sparen kaum Zeit.
   Prinzip: Seite lokal ausliefern, vor dem Laden `window.__TEST_TRIP = <Reise>` setzen → App läuft im lokalen Modus;
   externe Dienste werden in `tests/helpers.js` abgefangen. Echte Reisedaten nie für Tests ins Repository legen.
 - Gerätespeicher-Schlüssel beginnen mit `rp-`, reisebezogene mit `rp-<trip-id>-`.
