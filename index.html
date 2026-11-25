@@ -921,7 +921,7 @@ body.mapfull{overflow:hidden}
 body.mapfull #bnav{display:none}
 body.mapfull #ov{z-index:70}
 #toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140%);z-index:90;display:flex;align-items:center;gap:12px;min-width:min(340px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:12px 14px 14px;border-radius:12px;background:#1d2b33;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden;transition:transform .25s ease,opacity .25s;opacity:0;pointer-events:none;font-size:14px}
-#toast.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+#toast.show{transform:translate(-50%,0);opacity:1;pointer-events:auto;touch-action:none;cursor:grab}
 #toast .tmsg{flex:1;min-width:0}
 #toast .tundo{border:0;background:none;color:#7fdcf0;font:700 14px var(--body);padding:4px 2px;cursor:pointer;white-space:nowrap}
 #toast .tbar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:#7fdcf0;transform-origin:left;animation:tbar linear forwards}
