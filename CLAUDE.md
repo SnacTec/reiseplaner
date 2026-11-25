@@ -32,10 +32,11 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 
 ## Arbeitsweise
 - Nach jeder Änderung `APP_VER` in `app.js` erhöhen (sichtbar unter Einstellungen bzw. Menü).
-- Testen ohne Firebase: Playwright, Seite lokal ausliefern (`python3 -m http.server`),
-  vor dem Laden `window.__TEST_TRIP = <Inhalt einer .trip.json>` setzen, Requests an
-  `gstatic|firebase-config|openstreetmap|fonts|overpass|open-meteo` abbrechen.
-  Dann läuft die App im lokalen Modus mit den Testdaten.
+- **Testen:** `node tests/run.js` (alle Funktionstests, ca. 3 Min, nur mit den erfundenen Beispielreisen, ohne Firebase) und
+  bei Layout-Änderungen `node tests/screens.js vorher` → ändern → `node tests/screens.js nachher` (Handy/Tablet/PC-Vergleich).
+  Details in `tests/README.md`. Neue Funktionen bekommen einen Test in `tests/run.js`.
+  Prinzip: Seite lokal ausliefern, vor dem Laden `window.__TEST_TRIP = <Reise>` setzen → App läuft im lokalen Modus;
+  externe Dienste werden in `tests/helpers.js` abgefangen. Echte Reisedaten nie für Tests ins Repository legen.
 - Gerätespeicher-Schlüssel beginnen mit `rp-`, reisebezogene mit `rp-<trip-id>-`.
 - Vorsicht bei Code, der beim Start läuft: `const`/`let` erst nach ihrer Zeile nutzbar
   (Startfehler „Cannot access … before initialization“). Ladebildschirm zeigt solche Fehler an.
