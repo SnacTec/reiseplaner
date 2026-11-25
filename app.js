@@ -794,7 +794,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R77';
+const APP_VER='25.11. · R78';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1031,7 +1031,7 @@ function tripPanel(onlyP){
     const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button></div>`;
     const addE=onlyP?'':`<div class="dyadd"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button></div>`,addF=onlyP?'':`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
     const hd=onlyP?'':head;
-    const fl=onlyP?'':fOfDay(p.day).map(f=>`<div class="trw tfile"><div class="tm">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:fIcon(f)}</div><div class="tb"><button class="tfn" data-fopen="${f.id}" data-fday="${p.day}">${esc(f.title)}</button><div class="tmeta">Datei${FCAT[f.cat]?' · '+FCAT[f.cat][1]:''}</div></div></div>`).join('');
+    const fl=onlyP?'':fOfDay(p.day).map(f=>`<div class="trw tfile"><div class="tm">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:fIcon(f)}</div><div class="tb"><button class="tfn" data-fopen="${f.id}" data-fday="${p.day}">${esc(f.title)}</button></div></div>`).join('');
     const tt=travelTop(p,!onlyP),tb=travelBottom(p,1);
     if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${addE}${tb}${fl}${addF}</div>`;
     const rows=c.rows.map(r=>{if(r.dinner)return dinTripHTML(p,r);
@@ -1751,21 +1751,22 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   const R2=(t,i,pl,sub,cls)=>{const [n,a]=adr(pl);return row(t,i,esc(a||n),[a?esc(n):'',sub?'<span class="tvx">'+sub+'</span>':''].filter(Boolean).join('<br>'),cls)};
   if(!tvFillA.d[k])tvFillA(k);
   let h='',merged=false;const navL=x=>x.f.lat!=null&&x.t.lat!=null?`<a class="lnk tvnav" href="https://www.google.com/maps/dir/?api=1&origin=${x.f.lat},${x.f.lon}&destination=${x.t.lat},${x.t.lon}&travelmode=driving" target="_blank" rel="noopener">Navigation ›</a>`:'';
-  const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):'',sm(x)==='car'?navL(x):''].filter(Boolean).join(' · ');
+  const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
   s.S.forEach((x,j)=>{const m=sm(x),ico=(TVM[m]||TVM.plane)[0];
     if(!merged)h+=R2(x.dt,ico,x.f,legSub(x));merged=false;
     const nx=s.S[j+1],tA=x.at?(x.calc?'<i class="ap">~</i>':'')+x.at+plus(x):'?';
-    if(!nx){h+=R2(tA,m==='plane'?'🛬':'🏁',x.t,'','end');return}
+    const nv=m==='car'?navL(x):'';
+    if(!nx){h+=R2(tA,m==='plane'?'🛬':'🏁',x.t,nv,'end');return}
     const wait=x.ad&&x.at?(utcOf(nx.dd,nx.dt,nx.f.tz)-utcOf(x.ad,x.at,x.t.tz))/6e4:null,w=wait!=null&&wait>=0?durTxt(wait):'';
     if(tvShort(nx.f)===tvShort(x.t)){ // gleicher Ort: Umstieg in einer Zeile, weiter mit der nächsten Strecke
-      h+=R2(tA,'🔁',x.t,[w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
-    else h+=R2(tA,'📍',x.t,w?'⏱ '+w+' bis zur Weiterreise':'','mid')});
+      h+=R2(tA,'🔁',x.t,[nv,w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
+    else h+=R2(tA,'📍',x.t,[nv,w?'⏱ '+w+' bis zur Weiterreise':''].filter(Boolean).join('<br>'),'mid')});
   const sh=Math.abs(s.shift),shT=sh+' Std.',cp=(c,t,hint)=>`<button type="button" class="tvq${c?' '+c:''}" data-hint="${esc(hint)}">${t}</button>`;
   const chips=[s.dur!=null?cp('',`⏱ ${durTxt(s.dur)}`,`Reisedauer: ${durTxt(s.dur)} von der Abfahrt in ${tvShort(s.a.f,1)} bis zur Ankunft in ${tvShort(s.z.t,1)} – mit allen Umstiegen und Wartezeiten, unabhängig von der Zeitumstellung.`):'',
     s.shift?cp('w',`🕒 Uhr ${s.shift>0?'+':'−'}${shT}`,`Zeitumstellung: In ${tvShort(s.z.t,1)} ist es ${shT} ${s.shift>0?'später':'früher'} als in ${tvShort(s.a.f,1)}. Die Uhr bei der Ankunft ${s.shift>0?'vorstellen':'zurückstellen'}. Alle Zeiten hier sind Ortszeit.`):'',
     s.shift&&s.home&&k==='out'?cp('',`🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}`,`Zuhause-Zeit: Bei der Ankunft um ${s.z.at} Ortszeit ist es in ${tvShort(s.a.f,1)} ${s.home.t} Uhr${s.home.d!==s.z.ad?' am '+fmtDate(s.home.d):''}. Hilft beim Einschätzen von Müdigkeit und Jetlag.`):''].filter(Boolean).join('');
   const head=`${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
-  const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}${fChipsHTML(fOfKey(k),k)}<div class="acts"><button class="lnk" data-fadd="${k}">+ Datei</button><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div>`;
+  const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}${fChipsHTML(fOfKey(k),k)}<div class="acts tvacts"><button class="lnk" data-fadd="${k}">+ Datei</button><button class="lnk" data-tv="${k}" style="margin-left:auto">Bearbeiten ›</button></div>`;
   const now=TODAY>=s.a.dd&&TODAY<=(s.z.ad||s.a.dd),open=mode==='open'||(mode!=='sum'&&now);
   return `<details class="tvb"${open?' open':''}><summary><b>${head}</b><small class="tvs">${sumTxt}</small><i aria-hidden="true">›</i></summary>${body}</details>`}
 /* Kleine Erklärung beim Antippen (data-hint): Blase am Element, schließt beim nächsten Tippen/Scrollen */
