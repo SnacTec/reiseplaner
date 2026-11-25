@@ -8,7 +8,7 @@
   const VEH = [['ship', '🚢 Schiff'], ['car', '🚗 Auto'], ['camper', '🚐 Wohnmobil'], ['train', '🚆 Zug'], ['bus', '🚌 Bus'], ['suitcase', '🧳 Koffer']];
   const cruise = () => E.t.kind === 'kreuzfahrt' || !!E.t.ship;
   const addD = (s, n) => { const d = new Date(s + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-  const wd = s => new Date(s + 'T12:00:00Z').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+  const wd = s => new Date(s + 'T12:00:00Z').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' }).replace('.,', '.');
   const clone = o => JSON.parse(JSON.stringify(o));
   const kmOf = (a, b, c, d) => +(6371 * Math.hypot((d - b) * Math.PI / 180 * Math.cos((a + c) * Math.PI / 360), (c - a) * Math.PI / 180)).toFixed(1);
   const tipIc = q => (TIPC[q.t] || TIPC.sight)[1];

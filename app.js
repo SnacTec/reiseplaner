@@ -27,7 +27,7 @@ function syncDraw(){const b=document.getElementById('syncb');if(!b)return;const 
    :i.k==='busy'?'<svg class="spin" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>'
    :'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 9a4 4 0 0 1 0 9z"/><path d="M4 4l16 16"/></svg>'+((i.pend||i.q)?'<i class="sdot"></i>':'');
   b.setAttribute('aria-label',b.title)}
-function syncDlg(){const i=syncInfo(),t=SYNCST.last?new Date(SYNCST.last).toLocaleString('de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit'}):'noch nie';
+function syncDlg(){const i=syncInfo(),t=SYNCST.last?new Date(SYNCST.last).toLocaleString('de-DE',{weekday:'short',hour:'2-digit',minute:'2-digit'}).replace('.,','.'):'noch nie';
   openSheet('<div class="hd"><h3 style="margin:0">'+(i.off?'⚠ Offline':i.k==='busy'?'⟳ Wird synchronisiert':'☁︎ Alles synchron')+'</h3></div>'+
    '<p style="margin:0 0 8px">'+(i.off?'Du kannst ganz normal weiterarbeiten. Alle Änderungen bleiben auf dem Handy und werden automatisch übertragen, sobald wieder Internet da ist.':i.k==='busy'?(i.slow?'Die Verbindung ist langsam. Änderungen sind auf dem Handy gespeichert und werden übertragen, sobald es klappt.':'Änderungen werden gerade übertragen.'):'Alle Änderungen sind bei allen Mitreisenden angekommen.')+'</p>'+
    '<p class="src" style="margin:0 0 8px">Zuletzt mit dem Server abgeglichen: '+t+(TS.mode!=='db'?' · nur auf diesem Gerät (nicht angemeldet)':'')+'</p>'+
@@ -71,6 +71,14 @@ const fSize=n=>n>1048576?(n/1048576).toFixed(1).replace('.',',')+' MB':Math.max(
 const fDays=f=>(f.days||[]).slice().sort((a,b)=>a-b);
 const fThumb=f=>typeof f.thumb==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.thumb)?f.thumb:'';
 const fOfDay=d=>FILES.filter(f=>(f.days||[]).includes(d)).sort((a,b)=>(a.ts||0)-(b.ts||0));
+/* Verknüpfung: Tage (Zahl, f.days) und An-/Abreise ('out'/'back', f.tv) */
+const fKey=v=>v==='out'||v==='back'?v:+v,fKL=k=>k==='out'?'Anreise':k==='back'?'Abreise':'Tag '+k;
+const fOfKey=k=>typeof k==='number'?fOfDay(k):FILES.filter(f=>(f.tv||[]).includes(k)).sort((a,b)=>(a.ts||0)-(b.ts||0));
+const fHas=(f,k)=>typeof k==='number'?(f.days||[]).includes(k):(f.tv||[]).includes(k);
+const fSel=f=>[...(f.tv||[]).filter(k=>k==='out'),...fDays(f),...(f.tv||[]).filter(k=>k==='back')];
+const fSplit=sel=>({days:sel.filter(k=>typeof k==='number'),tv:sel.filter(k=>typeof k!=='number')});
+const fWhere=f=>{const t=f.tv||[],d=fDays(f);return [t.includes('out')?'Anreise':'',d.length?'Tag '+d.join(', '):'',t.includes('back')?'Abreise':''].filter(Boolean).join(' · ')};
+const fLink=(f,k,on)=>{const S=fSel(f).filter(x=>x!==k);if(on)S.push(k);return {...f,...fSplit(S)}};
 /* Gerätespeicher (Cache Storage) für offline */
 const fCk=f=>'./__files/'+f.path;
 async function fCached(f){try{const c=await caches.open(FCACHE);return !!(await c.match(fCk(f)))}catch(e){return false}}
@@ -88,17 +96,18 @@ function fImg(file){return new Promise(res=>{if(!/^image\/(jpeg|png|webp|gif)/.t
   im.onload=()=>{const mk=(max,q,url)=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);return url?c.toDataURL('image/jpeg',q):new Promise(r=>c.toBlob(r,'image/jpeg',q))};
     const thumb=mk(160,.6,1);(file.size>1.2*1048576?mk(2400,.85):Promise.resolve(null)).then(big=>{URL.revokeObjectURL(u);res({thumb,big})})};
   im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
-function fDayChips(sel){return '<div class="fdays">'+D.ports.map(p=>'<button type="button" class="chip'+(sel.includes(p.day)?' on':'')+'" data-dd="'+p.day+'" aria-pressed="'+sel.includes(p.day)+'"><b>'+p.day+'</b><small>'+esc(p.name.split(' / ')[0])+'</small></button>').join('')+'</div>'}
-function fBindDays(d,sel){d.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{const n=+b.dataset.dd,i=sel.indexOf(n);if(i<0)sel.push(n);else sel.splice(i,1);b.classList.toggle('on',i<0);b.setAttribute('aria-pressed',i<0)})}
+function fDayChips(sel){const tv=k=>(TRV[k]||sel.includes(k))?'<button type="button" class="chip'+(sel.includes(k)?' on':'')+'" data-dd="'+k+'" aria-pressed="'+sel.includes(k)+'"><b>'+(k==='out'?'An':'Ab')+'</b><small>'+fKL(k)+'</small></button>':'';
+  return '<div class="fdays">'+tv('out')+D.ports.map(p=>'<button type="button" class="chip'+(sel.includes(p.day)?' on':'')+'" data-dd="'+p.day+'" aria-pressed="'+sel.includes(p.day)+'"><b>'+p.day+'</b><small>'+esc(p.name.split(' / ')[0])+'</small></button>').join('')+tv('back')+'</div>'}
+function fBindDays(d,sel){d.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{const n=fKey(b.dataset.dd),i=sel.indexOf(n);if(i<0)sel.push(n);else sel.splice(i,1);b.classList.toggle('on',i<0);b.setAttribute('aria-pressed',i<0)})}
 /* Hochladen */
 function fUploadDlg(day){
   if(!FST()){openSheet('<div class="hd"><h3 style="margin:0">Datei hochladen</h3></div><p>Dateien gehen nur mit Anmeldung.</p>');return}
-  const sel=day?[day]:[];
-  openSheet(`<div class="hd"><h3 style="margin:0">Datei hochladen${day?`<small class="hds">verknüpft mit Tag ${day}</small>`:''}</h3></div>
+  const sel=day!=null?[day]:[];
+  openSheet(`<div class="hd"><h3 style="margin:0">Datei hochladen${day!=null?`<small class="hds">verknüpft mit ${fKL(day)}</small>`:''}</h3></div>
   <form class="sform" id="fuf"><label>Datei<input type="file" name="f" required></label>
   <label>Titel<input name="t" maxlength="80" required placeholder="z. B. Parkplan Magic Kingdom"></label>
   <label>Kategorie<select name="c">${Object.entries(FCAT).map(([k,v])=>`<option value="${k}">${v[0]} ${v[1]}</option>`).join('')}</select></label>
-  <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Tage (optional, mehrere möglich)</div>${fDayChips(sel)}</div>
+  <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Verknüpfen mit (optional, mehrere möglich)</div>${fDayChips(sel)}</div>
   <label class="pick" style="flex-direction:row;align-items:center;gap:8px;font-size:14px;color:var(--ink)"><input type="checkbox" name="pv" style="width:auto"> 🔒 Nur für mich</label>
   <p class="src" id="fum" style="margin:0"></p>
   <div class="btns"><button class="chip btn" type="submit">Hochladen</button><button class="chip" type="button" data-close>Abbrechen</button></div></form>`,d=>{
@@ -110,20 +119,20 @@ function fUploadDlg(day){
       try{m.textContent='Wird vorbereitet …';const im=await fImg(x);const blob=im&&im.big||x;if(blob.size>25*1048576)throw new Error('Die Datei ist größer als 25 MB.');
         const pv=f.pv.checked,id=nid('f'),uid=FBX.user?FBX.user.uid:'test',path='trips/'+TRIP_ID+(pv?'/users/'+uid:'')+'/files/'+id+'-'+fSafe(im&&im.big?x.name.replace(/\.[^.]+$/,'.jpg'):x.name);
         const type=blob.type||x.type||'application/octet-stream';
-        const o={id,title:f.t.value.trim()||x.name,cat:f.c.value,days:sel.slice(),path,name:x.name,type,size:blob.size,thumb:im?im.thumb:'',ts:Date.now(),by:qzName(),pending:1};if(pv){o.priv=true;o.owner=uid}
+        const o={id,title:f.t.value.trim()||x.name,cat:f.c.value,...fSplit(sel),path,name:x.name,type,size:blob.size,thumb:im?im.thumb:'',ts:Date.now(),by:qzName(),pending:1};if(pv){o.priv=true;o.owner=uid}
         m.textContent='Wird gespeichert …';await upOp('readwrite',st=>st.put({id,path,blob,type,trip:TRIP_ID}));await fCachePut(o,blob);fPut(o);closeDlg();
-        undoToast('„'+o.title+'“ gespeichert'+(sel.length?' (Tag '+fDays(o).join(', ')+')':'')+(navigator.onLine===false?' – wird hochgeladen, sobald Internet da ist.':' – wird hochgeladen.'),null,3500);upCount().then(()=>fUpRun())}
+        undoToast('„'+o.title+'“ gespeichert'+(sel.length?' ('+fWhere(o)+')':'')+(navigator.onLine===false?' – wird hochgeladen, sobald Internet da ist.':' – wird hochgeladen.'),null,3500);upCount().then(()=>fUpRun())}
       catch(e){m.textContent='Fehler: '+(e.message||e.code||e);busy=false;f.querySelector('[type=submit]').disabled=false}}})}
 /* Bearbeiten */
-function fEditDlg(id){const f=FILES.find(x=>x.id===id);if(!f)return;const sel=(f.days||[]).slice();
+function fEditDlg(id){const f=FILES.find(x=>x.id===id);if(!f)return;const sel=fSel(f);
   openSheet(`<div class="hd"><h3 style="margin:0">Datei bearbeiten</h3></div>
   <form class="sform" id="fef"><label>Titel<input name="t" maxlength="80" required value="${esc(f.title)}"></label>
   <label>Kategorie<select name="c">${Object.entries(FCAT).map(([k,v])=>`<option value="${k}" ${k===f.cat?'selected':''}>${v[0]} ${v[1]}</option>`).join('')}</select></label>
-  <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Tage</div>${fDayChips(sel)}</div>
+  <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Verknüpft mit</div>${fDayChips(sel)}</div>
   <p class="src" style="margin:0">${esc(f.name||'')} · ${fSize(f.size||0)}${f.priv?' · 🔒 nur für dich':''}${f.by?' · von '+esc(f.by):''}</p>
   <div class="btns"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" data-close>Abbrechen</button><button class="chip" type="button" id="fdel">Löschen</button></div></form>`,d=>{
     const fm=d.querySelector('#fef');fBindDays(d,sel);
-    fm.onsubmit=ev=>{ev.preventDefault();fPut({...f,title:fm.t.value.trim()||f.title,cat:fm.c.value,days:sel.slice()});closeDlg()};
+    fm.onsubmit=ev=>{ev.preventDefault();fPut({...f,title:fm.t.value.trim()||f.title,cat:fm.c.value,...fSplit(sel)});closeDlg()};
     d.querySelector('#fdel').onclick=()=>{const old={...f};if(f.pending)upOp('readwrite',st=>st.delete(f.id)).then(upCount);FILES=FILES.filter(x=>x.id!==f.id);fStore();if(TS.mode==='db'&&dbh)delDoc('files',f.id);closeDlg();fChanged();
       let undone=false;const t=setTimeout(()=>{if(undone)return;const st=FST();if(st)st.del(old.path).catch(()=>{});caches.open(FCACHE).then(c=>c.delete(fCk(old))).catch(()=>{})},9000);
       undoToast('„'+old.title+'“ gelöscht.',()=>{undone=true;clearTimeout(t);fPut(old)},8000)}})}
@@ -153,7 +162,7 @@ function fPdf(f){fvClose();const o=document.createElement('div');o.id='fview';o.
     const ex=document.createElement('button');ex.className='chip';ex.textContent='Im Handy-Programm öffnen ›';ex.style.margin='12px auto 24px';ex.onclick=async()=>{const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=f.name||f.title+'.pdf';document.body.appendChild(a);a.click();a.remove()};box.appendChild(ex)}
   catch(e){if(fv&&fv.o===o)box.innerHTML='<p class="fvm">PDF konnte nicht geöffnet werden: '+esc(fErr(e))+'</p>'}})()}
 async function fOpen(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;
-  if(/^image\//.test(f.type||'')){const list=(day?fOfDay(+day):FILES).filter(x=>/^image\//.test(x.type||''));fView(list,Math.max(0,list.indexOf(f)));return}
+  if(/^image\//.test(f.type||'')){const list=(day?fOfKey(fKey(day)):FILES).filter(x=>/^image\//.test(x.type||''));fView(list,Math.max(0,list.indexOf(f)));return}
   if(/pdf/.test(f.type||'')||/\.pdf$/i.test(f.name||'')){fPdf(f);return}
   const cached=await fCached(f);
   const w=!cached&&navigator.onLine!==false?window.open('','_blank'):null;
@@ -188,7 +197,7 @@ function mappeDlg(){
       cb.querySelectorAll('[data-fc]').forEach(b=>b.onclick=()=>{fmCat=b.dataset.fc;fmRb()});
       if(!FILES.length){box.innerHTML='<p class="empty">Noch keine Dateien. Lade Pläne, Tickets, Buchungen oder Fotos hoch – auf Wunsch gleich passend zu einem Tag.</p>';return}
       const cats=Object.keys(FCAT).filter(k=>(fmCat==='all'||fmCat===k)&&L.some(f=>f.cat===k));
-      box.innerHTML=cats.map(k=>'<h3 class="drh">'+FCAT[k][0]+' '+FCAT[k][1]+'</h3>'+L.filter(f=>f.cat===k).sort((a,b)=>(b.ts||0)-(a.ts||0)).map(f=>'<div class="frow"><button class="fopen" data-fopen="'+f.id+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span class="fic">'+fIcon(f)+'</span>')+'<span class="ftx"><b>'+esc(f.title)+'</b><small>'+[f.pending?'⏳ wird hochgeladen':'',fDays(f).length?'Tag '+fDays(f).join(', '):'keinem Tag zugeordnet',f.priv?'🔒 nur für dich':'',fSize(f.size||0)].filter(Boolean).join(' · ')+' <i class="foff" data-foff="'+f.id+'"></i></small></span></button><button class="lnk" data-fedit="'+f.id+'" aria-label="Bearbeiten">Bearbeiten</button></div>').join('')).join('')||'<p class="empty">Nichts gefunden.</p>';
+      box.innerHTML=cats.map(k=>'<h3 class="drh">'+FCAT[k][0]+' '+FCAT[k][1]+'</h3>'+L.filter(f=>f.cat===k).sort((a,b)=>(b.ts||0)-(a.ts||0)).map(f=>'<div class="frow"><button class="fopen" data-fopen="'+f.id+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span class="fic">'+fIcon(f)+'</span>')+'<span class="ftx"><b>'+esc(f.title)+'</b><small>'+[f.pending?'⏳ wird hochgeladen':'',fWhere(f)||'keinem Tag zugeordnet',f.priv?'🔒 nur für dich':'',fSize(f.size||0)].filter(Boolean).join(' · ')+' <i class="foff" data-foff="'+f.id+'"></i></small></span></button><button class="lnk" data-fedit="'+f.id+'" aria-label="Bearbeiten">Bearbeiten</button></div>').join('')).join('')||'<p class="empty">Nichts gefunden.</p>';
       box.querySelectorAll('[data-foff]').forEach(i=>{const f=FILES.find(x=>x.id===i.dataset.foff);if(f)fCached(f).then(h=>{i.textContent=h?'· ✓ offline':'';i.classList.toggle('on',h)})});
       box.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>{const id=b.dataset.fedit;dlgReturn=mappeDlg;fEditDlg(id)})};
     d.querySelector('#fmq').oninput=e=>{fmQ=e.target.value;fmRb()};
@@ -197,20 +206,21 @@ function mappeDlg(){
 /* Am Tag: Dateien anzeigen, „+ Datei“ */
 function filesDayHTML(p,compact,withEntry){const L=fOfDay(p.day);if(compact&&!L.length)return '';
   const chips=L.length?'<div class="fday">'+L.map(f=>'<button class="fchip" data-fopen="'+f.id+'" data-fday="'+p.day+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span>'+fIcon(f)+'</span>')+esc(f.title)+'</button>').join('')+'</div>':'';
-  return chips+(compact?'':'<div class="acts dayacts">'+(withEntry?'<button class="lnk addpt" data-addmode="eigen">+ Eintrag</button>':'')+'<button class="lnk addpt" data-fadd="'+p.day+'">📎 Datei</button></div>')}
-function fDayDlg(day){const other=FILES.filter(f=>!(f.days||[]).includes(day));
+  return chips+(compact?'':'<div class="acts dayacts">'+(withEntry?'<button class="lnk addpt" data-addmode="eigen">+ Eintrag</button>':'')+'<button class="lnk addpt" data-fadd="'+p.day+'">+ Datei</button></div>')}
+const fChipsHTML=(L,k)=>L.length?'<div class="fday">'+L.map(f=>'<button class="fchip" data-fopen="'+f.id+'" data-fday="'+k+'">'+(fThumb(f)?'<img src="'+fThumb(f)+'" alt="">':'<span>'+fIcon(f)+'</span>')+esc(f.title)+'</button>').join('')+'</div>':'';
+function fDayDlg(day){const other=FILES.filter(f=>!fHas(f,day));
   if(!other.length)return fUploadDlg(day);
-  openSheet(`<div class="hd"><h3 style="margin:0">Datei zu Tag ${day}</h3></div><button class="chip btn" id="fdnew" style="width:100%;justify-content:center;padding:12px;margin:0 0 12px">Neue Datei hochladen</button><b style="font-size:13px">Oder aus der Mappe anhängen</b>
-  <div style="margin-top:6px">${other.map(f=>`<div class="frow"><span class="fopen" style="cursor:default">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:`<span class="fic">${fIcon(f)}</span>`}<span class="ftx"><b>${esc(f.title)}</b><small>${FCAT[f.cat]?FCAT[f.cat][0]+' '+FCAT[f.cat][1]:''}${fDays(f).length?' · Tag '+fDays(f).join(', '):''}</small></span></span><button class="lnk" data-fatt="${f.id}">+ anhängen</button></div>`).join('')}</div>`,d=>{
+  openSheet(`<div class="hd"><h3 style="margin:0">Datei zu ${fKL(day)}</h3></div><button class="chip btn" id="fdnew" style="width:100%;justify-content:center;padding:12px;margin:0 0 12px">Neue Datei hochladen</button><b style="font-size:13px">Oder aus der Mappe anhängen</b>
+  <div style="margin-top:6px">${other.map(f=>`<div class="frow"><span class="fopen" style="cursor:default">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:`<span class="fic">${fIcon(f)}</span>`}<span class="ftx"><b>${esc(f.title)}</b><small>${FCAT[f.cat]?FCAT[f.cat][0]+' '+FCAT[f.cat][1]:''}${fWhere(f)?' · '+fWhere(f):''}</small></span></span><button class="lnk" data-fatt="${f.id}">+ anhängen</button></div>`).join('')}</div>`,d=>{
     d.querySelector('#fdnew').onclick=()=>{closeDlg();setTimeout(()=>fUploadDlg(day),60)};
-    d.querySelectorAll('[data-fatt]').forEach(b=>b.onclick=()=>{const f=FILES.find(x=>x.id===b.dataset.fatt);if(!f)return;fPut({...f,days:[...new Set([...(f.days||[]),day])]});closeDlg();undoToast('„'+f.title+'“ an Tag '+day+' angehängt.',null,2500)})})}
+    d.querySelectorAll('[data-fatt]').forEach(b=>b.onclick=()=>{const f=FILES.find(x=>x.id===b.dataset.fatt);if(!f)return;fPut(fLink(f,day,1));closeDlg();undoToast('„'+f.title+'“ an '+fKL(day)+' angehängt.',null,2500)})})}
 /* Lange drücken auf eine Datei: Menü mit „Von Tag lösen“ */
-function fMenu(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;const ds=day?[+day]:fDays(f);
-  const unlink=d=>{const old=(f.days||[]).slice();fPut({...f,days:old.filter(x=>x!==d)});undoToast('„'+f.title+'“ von Tag '+d+' gelöst.',()=>{const c=FILES.find(x=>x.id===id);if(c)fPut({...c,days:[...new Set([...(c.days||[]),d])]})},6000)};
-  openSheet(`<div class="hd"><h3 style="margin:0">${esc(f.title)}<small class="hds">${fDays(f).length?'Tag '+fDays(f).join(', '):'keinem Tag zugeordnet'}</small></h3></div>
-  <div class="mnu">${ds.map(d=>`<button data-fu="${d}"><span style="font-size:20px">📎</span><span>Von Tag ${d} lösen<small style="display:block;font:400 12.5px var(--body);color:var(--muted)">Die Datei bleibt in der Mappe</small></span></button>`).join('')}
+function fMenu(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;const ds=day?[fKey(day)]:fSel(f);
+  const unlink=d=>{fPut(fLink(f,d,0));undoToast('„'+f.title+'“ von '+fKL(d)+' gelöst.',()=>{const c=FILES.find(x=>x.id===id);if(c)fPut(fLink(c,d,1))},6000)};
+  openSheet(`<div class="hd"><h3 style="margin:0">${esc(f.title)}<small class="hds">${fWhere(f)||'keinem Tag zugeordnet'}</small></h3></div>
+  <div class="mnu">${ds.map(d=>`<button data-fu="${d}"><span style="font-size:20px">📎</span><span>Von ${fKL(d)} lösen<small style="display:block;font:400 12.5px var(--body);color:var(--muted)">Die Datei bleibt in der Mappe</small></span></button>`).join('')}
   <button data-fo><span style="font-size:20px">👁</span><span>Öffnen</span></button><button data-fs><span style="font-size:20px">⬇</span><span>Offline speichern<small id="fsm" style="display:block;font:400 12.5px var(--body);color:var(--muted)">prüfe …</small></span></button><button data-fe><span style="font-size:20px">✏️</span><span>Bearbeiten</span></button></div>`,d=>{
-    d.querySelectorAll('[data-fu]').forEach(b=>b.onclick=()=>{closeDlg();unlink(+b.dataset.fu)});
+    d.querySelectorAll('[data-fu]').forEach(b=>b.onclick=()=>{closeDlg();unlink(fKey(b.dataset.fu))});
     {const m=d.querySelector('#fsm');fCached(f).then(h=>{m.textContent=h?'✓ ist auf diesem Handy gespeichert':'noch nicht auf dem Handy'});
      d.querySelector('[data-fs]').onclick=async()=>{m.textContent='Wird gespeichert …';try{await fBlob(f);m.textContent=(await fCached(f))?'✓ ist auf diesem Handy gespeichert':'Gespeichert, aber Zwischenspeicher nicht verfügbar'}catch(e){m.textContent='Fehler: '+fErr(e)}}}
     d.querySelector('[data-fo]').onclick=()=>{closeDlg();setTimeout(()=>fOpen(id,day),80)};
@@ -223,7 +233,7 @@ function fMenu(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;const ds=da
   document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('[data-fopen]'))e.preventDefault()},true);
   window.__lpRecent=()=>Date.now()-lpFired<700}
 document.addEventListener('click',e=>{const o=e.target.closest&&e.target.closest('[data-fopen]');if(o){e.stopPropagation();e.preventDefault();if(window.__lpRecent())return;fOpen(o.dataset.fopen,o.dataset.fday);return}
-  const a=e.target.closest&&e.target.closest('[data-fadd]');if(a){e.stopPropagation();e.preventDefault();fDayDlg(+a.dataset.fadd)}},true);
+  const a=e.target.closest&&e.target.closest('[data-fadd]');if(a){e.stopPropagation();e.preventDefault();fDayDlg(fKey(a.dataset.fadd))}},true);
 const D=window.__T.D;
 /* Veranstalter-Ausflüge, Fabriken und Quellen gibt es nur in Reisen aus einer Import-Datei – sonst ausblenden */
 const HAS_EX=D.ports.some(p=>(p.ex||[]).length),HAS_FA=D.ports.some(p=>(p.fact||[]).length),HAS_SRC=Object.keys(D.src||{}).length>0;
@@ -264,7 +274,7 @@ const NS='http://www.w3.org/2000/svg';
 const el=(n,a={},p)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e};
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const eur=n=>n.toLocaleString('de-DE')+' €';
-const fmtDate=(s,l)=>{const d=new Date(s+'T12:00:00Z');return new Intl.DateTimeFormat('de-DE',{timeZone:'UTC',weekday:l?'long':'short',day:'2-digit',month:'2-digit'}).format(d)};
+const fmtDate=(s,l)=>{const d=new Date(s+'T12:00:00Z');return new Intl.DateTimeFormat('de-DE',{timeZone:'UTC',weekday:l?'long':'short',day:'2-digit',month:'2-digit'}).format(d).replace('.,','.')};
 const byDay=n=>D.ports.find(p=>p.day===n);
 
 /* ---------- state ---------- */
@@ -784,7 +794,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R74';
+const APP_VER='25.11. · R75';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1018,11 +1028,12 @@ function tripPanel(onlyP){
     const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
     const col=p.kind==='port'?'var(--port)':p.kind==='sea'?'#6f8fa3':'var(--accent)';
     const T='';
-    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open>Tag ${p.day} · ${fmtDate(p.date)} · ${esc(p.name)}${land?`<span class="tdl"> · ${esc(land)}</span>`:''}${T}${wxChip(p)}</button><span class="tdha"><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">📎</button><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button></span></div>`;
+    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open>Tag ${p.day} · ${fmtDate(p.date)} · ${esc(p.name)}${land?`<span class="tdl"> · ${esc(land)}</span>`:''}${T}${wxChip(p)}</button></div>`;
+    const acts=onlyP?'':`<div class="acts dayacts tdacts"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
     const hd=onlyP?'':head;
     const fl=onlyP?'':filesDayHTML(p,1);
     const tt=travelTop(p,!onlyP),tb=travelBottom(p,1);
-    if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${fl}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${tb}</div>`;
+    if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${fl}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${tb}${acts}</div>`;
     const rows=c.rows.map(r=>{if(r.dinner)return dinTripHTML(p,r);
       const lt=r.lg?legTxt(r.lg):'';
       const meta=[`${r.st} Min`,lt,r.q.g.o].filter(Boolean).join(' · ');
@@ -1030,7 +1041,7 @@ function tripPanel(onlyP){
       const lv=rowLive(p,r);
       return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb${r.x||r.tour?' tpl':''}" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:''}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
     const foot=c.port&&CRUISE?`<div class="tmeta" style="margin-top:6px">Liegezeit ${esc(p.times)} · zurück am Schiff ca. ${hm(c.back)}</div>`:'';
-    return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${tb}${fl}${foot}</div>`;
+    return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${tb}${fl}${foot}${acts}</div>`;
   }).join('');
   if(onlyP)return days;
   const SM=summary();window._sumText=SM.text;
@@ -1731,8 +1742,8 @@ tvFillA.d={};
 /* An-/Abreise als Zeitleiste: mode 'open' = aufgeklappt, sonst zugeklappt (außer an den Reisetagen selbst) */
 function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   if(!o)return mode==='sum'?'':`<div class="tvb add"><button class="lnk" data-tv="${k}">+ ${lbl} eintragen</button><small>Flug, Zug oder Auto – mit Zeitumstellung</small></div>`;
-  const sm=x=>x.m||o.mode,s=tvSum(o),ic=[...new Set((o.segs||[]).map(x=>(TVM[sm(x)]||TVM.plane)[0]))].join('');
-  if(!s)return `<div class="tvb"><div class="tvh"><b>${ic} ${lbl}</b><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div><small>noch unvollständig</small></div>`;
+  const sm=x=>x.m||o.mode,s=tvSum(o);
+  if(!s)return `<div class="tvb"><div class="tvh"><b>${lbl}</b><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div><small>noch unvollständig</small></div>`;
   const plus=x=>x.ad&&x.ad>x.dd?'<sup>+'+Math.round((new Date(x.ad)-new Date(x.dd))/864e5)+'</sup>':'';
   const row=(t,i,name,sub,cls)=>`<div class="tvr${cls?' '+cls:''}"><span class="tvt">${t}</span><span class="tvi">${i}</span><span class="tvn"><b>${name}</b>${sub?`<small>${sub}</small>`:''}</span></div>`;
   const adr=p=>{if(!p)return ['?',''];if(p.c)return [p.c+' '+p.n,''];let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}return [n,a]};
@@ -1748,12 +1759,23 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
     if(tvShort(nx.f)===tvShort(x.t)){ // gleicher Ort: Umstieg in einer Zeile, weiter mit der nächsten Strecke
       h+=R2(tA,'🔁',x.t,[w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
     else h+=R2(tA,'📍',x.t,w?'⏱ '+w+' bis zur Weiterreise':'','mid')});
-  const chips=[s.dur!=null?`<span>⏱ ${durTxt(s.dur)}</span>`:'',s.shift?`<span class="w">🕒 Uhr ${s.shift>0?'+':'−'}${Math.abs(s.shift)} Std.</span>`:'',s.shift&&s.home&&k==='out'?`<span>🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}</span>`:''].filter(Boolean).join('');
+  const sh=Math.abs(s.shift),shT=sh+' Std.',cp=(c,t,hint)=>`<button type="button" class="tvq${c?' '+c:''}" data-hint="${esc(hint)}">${t}</button>`;
+  const chips=[s.dur!=null?cp('',`⏱ ${durTxt(s.dur)}`,`Reisedauer: ${durTxt(s.dur)} von der Abfahrt in ${tvShort(s.a.f,1)} bis zur Ankunft in ${tvShort(s.z.t,1)} – mit allen Umstiegen und Wartezeiten, unabhängig von der Zeitumstellung.`):'',
+    s.shift?cp('w',`🕒 Uhr ${s.shift>0?'+':'−'}${shT}`,`Zeitumstellung: In ${tvShort(s.z.t,1)} ist es ${shT} ${s.shift>0?'später':'früher'} als in ${tvShort(s.a.f,1)}. Die Uhr bei der Ankunft ${s.shift>0?'vorstellen':'zurückstellen'}. Alle Zeiten hier sind Ortszeit.`):'',
+    s.shift&&s.home&&k==='out'?cp('',`🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}`,`Zuhause-Zeit: Bei der Ankunft um ${s.z.at} Ortszeit ist es in ${tvShort(s.a.f,1)} ${s.home.t} Uhr${s.home.d!==s.z.ad?' am '+fmtDate(s.home.d):''}. Hilft beim Einschätzen von Müdigkeit und Jetlag.`):''].filter(Boolean).join('');
   const cs=s.S.filter(x=>sm(x)==='car').pop(),nav=cs&&cs.t.lat!=null?`<a class="lnk" href="https://www.google.com/maps/dir/?api=1&origin=${cs.f.lat},${cs.f.lon}&destination=${cs.t.lat},${cs.t.lon}&travelmode=driving" target="_blank" rel="noopener">Navigation ›</a>`:'';
-  const head=`${ic} ${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
-  const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}<div class="acts">${nav}<button class="lnk" data-tv="${k}">Bearbeiten ›</button></div>`;
+  const head=`${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
+  const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}${fChipsHTML(fOfKey(k),k)}<div class="acts">${nav}<button class="lnk" data-fadd="${k}">+ Datei</button><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div>`;
   const now=TODAY>=s.a.dd&&TODAY<=(s.z.ad||s.a.dd),open=mode==='open'||(mode!=='sum'&&now);
   return `<details class="tvb"${open?' open':''}><summary><b>${head}</b><small class="tvs">${sumTxt}</small><i aria-hidden="true">›</i></summary>${body}</details>`}
+/* Kleine Erklärung beim Antippen (data-hint): Blase am Element, schließt beim nächsten Tippen/Scrollen */
+{let hb=null;const hide=()=>{if(hb){hb.remove();hb=null}};
+  document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-hint]');const was=hb&&hb._for;hide();if(!t||was===t)return;e.stopPropagation();e.preventDefault();
+    hb=document.createElement('div');hb.className='hintb';hb.setAttribute('role','tooltip');hb.textContent=t.dataset.hint;hb._for=t;document.body.appendChild(hb);
+    const r=t.getBoundingClientRect(),w=Math.min(300,innerWidth-24);hb.style.width=w+'px';const x=Math.max(12,Math.min(innerWidth-w-12,r.left+r.width/2-w/2));
+    const h=hb.offsetHeight,y=r.bottom+8+h<innerHeight?r.bottom+8:r.top-8-h;hb.style.left=x+'px';hb.style.top=Math.max(8,y)+'px';
+    hb.style.setProperty('--ax',(r.left+r.width/2-x)+'px');hb.classList.toggle('up',y<r.top)},true);
+  ['scroll','resize'].forEach(ev=>addEventListener(ev,hide,true))}
 function tvDayHTML(p){let h='';['out','back'].forEach(k=>{const o=TRV[k];if(o&&(o.segs||[]).some(x=>x.dd===p.date||x.ad===p.date))h+=tvBlock(k,'open')});return h}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-tv]');if(!b||e.target.closest('a'))return;e.stopPropagation();tvDlg(b.dataset.tv)},true);
 /* Flughäfen (OpenFlights) offline */
@@ -2481,7 +2503,7 @@ async function restoreAll(o){
     TS.lists=NL.slice();TS.tasks=NT.slice();NL.forEach(l=>putDoc('lists',l));NT.forEach(t=>putDoc('tasks',t))}
   else{TS.lists=NL.slice();TS.tasks=NT.slice();tdStore()}
   renderTotals();renderDays();renderPanel();tdChanged();return cur}
-function bkWhen(ts){const d=new Date(ts);return d.toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'numeric'})+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}
+function bkWhen(ts){const d=new Date(ts);return d.toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'numeric'}).replace('.,','.')+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}
 async function bkRender(box){if(!box)return;box.innerHTML='<p class="src">Lade Sicherungen …</p>';const L=await bkList();
   box.innerHTML=`<p class="src" style="margin:2px 0 6px">Einmal täglich automatisch, die letzten 10 bleiben erhalten. ${bkRemote()?'Gespeichert in Firebase, für beide sichtbar.':BK.local&&FBX.user?'Gespeichert nur auf diesem Gerät (Firebase-Regel für „backups“ fehlt).':'Gespeichert auf diesem Gerät.'}</p>
   ${L.length?L.map(x=>{let n='';try{const o=JSON.parse(x.data);n=`${(o.todo&&o.todo.tasks||[]).length} Aufgaben · ${Object.values(o.plan||{}).reduce((a,l)=>a+(l||[]).length,0)} Einträge`}catch(e){}
@@ -3182,12 +3204,12 @@ function simSet(v){if(!v)return;const day=v.slice(0,10),p=D.ports.find(q=>q.date
 function simShift(min){const v=simLocal(),t=new Date(Date.parse(v+':00Z')+min*6e4).toISOString().slice(0,16);simSet(t)}
 function simDay(n){const v=simLocal(),d=new Date(Date.parse(v.slice(0,10)+'T12:00:00Z')+n*864e5).toISOString().slice(0,10);simSet(d+v.slice(10))}
 function simStop(){SIM_OFF=0;try{localStorage.removeItem('rp-sim')}catch(e){}simApply()}
-const simTxt=()=>{const p=D.ports.find(q=>q.date===todayStr())||D.ports[0],x=new Date(nowMs()+tzOf(p)*36e5),d=new Date(x.toISOString().slice(0,10)+'T12:00:00');return `🧪 Test: ${d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'})} ${x.toISOString().slice(11,16)} Uhr `};
+const simTxt=()=>{const p=D.ports.find(q=>q.date===todayStr())||D.ports[0],x=new Date(nowMs()+tzOf(p)*36e5),d=new Date(x.toISOString().slice(0,10)+'T12:00:00');return `🧪 Test: ${d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}).replace('.,','.')} ${x.toISOString().slice(11,16)} Uhr `};
 function simApply(){let b=document.getElementById('simbar');
   if(SIM_OFF){const open=b&&b.classList.contains('open');if(!b){b=document.createElement('div');b.id='simbar';document.body.appendChild(b)}
     const p=D.ports.find(q=>q.date===todayStr());
     b.innerHTML=`<div class="simp" ${open?'':'hidden'}>
-      <div class="simr"><button data-sd="-1" aria-label="Tag zurück">◀ Tag</button><b>${p?'Tag '+p.day+' · '+esc(p.name):new Date(todayStr()+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}</b><button data-sd="1" aria-label="Tag vor">Tag ▶</button></div>
+      <div class="simr"><button data-sd="-1" aria-label="Tag zurück">◀ Tag</button><b>${p?'Tag '+p.day+' · '+esc(p.name):new Date(todayStr()+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}).replace('.,','.')}</b><button data-sd="1" aria-label="Tag vor">Tag ▶</button></div>
       <div class="simr"><button data-sm="-60">−1 Std.</button><button data-sm="-15">−15 Min</button><button data-sm="15">+15 Min</button><button data-sm="60">+1 Std.</button></div>
 </div>
       <div class="simb"><button class="simt" id="simtog" aria-expanded="${open}">${simTxt()}${open?'▾':'▴'}</button><button id="simx">Beenden</button></div>`;

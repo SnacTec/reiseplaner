@@ -13,7 +13,7 @@
   const addD = (s, n) => { const d = new Date(s + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
   const nDays = () => W.start && W.end && W.end >= W.start ? Math.round((new Date(W.end + 'T12:00:00Z') - new Date(W.start + 'T12:00:00Z')) / 864e5) + 1 : 0;
   const cruise = () => W.kind === 'kreuzfahrt';
-  const wd = s => new Date(s + 'T12:00:00Z').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+  const wd = s => new Date(s + 'T12:00:00Z').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'UTC' }).replace('.,', '.');
   function syncDays() { const n = Math.min(MAXD, nDays()), old = W.days || []; W.days = []; for (let i = 0; i < n; i++) W.days.push({ ...(old[i] || {}), date: addD(W.start, i) }); }
   function kindOf(i) { const d = W.days[i]; if (!cruise()) return 'port'; if (i === 0) return 'start'; if (i === W.days.length - 1) return 'end'; return d.sea ? 'sea' : 'port'; }
   const ready = i => kindOf(i) === 'sea' || W.days[i].lat != null;
