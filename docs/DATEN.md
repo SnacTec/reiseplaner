@@ -105,7 +105,7 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 - Dateien in **Firebase Storage** (Bucket `reiseplaner-accd8.firebasestorage.app`, Region europe-west3), Regeln in `storage.rules`:
   `trips/<id>/files/<fileId>-<name>` (gemeinsam), `trips/<id>/users/<uid>/files/…` (privat), max. 25 MB.
 - Einträge in Firestore: `trips/<id>/files/<fileId>` bzw. `trips/<id>/users/<uid>/files/<fileId>`:
-  `{ title, cat (plan|ticket|hotel|flight|doc|misc), days:[Tag-Nummern], path, name, type, size, thumb (kleines Vorschaubild als data-URL), ts, by, priv?, owner? }`
+  `{ title, cat (plan|ticket|hotel|flight|doc|misc), days:[Tag-Nummern], tv?:["out"|"back"] (An-/Abreise), path, name, type, size, thumb (kleines Vorschaubild als data-URL), ts, by, priv?, owner? }`
 - Große Bilder (> 1,2 MB) werden vor dem Hochladen auf 2400 px verkleinert (JPEG).
 - Offline: Dateien mit Tag-Zuordnung landen automatisch im Cache Storage `rp-files`; Bilder öffnen im eigenen Betrachter, andere Dateien im Programm des Handys.
 - Test ohne Firebase: `window.__TEST_STORAGE = {put(path,blob,meta,prog), url(path), del(path)}` setzen.
