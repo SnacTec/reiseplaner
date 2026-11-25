@@ -809,7 +809,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R95';
+const APP_VER='25.11. · R96';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1767,6 +1767,10 @@ async function tvFillA(k){const o=TRV[k];if(!o||navigator.onLine===false)return;
   if(ch)tvPut(k,o)}
 tvFillA.d={};
 /* An-/Abreise als Zeitleiste: mode 'open' = aufgeklappt, sonst zugeklappt (außer an den Reisetagen selbst) */
+/* Sitzplätze je Mitreisendem (Anmeldung) und Teilstrecke: seg.seat = {<uid>: '23A'} */
+const tvPP=()=>MEMBERS.length?MEMBERS.map(m=>({id:m.id,n:m.n,l:m.l})):(TRIP.people||[]).map((x,i)=>({id:'p'+i,n:x.n,l:x.l}));
+function seatTxt(x){const S=x.seat||{},P=tvPP(),L=Object.keys(S).filter(k=>S[k]);if(!L.length)return '';
+  const nm=k=>{const m=P.find(p=>p.id===k);return m?(m.l||(m.n||'?')[0]):'?'};return (x.m==='plane'?'Sitz ':'Platz ')+L.map(k=>esc(S[k])+(L.length>1||P.length>1?' ('+esc(nm(k))+')':'')).join(' · ')}
 function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   if(!o)return mode==='sum'?'':`<div class="tvb add"><button class="lnk" data-tv="${k}">+ ${lbl} eintragen</button><small>Flug, Zug oder Auto – mit Zeitumstellung</small></div>`;
   const sm=x=>x.m||o.mode,s=tvSum(o);
@@ -1778,7 +1782,7 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   const R2=(t,i,pl,sub,cls)=>{const [n,a]=adr(pl);return row(t,i,esc(a||n),[a?esc(n):'',sub?'<span class="tvx">'+sub+'</span>':''].filter(Boolean).join('<br>'),cls)};
   if(!tvFillA.d[k])tvFillA(k);
   let h='',merged=false;const navL=x=>x.f.lat!=null&&x.t.lat!=null?`<a class="lnk tvnav" href="https://www.google.com/maps/dir/?api=1&origin=${x.f.lat},${x.f.lon}&destination=${x.t.lat},${x.t.lon}&travelmode=driving" target="_blank" rel="noopener">Navigation ›</a>`:'';
-  const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
+  const legSub=x=>[x.no?esc(x.no):'',seatTxt(x),sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
   s.S.forEach((x,j)=>{const m=sm(x),ico=(TVM[m]||TVM.plane)[0];
     if(!merged)h+=R2(x.dt,ico,x.f,legSub(x));merged=false;
     const nx=s.S[j+1],tA=x.at?(x.calc?'<i class="ap">~</i>':'')+x.at+plus(x):'?';
@@ -1844,7 +1848,8 @@ function tvDlg(k,draft){const lbl=k==='out'?'Anreise':'Abreise',D0=k==='out'?TRI
     <div class="two"><label>Von<button type="button" class="tvpl" data-pl="${i}|f">${x.f?esc(plTxt(x.f))+(x.f.a?`<small>${esc(x.f.a)}</small>`:''):'<span>auswählen ›</span>'}</button></label><label>Nach<button type="button" class="tvpl" data-pl="${i}|t">${x.t?esc(plTxt(x.t))+(x.t.a?`<small>${esc(x.t.a)}</small>`:''):'<span>auswählen ›</span>'}</button></label></div>
     <div class="tvrow"><span class="tvlbl">${plane?'Abflug':'Abfahrt'}</span><div class="two"><input type="date" data-s="${i}|dd" aria-label="${plane?'Abflug':'Abfahrt'} Datum" value="${esc(x.dd||'')}"><input type="time" data-s="${i}|dt" aria-label="${plane?'Abflug':'Abfahrt'} Uhrzeit" value="${esc(x.dt||'')}"></div></div>
     <div class="tvrow"><span class="tvlbl">Ankunft${x.m==='car'?' <small>· leer lassen = wird berechnet</small>':''}</span><div class="two"><input type="date" data-s="${i}|ad" aria-label="Ankunft Datum" value="${esc(x.calc?'':x.ad||'')}"><input type="time" data-s="${i}|at" aria-label="Ankunft Uhrzeit" value="${esc(x.calc?'':x.at||'')}"></div></div>
-    ${plane||x.m==='train'?`<div class="two"><label>${plane?'Flugnummer':'Zugnummer'}<input data-s="${i}|no" maxlength="12" value="${esc(x.no||'')}" placeholder="${plane?'z. B. LH 456':'z. B. ICE 123'}"></label>${plane?`<label>Airline<input data-s="${i}|al" maxlength="30" value="${esc(x.al||'')}"></label>`:'<label></label>'}</div>`:''}</div>`};
+    ${plane||x.m==='train'?`<div class="two"><label>${plane?'Flugnummer':'Zugnummer'}<input data-s="${i}|no" maxlength="12" value="${esc(x.no||'')}" placeholder="${plane?'z. B. LH 456':'z. B. ICE 123'}"></label>${plane?`<label>Airline<input data-s="${i}|al" maxlength="30" value="${esc(x.al||'')}"></label>`:'<label></label>'}</div>
+    <div class="tvrow"><span class="tvlbl">${plane?'Sitzplätze':'Sitzplätze (Wagen/Platz)'}</span><div class="two">${tvPP().map(m=>`<label>${esc(m.n)}<input data-seat="${i}|${esc(m.id)}" maxlength="8" autocapitalize="characters" value="${esc((x.seat||{})[m.id]||'')}" placeholder="${plane?'z. B. 23A':'z. B. 7/45'}"></label>`).join('')}</div></div>`:''}</div>`};
   openSheet(`<div class="hd"><h3 style="margin:0">${TVM[o.mode][0]} ${lbl}</h3><button class="x" data-close aria-label="Schließen">✕</button></div>
     <p class="src" style="margin:0 0 8px">Zeiten wie auf dem Ticket eintragen, jeweils in <b>Ortszeit</b>. Jede Teilstrecke hat ihr eigenes Verkehrsmittel, z. B. ✈️ Flug und danach 🚗 Mietwagen.</p>
     ${k==='back'&&!TRV.back&&TRV.out&&!draft?'<div class="acts" style="margin:8px 0 0"><button type="button" class="lnk" id="tvrev">↩ Wie Anreise, nur umgekehrt</button></div>':''}
@@ -1855,7 +1860,7 @@ function tvDlg(k,draft){const lbl=k==='out'?'Anreise':'Abreise',D0=k==='out'?TRI
     <p class="src bad" id="tvm" style="margin:0"></p>
     <div class="btns bar"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" id="tvx">Abbrechen</button>${TRV[k]?'<button class="chip del" type="button" id="tvdel">Löschen</button>':''}</div></form>`,d=>{asPage();
     const fin=()=>subDepth>0?history.back():closeDlg();d.querySelector('#tvx').onclick=fin;
-    const f=d.querySelector('#tvf'),keep=()=>{f.querySelectorAll('[data-s]').forEach(e=>{const [i,key]=e.dataset.s.split('|');o.segs[+i][key]=e.value.trim()});o.ref=f.ref.value.trim();o.note=f.note.value.trim()};
+    const f=d.querySelector('#tvf'),keep=()=>{f.querySelectorAll('[data-s]').forEach(e=>{const [i,key]=e.dataset.s.split('|');o.segs[+i][key]=e.value.trim()});f.querySelectorAll('[data-seat]').forEach(e=>{const [i,u]=e.dataset.seat.split('|'),sg=o.segs[+i];if(!sg)return;const v=e.value.trim().toUpperCase();sg.seat=Object.assign({},sg.seat);if(v)sg.seat[u]=v;else delete sg.seat[u];if(!Object.keys(sg.seat).length)delete sg.seat});o.ref=f.ref.value.trim();o.note=f.note.value.trim()};
     d.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{keep();const [i,m]=b.dataset.sm.split('|');o.segs[+i].m=m;o.mode=o.segs[0].m;tvDlg(k,o)});
     d.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{keep();const [i,w]=b.dataset.pl.split('|');subOpen(()=>tvDlg(k,o),()=>tvPick(w==='f'?'Von':'Nach',o.segs[+i].m==='plane',near,x=>{o.segs[+i][w]=x;
       if(w==='f'&&+i===0&&k==='out'&&!x.c)try{localStorage.setItem('rp-home',JSON.stringify(x))}catch(e){}}))});

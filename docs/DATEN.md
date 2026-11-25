@@ -8,7 +8,7 @@ trips/<trip-id>/photos/<code>      { c: "<Ausflugscode>", d: "data:image/jpeg;ba
 trips/<trip-id>/picks|planitems|lists|tasks|drinkfavs|backups   gemeinsame Einträge der Reisenden
 trips/<trip-id>/plandays/meta     { dinner:{…}, cabin, fx, planV2:true }  (alte Tagesdokumente d1…d15 werden nicht mehr genutzt)
 trips/<trip-id>/stays/<id>         { n, addr, lat, lon, d1 (Anreisetag), d2 (Abreisetag), ci, co, ref, note } – Unterkunft (nicht bei Kreuzfahrt)
-trips/<trip-id>/travel/out|back    { mode: plane|train|car|bus, segs:[{f,t:{n,c,lat,lon,tz}, dd,dt,ad,at (Ortszeit), no, al, km, min}], ref, note }
+trips/<trip-id>/travel/out|back    { mode: plane|train|car|bus, segs:[{f,t:{n,c,lat,lon,tz}, dd,dt,ad,at (Ortszeit), no, al, seat:{<uid>:"23A"} (Sitzplatz je Mitreisendem), km, min}], ref, note }
 trips/<trip-id>/members/<uid>      { n: Name, l: Buchstabe, c: Farbnummer, ts } – Mitreisende, legt sich bei der ersten Anmeldung selbst an
 trips/<trip-id>/users/<uid>/lists|tasks   private Listen/Aufgaben (Regel: nur die Person selbst)
 ships/<ship-id>                    { name, short, deckNote, json: "<Deckplan>", drinks: "<Getränkekarte>" }
