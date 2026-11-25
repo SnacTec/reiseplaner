@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R89';
+const APP_VER='25.11. · R90';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1432,7 +1432,7 @@ function osmDayFor(q){
   const pt=osmPorts.find(p=>p.k===q.pk)||osmPorts.slice().sort((a,b)=>osmKm(q.lat,q.lon,a.lat,a.lon)-osmKm(q.lat,q.lon,b.lat,b.lon))[0];
   if(!pt)return sel||1;if(sel!=null&&pt.days.includes(sel))return sel;
   const p=pt.days.map(byDay).find(p=>p.kind==='port'&&p.date>=TODAY)||pt.days.map(byDay).find(p=>p.kind==='port')||byDay(pt.days[0]);return p.day}
-function osmPlanned(id){if(!id)return null;for(const d in plan){const i=(plan[d]||[]).findIndex(s=>s&&s.osm===id);if(i>=0)return{day:+d,pi:i}}return null}
+function osmPlanned(id){if(!id)return null;if(sel!=null&&plan[sel]){const i=plan[sel].findIndex(s=>s&&s.osm===id);if(i>=0)return{day:sel,pi:i}}if(sel!=null&&byDay(sel))return null;for(const d in plan){const i=(plan[d]||[]).findIndex(s=>s&&s.osm===id);if(i>=0)return{day:+d,pi:i}}return null}
 function placeShow(day,lat,lon){closeDlg();setTimeout(()=>{if(sel!==day)select(day);setTimeout(()=>{const xy=llxy(lat,lon);flyTo(xy[0],xy[1],Math.max(M.W/vb.w,M.W*byDay(day).ompp/900||1))},sel===day?60:350)},30)}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dkgo]');if(!b)return;e.stopPropagation();e.preventDefault();const [n,i]=b.dataset.dkgo.split('|').map(Number);dkShow(n,i)},true);
 document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const b=e.target.closest&&e.target.closest('[data-dkgo]');if(!b||e.target!==b)return;e.preventDefault();e.stopPropagation();const [n,i]=b.dataset.dkgo.split('|').map(Number);dkShow(n,i)},true);
