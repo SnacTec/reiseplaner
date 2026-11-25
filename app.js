@@ -798,7 +798,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R83';
+const APP_VER='25.11. · R84';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -2105,7 +2105,7 @@ function head(p){
   return `<div class="dhd"><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land&&p.kind!=='sea'?' · '+esc(land):''}</span><h2>${esc(p.name)}</h2></div>`;
 }
 function portPanel(p){
-  if(p.kind!=='port')return dnavHTML(p)+head(p)+(p.kind!=='sea'?aabHTML(p)+infoHTML(p):'')+(p.text?`<p>${esc(p.text)}</p>`:'')+plannerHTML(p);
+  if(p.kind!=='port')return head(p)+(p.kind!=='sea'?aabHTML(p)+infoHTML(p):'')+(p.text?`<p>${esc(p.text)}</p>`:'')+plannerHTML(p);
   const ovTab=()=>{
     const picked=(p.ex||[]).filter(e=>isPicked(p,e));
     const F=[p.times&&/\d/.test(p.times)?['Liegezeit',p.times]:null,p.walk?['Zu Fuß möglich?',p.walk]:null,(p.ex||[]).length?['Eingeplant',picked.length?eur(picked.reduce((a,e)=>a+(e.p||0),0)):'0 €']:null].filter(Boolean);
@@ -2139,7 +2139,7 @@ function portPanel(p){
   };
   const nPoi=p.pois.length,nEx=(p.ex||[]).length,nFa=(p.fact||[]).length;
   const sec=(k,t,n,b)=>`<details class="sec" data-sec="${k}" id="sec-${k}" ${openSec.has(k)?'open':''}><summary><b>${t}</b>${n!=null?`<span>${n}</span>`:''}</summary>${b}</details>`;
-  return dnavHTML(p)+head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'')+(nFa?sec('fa','Fabriken und Plantagen',nFa,faTab()):'');
+  return head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'')+(nFa?sec('fa','Fabriken und Plantagen',nFa,faTab()):'');
 }
 function renderPanel(){
   const a=$('#panel');const keep=a.scrollTop;
