@@ -784,7 +784,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R72';
+const APP_VER='25.11. · R73';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1736,7 +1736,8 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   const plus=x=>x.ad&&x.ad>x.dd?'<sup>+'+Math.round((new Date(x.ad)-new Date(x.dd))/864e5)+'</sup>':'';
   const row=(t,i,name,sub,cls)=>`<div class="tvr${cls?' '+cls:''}"><span class="tvt">${t}</span><span class="tvi">${i}</span><span class="tvn"><b>${name}</b>${sub?`<small>${sub}</small>`:''}</span></div>`;
   const adr=p=>{if(!p)return ['?',''];if(p.c)return [p.c+' '+p.n,''];let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}return [n,a]};
-  const R2=(t,i,pl,sub,cls)=>{const [n,a]=adr(pl);return row(t,i,esc(n),[a?esc(a):'',sub].filter(Boolean).join(' · '),cls)};
+  // Adresse: PLZ Ort fett (wohin geht es), Straße darunter, Zeit/km in eigener Zeile
+  const R2=(t,i,pl,sub,cls)=>{const [n,a]=adr(pl);return row(t,i,esc(a||n),[a?esc(n):'',sub?'<span class="tvx">'+sub+'</span>':''].filter(Boolean).join('<br>'),cls)};
   if(!tvFillA.d[k])tvFillA(k);
   let h='',merged=false;const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
   s.S.forEach((x,j)=>{const m=sm(x),ico=(TVM[m]||TVM.plane)[0];
