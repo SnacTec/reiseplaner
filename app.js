@@ -794,7 +794,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R75';
+const APP_VER='25.11. · R76';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1028,20 +1028,20 @@ function tripPanel(onlyP){
     const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
     const col=p.kind==='port'?'var(--port)':p.kind==='sea'?'#6f8fa3':'var(--accent)';
     const T='';
-    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open>Tag ${p.day} · ${fmtDate(p.date)} · ${esc(p.name)}${land?`<span class="tdl"> · ${esc(land)}</span>`:''}${T}${wxChip(p)}</button></div>`;
+    const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button></div>`;
     const acts=onlyP?'':`<div class="acts dayacts tdacts"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
     const hd=onlyP?'':head;
-    const fl=onlyP?'':filesDayHTML(p,1);
+    const fl=onlyP?'':fOfDay(p.day).map(f=>`<div class="trw tfile"><div class="tm">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:fIcon(f)}</div><div class="tb"><button class="tfn" data-fopen="${f.id}" data-fday="${p.day}">${esc(f.title)}</button><div class="tmeta">Datei${FCAT[f.cat]?' · '+FCAT[f.cat][1]:''}</div></div></div>`).join('');
     const tt=travelTop(p,!onlyP),tb=travelBottom(p,1);
-    if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${fl}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${tb}${acts}</div>`;
+    if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${fl}${tb}${acts}</div>`;
     const rows=c.rows.map(r=>{if(r.dinner)return dinTripHTML(p,r);
       const lt=r.lg?legTxt(r.lg):'';
       const meta=[`${r.st} Min`,lt,r.q.g.o].filter(Boolean).join(' · ');
       const del=r.tour?`tcx|${p.day}|${esc(r.e.c)}`:`trm|${p.day}|${r.pi}`;
       const lv=rowLive(p,r);
       return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb${r.x||r.tour?' tpl':''}" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:''}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
-    const foot=c.port&&CRUISE?`<div class="tmeta" style="margin-top:6px">Liegezeit ${esc(p.times)} · zurück am Schiff ca. ${hm(c.back)}</div>`:'';
-    return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${tb}${fl}${foot}${acts}</div>`;
+    const foot=c.port&&CRUISE&&onlyP?`<div class="tmeta" style="margin-top:6px">Liegezeit ${esc(p.times)} · zurück am Schiff ca. ${hm(c.back)}</div>`:'';
+    return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${fl}${tb}${foot}${acts}</div>`;
   }).join('');
   if(onlyP)return days;
   const SM=summary();window._sumText=SM.text;
