@@ -798,7 +798,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R82';
+const APP_VER='25.11. · R83';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -2424,7 +2424,7 @@ function fitMap(){const mc=document.querySelector('.mapcol'),bn=document.getElem
   const top=mc.getBoundingClientRect().top+window.scrollY,bh=bn&&getComputedStyle(bn).display!=='none'?bn.offsetHeight:0;
   const h=Math.max(260,Math.floor(window.innerHeight-top-bh));if(document.body.style.getPropertyValue('--fitmap')!==h+'px'){document.body.style.setProperty('--fitmap',h+'px');if(typeof M!=='undefined'&&M){measure();applyVB()}}}
 addEventListener('resize',()=>setTimeout(fitMap,60));addEventListener('orientationchange',()=>setTimeout(fitMap,250));
-function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=k==='todo'&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
+function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=k==='todo'&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const ph=k==='map'&&matchMedia('(max-width:860px)').matches;document.body.classList.toggle('dpage',ph);if(ph){const lb={trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan',pp=sel!=null?byDay(sel):null;$('#pgback span').textContent=lb;$('#pgttl').textContent=pp?'Tag '+pp.day+' · '+pp.name:'Übersichtskarte'}}{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
 function goTop(){const w=$('#panel');if(w)w.scrollTop=0;window.scrollTo(0,0)}
 /* Globale Suche über alles */
 const nrm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -2457,6 +2457,7 @@ function searchDlg(){
     q.addEventListener('input',run);run();
   });
 }
+$('#pgback').onclick=()=>$('#mback').click();
 $('#mback').onclick=()=>{const f={today:showToday,bord:showBord,todo:()=>showTodo()}[DAYFROM]||showTrip;if(history.state&&history.state.v&&history.length>1)history.back();else f()};
 $('#srchb').onclick=searchDlg;$('#drkb').onclick=drinksDlg;$('#dkb').onclick=()=>deckDlg();
 document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.onclick=()=>{hideTip2();const k=b.dataset.n;

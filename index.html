@@ -1074,6 +1074,16 @@ html[data-xmas] .top{background:linear-gradient(#a52422,#14532d)}
 html[data-xmas] .top .palm{display:none}html[data-xmas] .top .xm{display:block}
 html[data-xmas] .tl-done{background:#ffd25a}html[data-xmas] .tl-txt{color:#ffd25a}
 html[data-xmas] .hb.on{color:#14532d}
+
+#pgbar{display:none}
+@media (max-width:860px){
+  body.dpage header.top,body.dpage #bnav{display:none}
+  body.dpage #pgbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:25;background:var(--panel);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top,0px)) 16px 8px;min-height:52px}
+  #pgback{border:0;background:none;color:var(--accent);font:600 16px var(--body);padding:8px 0;white-space:nowrap;cursor:pointer}
+  #pgttl{font:700 15px var(--head);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  body.dpage .mback{display:none}
+  body.dpage #simbar{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 </head>
 <body>
@@ -1098,6 +1108,7 @@ html[data-xmas] .hb.on{color:#14532d}
     <button class="hb bellb" id="bellb" aria-label="Keine fälligen Aufgaben" title="Fällige Aufgaben"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="bdg" id="belln" hidden></span></button>
   </div>
 </header>
+<div id="pgbar"><button id="pgback" type="button">‹ <span></span></button><b id="pgttl"></b></div>
 <div id="tip2" hidden role="tooltip"></div>
 <nav class="days" id="days" aria-label="Reisetage"></nav>
 <main>
