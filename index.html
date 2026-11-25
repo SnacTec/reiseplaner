@@ -815,7 +815,16 @@ input[type=date].empty:focus,input[type=time].empty:focus{color:inherit;backgrou
 .tday:not(.only)>.swr:not(.swr~.swr){border-top:1px solid var(--line)}.tday:not(.only)>.swr~.swr{border-top:0}
 .tday:not(.only)>.trw.tfile~.trw.tfile{border-top:0}
 .tday:not(.only) .trw .tmore{display:block;width:fit-content}
-.dyadd{padding:2px 0 6px 54px}.dyadd .addpt{padding:6px 0;font-size:14px}.dyaddf{border-top:1px solid var(--line);padding-top:4px}.trw.tfile+.dyaddf,.trw.tfile~.dyaddf{border-top:0}
+.dyadd{padding:2px 0 6px 54px}
+.tl.dcard{border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;padding:6px 10px 4px;background:var(--panel);margin:8px 0 14px}
+.dcard .blk .c{border:0;border-radius:0;background:none;padding:7px 0}
+.dcard .blk .t{padding-top:7px}
+.dcard .blk.live .c{box-shadow:none;background:color-mix(in srgb,var(--ok) 10%,var(--panel));border-radius:8px;padding:7px 8px;margin-left:-8px}
+.dcard .dyadd{padding-left:54px}.dcard .trw.tfile:not(.tfile~.tfile){border-top:1px solid var(--line)}.dcard .trw.tfile~.trw.tfile{border-top:0}
+.dcard .trw.tfile{grid-template-columns:44px 1fr;gap:10px}
+.dempty{margin:6px 0 0 54px;color:var(--muted);font-size:13.5px}
+.dhd{margin:2px 0 8px}.dhd .tdk{display:block;font-size:13px;color:var(--muted)}.dhd h2{margin:2px 0 0}
+.dnav button{border:0;background:none;color:var(--accent);padding:6px 0}.dyadd .addpt{padding:6px 0;font-size:14px}.dyaddf{border-top:1px solid var(--line);padding-top:4px}.trw.tfile+.dyaddf,.trw.tfile~.dyaddf{border-top:0}
 .tvnav{font-size:inherit;padding:0}
 .tdt .tdk{display:block;font:500 12.5px var(--body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tdt .tdn{display:block}

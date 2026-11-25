@@ -503,9 +503,11 @@ function tripText(){
 }
 let addMode=null,expKey=null,openSec=new Set();
 const rowColor=r=>r.dinner?'#e8590c':r.tour?'var(--accent)':r.x?(r.s&&r.s.lat!=null?'var(--plan)':'var(--muted)'):`var(${TYPES[r.q.t][1]})`;
-function dayView(p){
+function fRowsHTML(p){return fOfDay(p.day).map(f=>`<div class="trw tfile"><div class="tm">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:fIcon(f)}</div><div class="tb"><button class="tfn" data-fopen="${f.id}" data-fday="${p.day}">${esc(f.title)}</button></div></div>`).join('')}
+const dayCol=p=>p.kind==='port'?'var(--port)':p.kind==='sea'?'#6f8fa3':'var(--accent)';
+function dayView(p,today){
   const c=calc(p),port=p.kind==='port';
-  let h=`<div class="tl">`,backDone=!port||!CRUISE||!c.rows.length;
+  let h=`<div class="tl dcard" style="--c:${dayCol(p)}">`,backDone=!port||!CRUISE||!c.rows.length;
   const mk=(t,txt,cls)=>`<div class="blk mkr${cls?' '+cls:''}"><div class="t">${t}</div><div class="mkt">${txt}</div></div>`;
   const back=()=>{if(backDone)return '';backDone=true;let o='';
     if(c.ret){const rt=legTxt(c.ret);if(rt)o+=`<div class="lg">Rückweg: ${esc(rt)}</div>`}
@@ -515,7 +517,7 @@ function dayView(p){
     if(ex)o+=`<p class="src mkx">${esc(ex)} (Richtwerte)</p>`;return o};
   h+=travelTop(p);
   if(port&&CRUISE)h+=mk(hm(c.W.on),'🚢 Ab Schiff');
-  const EMPTY=!c.rows.length;if(EMPTY&&!embMarks(p).length)h+=`<div class="emptyc"><p>Für Tag ${p.day} ist noch nichts geplant.</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`;
+  const EMPTY=!c.rows.length;if(EMPTY&&!embMarks(p).length)h+=`<p class="dempty">Noch nichts geplant.</p>`;
   const EX=embMarks(p),exFlush=a=>{while(EX.length&&(a==null||EX[0].a<=a)){const x=EX.shift();h+=mk(x.t,x.h)}};
   c.rows.forEach(r=>{if(r.a!=null)exFlush(r.a);if(!backDone&&(r.dinner||r.board))h+=back();
     if(r.dinner){h+=dinBlkHTML(p,r);return}
@@ -526,7 +528,9 @@ function dayView(p){
     const act=r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}"`:r.x?(r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}"`:`data-pedit="${p.day}|${r.pi}"`):`data-bopen="poi|${r.s.i}"`;
     h+=`<div class="blk${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="t">${r.a==null?'–':hm(r.a)}</div><div class="swr blkw"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="c" style="--c:${rowColor(r)}" data-swdel="${del}" ${act} tabindex="0" role="button">${lv==='live'?liveBadge(p,r):''}<h4>${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}</h4><div class="m">${esc(meta)}${r.x&&r.s.dk?` · <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${r.x&&g.n?`<div class="m">${esc(g.n)}</div>`:''}</div></div></div>`;
   });
-  exFlush(null);h+=back();h+=travelBottom(p);
+  exFlush(null);h+=back();
+  h+=`<div class="dyadd"><button class="lnk addpt" ${today?`data-addpt="${p.day}"`:'data-addmode="eigen"'}>+ Eintrag</button></div>`;
+  h+=travelBottom(p)+fRowsHTML(p)+`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}">+ Datei</button></div>`;
   return h+`</div>`;
 }
 function addArea(p){
@@ -534,7 +538,7 @@ function addArea(p){
   if(p.pois)modes.push(['orte','Orte']);
   if((p.ex||[]).some(e=>e.p&&!e.sold))modes.push(['tour',OP+'-Ausflug']);
   modes.push(['eigen','Eigener Eintrag']);
-  if(!addMode)return `<div class="acts" style="margin:4px 0 12px"><button class="lnk addpt" data-addmode="eigen">+ Eintrag</button></div>`;
+  if(!addMode)return '';
   let h=`<div class="sheet"><div class="modes">${modes.map(([k,l])=>`<button class="chip" aria-pressed="${addMode===k}" data-addmode="${k}">${l}</button>`).join('')}<button class="chip" data-addmode="">Schließen</button></div>`;
   if(addMode==='orte'&&p.pois){
     const used=new Set((plan[p.day]||[]).map(s=>s.i));
@@ -794,7 +798,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R78';
+const APP_VER='25.11. · R79';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1031,7 +1035,7 @@ function tripPanel(onlyP){
     const head=`<div class="tdh" data-tipday="${p.day}"><button class="tdt" data-d="${p.day}" data-open><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land?' · '+esc(land):''}</span><span class="tdn">${esc(p.name)}${T}${wxChip(p)}</span></button></div>`;
     const addE=onlyP?'':`<div class="dyadd"><button class="lnk addpt" data-addpt="${p.day}" aria-label="Eintrag zu Tag ${p.day} hinzufügen">+ Eintrag</button></div>`,addF=onlyP?'':`<div class="dyadd dyaddf"><button class="lnk addpt" data-fadd="${p.day}" aria-label="Datei zu Tag ${p.day}">+ Datei</button></div>`;
     const hd=onlyP?'':head;
-    const fl=onlyP?'':fOfDay(p.day).map(f=>`<div class="trw tfile"><div class="tm">${fThumb(f)?`<img src="${fThumb(f)}" alt="">`:fIcon(f)}</div><div class="tb"><button class="tfn" data-fopen="${f.id}" data-fday="${p.day}">${esc(f.title)}</button></div></div>`).join('');
+    const fl=onlyP?'':fRowsHTML(p);
     const tt=travelTop(p,!onlyP),tb=travelBottom(p,1);
     if(!c.rows.length)return `<div class="tday empty" style="--c:${col}">${hd}${tt}${onlyP?`<div class="emptyc"><p>Noch nichts geplant.${p.kind==='port'&&(p.ex||[]).length?' '+OP+'-Ausflüge findest du in der Tagesansicht.':''}</p><button class="chip btn" data-addpt="${p.day}">+ Eintrag für Tag ${p.day}</button></div>`:''}${addE}${tb}${fl}${addF}</div>`;
     const rows=c.rows.map(r=>{if(r.dinner)return dinTripHTML(p,r);
@@ -2098,7 +2102,7 @@ function homePanel(){
 }
 function head(p){
   const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
-  return `<div class="eyebrow">Tag ${p.day} · ${fmtDate(p.date)}${land&&p.kind!=='sea'?' · '+esc(land):''}</div><h2>${esc(p.name)}</h2>`;
+  return `<div class="dhd"><span class="tdk">Tag ${p.day} · ${fmtDate(p.date)}${land&&p.kind!=='sea'?' · '+esc(land):''}</span><h2>${esc(p.name)}</h2></div>`;
 }
 function portPanel(p){
   if(p.kind!=='port')return dnavHTML(p)+head(p)+(p.kind!=='sea'?aabHTML(p)+infoHTML(p):'')+(p.text?`<p>${esc(p.text)}</p>`:'')+plannerHTML(p);
@@ -2135,7 +2139,7 @@ function portPanel(p){
   };
   const nPoi=p.pois.length,nEx=(p.ex||[]).length,nFa=(p.fact||[]).length;
   const sec=(k,t,n,b)=>`<details class="sec" data-sec="${k}" id="sec-${k}" ${openSec.has(k)?'open':''}><summary><b>${t}</b>${n!=null?`<span>${n}</span>`:''}</summary>${b}</details>`;
-  return dnavHTML(p)+head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+(addMode?filesDayHTML(p)+addArea(p):filesDayHTML(p,0,calc(p).rows.length>0))+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'')+(nFa?sec('fa','Fabriken und Plantagen',nFa,faTab()):'');
+  return dnavHTML(p)+head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'')+(nFa?sec('fa','Fabriken und Plantagen',nFa,faTab()):'');
 }
 function renderPanel(){
   const a=$('#panel');const keep=a.scrollTop;
@@ -2316,7 +2320,7 @@ function todayPanel(){
   if((TODAY>=first&&TODAY<=last)||(todayOff&&byDay(todayOff))){
     const tp=D.ports.find(q=>q.date===TODAY);const p=todayOff&&byDay(todayOff)?byDay(todayOff):tp,isT=p===tp;
     const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
-    return `${dnavHTML(p,'tdn')}${isT?'':`<p style="margin:0 0 8px"><button class="chip btn" data-tdn="0">${tp?'Zurück zu heute (Tag '+tp.day+')':(TODAY<first?'Zurück zum Countdown':'Zurück')}</button></p>`}<div class="eyebrow">${isT?'Heute · ':''}Tag ${p.day} von ${D.ports.length}</div><h2>${isT?'Mein Tag':'Tag '+p.day}</h2><p class="src" style="margin:2px 0 10px">${esc(fmtDate(p.date))} · ${esc(p.name)}${land?' · '+esc(land):''}</p>${aabHTML(p)}${isT?nowNextHTML(p):''}${tipHTML('today')}${infoHTML(p)}<div class="todayh"><h3>Tagesplan</h3><button class="lnk addpt" data-addpt="${p.day}">+ Eintrag</button></div>${tripPanel(p)}${filesDayHTML(p)}<p><button class="chip btn" data-open data-d="${p.day}">Tag mit Karte und Details öffnen</button></p>`;
+    return `${dnavHTML(p,'tdn')}${isT?'':`<p style="margin:0 0 8px"><button class="chip btn" data-tdn="0">${tp?'Zurück zu heute (Tag '+tp.day+')':(TODAY<first?'Zurück zum Countdown':'Zurück')}</button></p>`}<div class="dhd"><span class="tdk">${isT?'Heute · ':''}Tag ${p.day} · ${esc(fmtDate(p.date))}${land?' · '+esc(land):''}</span><h2>${esc(p.name)}</h2></div>${aabHTML(p)}${isT?nowNextHTML(p):''}${tipHTML('today')}${infoHTML(p)}<div class="todayh"><h3>Tagesplan</h3><button class="lnk" data-open data-d="${p.day}">Tageskarte ›</button></div>${dayView(p,1)}`;
   }
   const ship=(document.querySelector('.tl-ship')||{}).outerHTML||'';
   if(TODAY>last)return `<div class="eyebrow">Mein Tag</div><div class="hero"><div class="hship">${ship}</div><h2>Willkommen zu Hause</h2><p>Die Reise ist vorbei. Schön war’s.</p></div><p><button class="chip btn" data-trip>Reiseplan ansehen</button></p>`;
