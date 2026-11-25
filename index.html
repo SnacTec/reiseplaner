@@ -603,7 +603,13 @@ html[data-special] .tl-txt{color:#fff;font-weight:800}
 #toast{z-index:150!important}html:has(#ov:not([hidden])) #toast{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 .frow .fopen img{width:46px!important;height:46px!important;max-width:none;margin:0!important;border-radius:8px;object-fit:cover;flex:none}.fchip img{width:26px!important;height:26px!important;margin:0!important}
 [data-fopen]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-.fvpdf{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0 0;background:#2a2f33}.fvpdf canvas{background:#fff;box-shadow:0 2px 8px #0006;max-width:100%}
+.fvpdf{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0 0;background:#2a2f33}.fvpdf canvas{background:#fff;display:block}
+.fvpg{position:relative;flex:0 0 auto;background:#fff;box-shadow:0 2px 8px #0006;max-width:100%}
+.fvpg .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;-webkit-text-size-adjust:none;text-size-adjust:none;transform-origin:0 0;z-index:2;user-select:text;-webkit-user-select:text}
+.fvpg .textLayer span,.fvpg .textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.fvpg .textLayer ::selection{background:rgba(0,90,200,.3)}
+.fvpg .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;user-select:none}
+.fvlink{position:absolute;z-index:3;border-radius:3px}.fvlink:active,.fvlink:hover{background:rgba(0,90,200,.18)}
 .foff{font-style:normal}.foff.on{color:var(--ok)}
 .dayacts{gap:6px 22px;margin:6px 0 14px}
 /* ---------- Spiele ---------- */

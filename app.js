@@ -139,8 +139,17 @@ function fPdf(f){fvClose();const o=document.createElement('div');o.id='fview';o.
   (async()=>{try{const [lib,b]=await Promise.all([pdfLib(),fBlob(f)]);const doc=await lib.getDocument({data:new Uint8Array(await b.arrayBuffer())}).promise;
     if(!fv||fv.o!==o)return;box.innerHTML='';o.querySelector('.fvn').textContent=doc.numPages>1?doc.numPages+' Seiten':'';
     const W=Math.min(box.clientWidth||360,900),dpr=Math.min(3,(window.devicePixelRatio||1)*1.5);
-    for(let n=1;n<=doc.numPages;n++){if(!fv||fv.o!==o)return;const pg=await doc.getPage(n),v0=pg.getViewport({scale:1}),sc=W/v0.width,v=pg.getViewport({scale:sc*dpr}),c=document.createElement('canvas');
-      c.width=Math.round(v.width);c.height=Math.round(v.height);c.style.width=W+'px';c.style.height=Math.round(v.height/dpr)+'px';box.appendChild(c);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise}
+    const PG=[],goPage=async d=>{try{const dest=typeof d==='string'?await doc.getDestination(d):d;if(!dest)return;const i=await doc.getPageIndex(dest[0]);PG[i]&&PG[i].scrollIntoView({behavior:'smooth',block:'start'})}catch(e){}};
+    for(let n=1;n<=doc.numPages;n++){if(!fv||fv.o!==o)return;const pg=await doc.getPage(n),v0=pg.getViewport({scale:1}),sc=W/v0.width,vc=pg.getViewport({scale:sc}),v=pg.getViewport({scale:sc*dpr}),c=document.createElement('canvas');
+      // Seite: Bild (canvas) + unsichtbare Textebene (markieren/kopieren) + Link-Ebene (antippbar)
+      const wr=document.createElement('div');wr.className='fvpg';wr.style.width=Math.round(vc.width)+'px';wr.style.height=Math.round(vc.height)+'px';PG.push(wr);
+      c.width=Math.round(v.width);c.height=Math.round(v.height);c.style.width='100%';c.style.height='100%';wr.appendChild(c);box.appendChild(wr);
+      await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
+      try{const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',sc);wr.appendChild(tl);
+        await lib.renderTextLayer({textContentSource:pg.streamTextContent(),container:tl,viewport:vc,textDivs:[]}).promise}catch(e){}
+      try{const an=await pg.getAnnotations();an.filter(a=>a.subtype==='Link'&&(a.url||a.dest)).forEach(a=>{const r=vc.convertToViewportRectangle(a.rect),x=Math.min(r[0],r[2]),y=Math.min(r[1],r[3]);
+          const l=document.createElement('a');l.className='fvlink';l.style.cssText=`left:${x}px;top:${y}px;width:${Math.abs(r[2]-r[0])}px;height:${Math.abs(r[3]-r[1])}px`;
+          if(a.url){l.href=a.url;l.target='_blank';l.rel='noopener';l.title=a.url}else{l.href='#';l.onclick=ev=>{ev.preventDefault();goPage(a.dest)}}wr.appendChild(l)})}catch(e){}}
     const ex=document.createElement('button');ex.className='chip';ex.textContent='Im Handy-Programm öffnen ›';ex.style.margin='12px auto 24px';ex.onclick=async()=>{const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=f.name||f.title+'.pdf';document.body.appendChild(a);a.click();a.remove()};box.appendChild(ex)}
   catch(e){if(fv&&fv.o===o)box.innerHTML='<p class="fvm">PDF konnte nicht geöffnet werden: '+esc(fErr(e))+'</p>'}})()}
 async function fOpen(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;
@@ -775,7 +784,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R69';
+const APP_VER='25.11. · R70';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
