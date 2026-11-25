@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R87';
+const APP_VER='25.11. · R88';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1133,10 +1133,11 @@ function buildMarkers(items){
       el('circle',{r:16,class:'ring'},grp);el('circle',{r:13.5,class:'dot',fill:'#7b5cc4'},grp);
       const t=el('text',{class:'ic',y:0.8},grp);t.textContent='🛏';it.hw=it.hh=16;
     }else if(it.kind==='tip'){
+      if(it.oth){grp.classList.add('oth');el('circle',{r:10,class:'ring'},grp);el('circle',{r:8,class:'dot',fill:it.color},grp);const t=el('text',{class:'ic',y:0.6,style:'font-size:9px'},grp);t.textContent=it.txt;it.hw=it.hh=10}else{
       el('circle',{r:15,class:'ring'},grp);
       el('circle',{r:12.5,class:'dot',fill:it.color},grp);
       const t=el('text',{class:'ic',y:0.8},grp);t.textContent=it.txt;
-      it.hw=it.hh=15;
+      it.hw=it.hh=15}
     }else if(it.kind==='star'){
       grp.classList.add('star');
       el('circle',{r:17,class:'ring'},grp);
@@ -1638,7 +1639,7 @@ function mapPins(items){
   const seen=new Set();
   D.ports.forEach(P=>(P.pois||[]).forEach((q,i)=>{const k=q.n+'|'+q.lat+'|'+q.lon;if(seen.has(k))return;seen.add(k);
     if((plan[P.day]||[]).some(s=>!s.x&&s.i===i))return;if(!OSM.f.has(tipCat(q)))return;
-    items.push({x:q.ox,y:q.oy,kind:'tip',lvl:'tip',pday:P.day,color:CAT[tipCat(q)].c,txt:tipIcon(q),label:q.n,prio:5,ca:q.ca,aria:q.n+' (Tipp, '+TYPES[q.t][0]+')',
+    const oth=sel!=null&&P.day!==sel;items.push({x:q.ox,y:q.oy,kind:'tip',lvl:'tip',pday:P.day,oth,color:CAT[tipCat(q)].c,txt:tipIcon(q),label:oth?'':q.n,prio:oth?3:5,ca:q.ca,aria:q.n+' (Tipp, '+TYPES[q.t][0]+')',
       onClick:()=>tipDlg(P.day,i),onHover:v=>{if(sel===P.day){const c=$('#poi'+i);if(c)c.classList.toggle('hl',v)}}})}));
   Object.keys(plan).forEach(d=>{const P=byDay(+d);if(!P)return;(plan[d]||[]).forEach((s,k)=>{let xy,nm=s.n;
     if(s.x){if(s.lat==null)return;xy=llxy(s.lat,s.lon)}else{const q=(P.pois||[])[s.i];if(!q)return;xy=[q.ox,q.oy];nm=q.n}
@@ -1648,16 +1649,23 @@ function mapPins(items){
 }
 var mapT=0;function mapSoon(){if(mapT)return;mapT=requestAnimationFrame(()=>{mapT=0;try{if(!M)return;const p=sel!=null?byDay(sel):null;drawMain(pm(p)?p:null,true)}catch(e){}})}
 /* Infofenster für einen Tipp (gleicher Aufbau wie bei OpenStreetMap-Orten) */
-function tipDlg(day,i){const P=byDay(day),q=P&&(P.pois||[])[i];if(!q)return;const c=CAT[tipCat(q)],w=WALK[q.w],inPl=(plan[day]||[]).some(s=>!s.x&&s.i===i);
-  openSheet(`<div class="hd"><h3 style="margin:0">${esc(q.n)}<small class="hds">Tipp · Tag ${P.day} · ${esc(fmtDate(P.date))} · ${esc(P.name)}</small></h3></div>
+function tipDlg(day,i){const P=byDay(day),q=P&&(P.pois||[])[i];if(!q)return;const c=CAT[tipCat(q)],w=WALK[q.w];
+  const tgt=sel!=null&&byDay(sel)?sel:day,T=byDay(tgt),same=tgt===day;
+  // schon im Plan? (am eigenen Tag als Tipp oder an einem anderen Tag als eigener Eintrag mit gleicher Lage)
+  const where=[];D.ports.forEach(X=>(plan[X.day]||[]).forEach((s,k)=>{if((X.day===day&&!s.x&&s.i===i)||(s.x&&s.lat===q.lat&&s.lon===q.lon))where.push({d:X.day,k})}));
+  const addTo=d=>{const X=byDay(d);if(!X)return;closeDlg();const u=planSnap(d);
+    if(d===day)planAdd(P,i);else{(plan[d]=plan[d]||[]).push({x:1,n:q.n,lat:q.lat,lon:q.lon,s:Math.max(5,(q.g&&q.g.s)||60),t:0,at:'',note:''});savePlan();refreshPlan(X)}
+    undoToast(`„${q.n}“ zu Tag ${d} hinzugefügt.`,u)};
+  openSheet(`<div class="hd"><h3 style="margin:0">${esc(q.n)}<small class="hds">${same?`Tipp · Tag ${P.day} · ${esc(fmtDate(P.date))} · ${esc(P.name)}`:`Tipp aus Tag ${P.day} · ${esc(P.name)}`}</small></h3></div>
   <p style="margin:0 0 10px;display:flex;gap:6px;flex-wrap:wrap"><span class="tag" style="background:${c.c};color:#fff">${tipIcon(q)} ${esc(TYPES[q.t][0])}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km vom Hafen</span></p>
   <p style="margin:0 0 8px">${esc(q.d||'')}</p>${q.g?`<p class="src" style="margin:0">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}
-  ${inPl?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan von Tag ${P.day}</p><div class="btns bar"><button class="chip del" id="tprm" style="margin-left:auto">Aus dem Plan entfernen</button></div>`:''}
-  ${!inPl&&q.g?'<div class="btns bar"><button class="chip btn" id="tpadd">+ Plan</button></div>':''}
-  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="tpday">Tag ${P.day} öffnen ›</button><a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">Google Maps ›</a></div>`,d=>{
-    const rm=d.querySelector('#tprm');if(rm)rm.onclick=()=>{closeDlg();const u=planSnap(P.day),L=plan[P.day]||[],j=L.findIndex(s=>!s.x&&s.i===i);if(j>=0){L.splice(j,1);savePlan();refreshPlan(P);renderDays();updatePills();undoToast(`„${q.n}“ aus Tag ${P.day} entfernt.`,u)}};
-    const a=d.querySelector('#tpadd');if(a)a.onclick=()=>{closeDlg();planAdd(P,i);undoToast(`„${q.n}“ zu Tag ${P.day} hinzugefügt.`,()=>{const L=plan[P.day]||[],j=L.findIndex(s=>!s.x&&s.i===i);if(j>=0){L.splice(j,1);savePlan();refreshPlan(P)}})};
-    d.querySelector('#tpday').onclick=()=>{closeDlg();setTimeout(()=>{select(P.day);setTab('poi');setTimeout(()=>focusCard('poi',i),40)},60)}})}
+  ${where.length?`<p style="margin:10px 0 0;font-weight:600;color:var(--plan)">★ Im Tagesplan von Tag ${[...new Set(where.map(x=>x.d))].join(', ')}</p>`:''}
+  <div class="btns bar">${where.some(x=>x.d===tgt)?`<button class="chip del" id="tprm" style="margin-left:auto">Aus Tag ${tgt} entfernen</button>`:`<button class="chip btn" id="tpadd">${same?'+ Zum Tagesplan':'+ Zu Tag '+tgt+' hinzufügen'}</button><button class="chip" id="tpoth">Anderer Tag …</button>`}</div>
+  <div class="acts" style="margin-top:10px"><a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">Google Maps ›</a></div>`,d=>{
+    const rm=d.querySelector('#tprm');if(rm)rm.onclick=()=>{const x=where.find(x=>x.d===tgt);if(!x)return;closeDlg();const u=planSnap(tgt),n=q.n;plan[tgt].splice(x.k,1);savePlan();refreshPlan(T);undoToast(`„${n}“ aus Tag ${tgt} entfernt.`,u)};
+    const a=d.querySelector('#tpadd');if(a)a.onclick=()=>addTo(tgt);
+    const o=d.querySelector('#tpoth');if(o)o.onclick=()=>{d.querySelector('.btns.bar').outerHTML='<div class="tpdays">'+D.ports.map(X=>`<button class="chip${X.day===tgt?' on':''}" data-tpd="${X.day}"><b>Tag ${X.day}</b> ${esc(X.name.split(' / ')[0])}</button>`).join('')+'</div>';
+      d.querySelectorAll('[data-tpd]').forEach(b=>b.onclick=()=>addTo(+b.dataset.tpd))}})}
 function pm(p){return !!(p&&p.lat!=null&&p.ox!=null&&(p.pois||(plan[p.day]||[]).some(s=>s.x&&s.lat!=null)))}
 let mapMin=false;
 try{mapMin=localStorage.getItem('rp-map-min')==='1'}catch(e){}
