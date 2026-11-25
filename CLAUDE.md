@@ -52,6 +52,8 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Übersichtskarte (ganze Route) über Menü → „Übersichtskarte“, gleiche Seite. PC unverändert.
 - Reise-Mappe ist Hauptseite (`showMappe`, `mappeView`, Hash `#mappe`). Im Reiseplan je Tag „Details ›“ (`.tdd`).
   Tageswechsel auf der Tagesseite ersetzt den Verlauf (`nav(hash,true)`), Zurück führt direkt zur Herkunft.
+- Einträge: kein Wischen-Löschen mehr (nur ToDos); Löschen per Antippen im Fenster (Tipps: `tipDlg` „Aus dem Plan entfernen“).
+  „+ Eintrag/+ Datei“ nur auf der Tagesseite. Scroll-Stelle je Hauptseite (`restoreScroll`), erneutes Tippen = nach oben.
 - Menü: Suche, ToDos, Übersichtskarte, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
 - **Große Ansichten = eigene Seite** (`asPage()` bzw. Klasse `.dlg.full.page`, oben „‹“): Deckplan, Getränke,
   Suche, Einstellungen, Reise-Mappe, Spiele-Lobby. Quiz und Spider sind eigene Vollbild-Seiten (`.dlg.full`).
