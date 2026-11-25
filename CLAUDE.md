@@ -9,6 +9,10 @@ Alles Reisebezogene (Stationen, Daten, Zeiten, Ausflüge, Fotos, Namen der Reise
 Länder-Infos, Quizfragen, Deckplan …) liegt **nur in Firestore** und wird nach der
 Google-Anmeldung geladen. Niemals Namen, E-Mail-Adressen, Reisedaten oder `*.trip.json`
 committen (`.gitignore` schließt `*.trip.json` aus).
+Das gilt auch für **Commit-Nachrichten, Code-Kommentare, Doku-Beispiele und Reise-Kennungen im Code**
+(keine echten Trip-IDs wie `<name>-<jahr>`, keine Ziel-/Schiffs-/Veranstalternamen echter Reisen).
+Beispiele in der Doku immer erfunden und als „erfunden“ markiert (siehe `docs/beispiel/`).
+Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – nichts Privates mehr nachtragen.
 
 ## Dateien
 - `index.html` – Oberfläche, CSS und der **Lader** (Anmeldung → Daten aus Firestore → `app.js` starten).
@@ -36,7 +40,7 @@ committen (`.gitignore` schließt `*.trip.json` aus).
 - Vorsicht bei Code, der beim Start läuft: `const`/`let` erst nach ihrer Zeile nutzbar
   (Startfehler „Cannot access … before initialization“). Ladebildschirm zeigt solche Fehler an.
 
-## Aufbau der App (Stand R55)
+## Aufbau der App (Stand R66)
 - Untere Leiste: Karte · Reiseplan · **Mein Tag (Mitte)** · An Bord · Menü.
 - Menü: Suche, ToDos, Reise-Mappe, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.
 - **Große Ansichten = eigene Seite** (`asPage()` bzw. Klasse `.dlg.full.page`, oben „‹“): Deckplan, Getränke,
@@ -67,8 +71,15 @@ committen (`.gitignore` schließt `*.trip.json` aus).
 - Google Maps teilen → Eintrag (`shareCheck`), Kurzlinks über Cloud Function `mapLink`, Pins werden offline nachgeholt.
 - Unterkunft je Nacht (`STAYS`, `stayDlg`, nur ohne Schiff), Fahrstrecken nach Straßen (`DRIVE`, `driveCalc` über OSRM),
   An- und Abreise für alle Reisen (`TRV`, `tvDlg`, `tvSum`: Zeiten in Ortszeit, Dauer/Zeitumstellung über Zeitzonen).
+- Import-Datei: vollständige Doku `docs/IMPORT-FORMAT.md`, Prüfung `tripcheck.js` läuft beim Import (`__checkTrip` im Lader)
+  und per `node tripcheck.js datei.json`. Feld `data.info` (Infobox „Wichtig vor Ort“) entfällt, wird ignoriert.
+- PC (ab 861 px): breitere Seiten, Listen-Ansichten über die volle Fläche – alle PC-Regeln in einem `@media (min-width:861px)`-Block
+  in index.html; Handy-Layout (≤ 860 px) davon unberührt. Vor Änderungen am Layout Handy-Screenshots vorher/nachher vergleichen.
 - Kreuzfahrt: Ein-/Ausschiffung je Station `emb` (Tag 1/letzter Tag; `embFormHTML`, `embMarks`, `embWarn`), Warnungen zur An-/Abreise.
 - Offline-Daten im Hintergrund: `places.txt` (GeoNames, CC BY), `airports.txt` (OpenFlights, ODbL), `tzlookup.js` (CC0).
+- Ortssuche: fehlt eine Hausnummer in OpenStreetMap, wird die eigene Eingabe mit Lage der nächsten Hausnummer angeboten (`hnOffer`);
+  gewählte Orte speichern `n` (Straße) und `a` (PLZ Ort). `putDoc` entfernt leere Felder (Firestore lehnt `undefined` ab).
+- Leere Datums-/Uhrzeitfelder zeigen grauen Beispieltext (`phMark`, Klasse `.empty`).
 - Vorschauen vor dem Live-Gang auf dem Branch `vorschau` (wird wiederverwendet), live = `main`.
 
 ## Design-Regeln (mit dem Nutzer abgestimmt)
