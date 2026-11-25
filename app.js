@@ -801,7 +801,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R86';
+const APP_VER='25.11. · R87';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -910,7 +910,7 @@ function tip2Html(el,html){
 }
 let todoView=false;bordView=false;
 function showTodo(list,fromHash){
-  if(fromHash!==true)saveScroll();
+  if(fromHash!==true)saveScroll();if(!(todoView&&!bordView&&!mappeView))DAYFROM=sel!=null?DAYFROM:todayView?'today':tripView?'trip':mappeView?'mappe':bordView?'bord':DAYFROM;
   todoView=true;bordView=false;tripView=false;mappeView=false;sel=null;if(list)tdList=list;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;hideTip2();
   if(fromHash!==true)nav('#todos');
 }
@@ -2429,7 +2429,7 @@ function fitMap(){const mc=document.querySelector('.mapcol'),bn=document.getElem
   const top=mc.getBoundingClientRect().top+window.scrollY,bh=bn&&getComputedStyle(bn).display!=='none'?bn.offsetHeight:0;
   const h=Math.max(260,Math.floor(window.innerHeight-top-bh));if(document.body.style.getPropertyValue('--fitmap')!==h+'px'){document.body.style.setProperty('--fitmap',h+'px');if(typeof M!=='undefined'&&M){measure();applyVB()}}}
 addEventListener('resize',()=>setTimeout(fitMap,60));addEventListener('orientationchange',()=>setTimeout(fitMap,250));
-function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':mappeView?'mappe':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=(k==='todo'||k==='mappe')&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const ph=k==='map'&&matchMedia('(max-width:860px)').matches;document.body.classList.toggle('dpage',ph);if(ph){const lb={trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos',mappe:'Mappe'}[DAYFROM]||'Reiseplan',pp=sel!=null?byDay(sel):null;$('#pgback span').textContent=lb;$('#pgttl').textContent=pp?'Tag '+pp.day+' · '+pp.name:'Übersichtskarte'}}{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
+function navMark(){const k=todayView?'today':tripView?'trip':todoView?(bordView?'bord':mappeView?'mappe':'todo'):'map';const vm=k==='map'&&sel==null,was=document.body.classList.contains('v-map'),vt=(k==='todo'||k==='mappe')&&sel==null,wt=document.body.classList.contains('v-todo');document.body.classList.toggle('v-map',vm);document.body.classList.toggle('v-todo',vt);document.body.classList.toggle('v-today',k==='today'&&sel==null);document.body.classList.toggle('v-bord',k==='bord'&&sel==null);if((vm!==was||vt!==wt)&&typeof M!=='undefined'&&M)setTimeout(()=>{measure();if(Date.now()>skipHome)home();applyVB()},50);hereTag(vm);const hk=k==='map'&&matchMedia('(max-width:860px)').matches?DAYFROM:k;document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.classList.toggle('on',b.dataset.n===hk));{const ph=(k==='map'||k==='todo')&&matchMedia('(max-width:860px)').matches;document.body.classList.toggle('dpage',ph);if(ph){const lb={trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos',mappe:'Mappe'}[DAYFROM]||'Reiseplan',pp=sel!=null?byDay(sel):null;$('#pgback span').textContent=lb;$('#pgttl').textContent=k==='todo'?'ToDos':pp?'Tag '+pp.day+' · '+pp.name:'Übersichtskarte';$('#pgnav').hidden=!pp;if(pp){const B=document.querySelectorAll('#pgnav button');B[0].disabled=pp.day<=1;B[1].disabled=pp.day>=D.ports.length}}}{const mb=$('#mback');if(mb){mb.hidden=k!=='map';mb.setAttribute('aria-label','Zurück zu '+({trip:'Reiseplan',today:'Mein Tag',bord:'An Bord',todo:'ToDos'}[DAYFROM]||'Reiseplan'))}}setTimeout(fitMap,0)}
 function goTop(){const w=$('#panel');if(w)w.scrollTop=0;window.scrollTo(0,0)}
 /* Globale Suche über alles */
 const nrm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -2463,6 +2463,7 @@ function searchDlg(){
   });
 }
 $('#pgback').onclick=()=>$('#mback').click();
+document.querySelectorAll('#pgnav [data-pgd]').forEach(b=>b.onclick=()=>{if(sel!=null)stepDay(sel+ +b.dataset.pgd)});
 $('#mback').onclick=()=>{const f={today:showToday,bord:showBord,mappe:showMappe,todo:()=>showTodo()}[DAYFROM]||showTrip;if(history.state&&history.state.v&&history.length>1)history.back();else f()};
 $('#srchb').onclick=searchDlg;$('#drkb').onclick=drinksDlg;$('#dkb').onclick=()=>deckDlg();
 document.querySelectorAll('#bnav button,.hbtns [data-n]').forEach(b=>b.onclick=()=>{hideTip2();const k=b.dataset.n,HS={trip:'#plan',today:'#heute',bord:'#bord',mappe:'#mappe',todo:'#todos'},cur=sel==null?(todayView?'today':tripView?'trip':todoView?(bordView?'bord':mappeView?'mappe':'todo'):''):'',same=cur===k;if(HS[k])setTimeout(()=>same?goTop():restoreScroll(HS[k]),0);
