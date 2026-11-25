@@ -784,7 +784,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R70';
+const APP_VER='25.11. · R71';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
@@ -1721,6 +1721,11 @@ function tvSum(o){const S=(o&&o.segs||[]).filter(s=>s.f&&s.t&&s.dd&&s.dt);if(!S.
 function tvShort(p,first){if(!p)return '?';if(p.c)return p.c+' '+p.n;let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}
   const city=a.replace(/^\d{4,5}\s+/,'').trim(),street=/\d/.test(n)?n.replace(/\s*\d+\s*[a-zA-Z]?\s*$/,''):'';
   return city?(first||!street?city:city+' · '+street):n}
+async function tvFillA(k){tvFillA.d[k]=1;const o=TRV[k];if(!o||navigator.onLine===false)return;let ch=0;
+  for(const x of o.segs||[])for(const pl of [x.f,x.t]){if(!pl||pl.a||pl.c||pl.lat==null)continue;const n=pl.n||'',i=n.indexOf(',');if(i>0&&/\d/.test(n.slice(0,i))){pl.a=n.slice(i+1).trim();pl.n=n.slice(0,i).trim();ch=1;continue}
+    try{const j=await (await fetch(PHOTON.replace(/api\/?$/,'reverse')+'?lat='+pl.lat+'&lon='+pl.lon+'&lang=de')).json(),r=((j.features||[])[0]||{}).properties||{},c=r.city||r.town||r.village||'';if(c){pl.a=(r.postcode?r.postcode+' ':'')+c;ch=1}}catch(e){}}
+  if(ch)tvPut(k,o)}
+tvFillA.d={};
 /* An-/Abreise als Zeitleiste: mode 'open' = aufgeklappt, sonst zugeklappt (außer an den Reisetagen selbst) */
 function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   if(!o)return mode==='sum'?'':`<div class="tvb add"><button class="lnk" data-tv="${k}">+ ${lbl} eintragen</button><small>Flug, Zug oder Auto – mit Zeitumstellung</small></div>`;
@@ -1728,15 +1733,18 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
   if(!s)return `<div class="tvb"><div class="tvh"><b>${ic} ${lbl}</b><button class="lnk" data-tv="${k}">Bearbeiten ›</button></div><small>noch unvollständig</small></div>`;
   const plus=x=>x.ad&&x.ad>x.dd?'<sup>+'+Math.round((new Date(x.ad)-new Date(x.dd))/864e5)+'</sup>':'';
   const row=(t,i,name,sub,cls)=>`<div class="tvr${cls?' '+cls:''}"><span class="tvt">${t}</span><span class="tvi">${i}</span><span class="tvn"><b>${name}</b>${sub?`<small>${sub}</small>`:''}</span></div>`;
+  const adr=p=>{if(!p)return ['?',''];if(p.c)return [p.c+' '+p.n,''];let n=p.n||'',a=p.a||'';const k=n.indexOf(',');if(!a&&k>0&&/\d/.test(n.slice(0,k))){a=n.slice(k+1).trim();n=n.slice(0,k).trim()}return [n,a]};
+  const R2=(t,i,pl,sub,cls)=>{const [n,a]=adr(pl);return row(t,i,esc(n),[a?esc(a):'',sub].filter(Boolean).join(' · '),cls)};
+  if(!tvFillA.d[k])tvFillA(k);
   let h='',merged=false;const legSub=x=>[x.no?esc(x.no):'',sm(x)==='car'&&x.km?x.km.toLocaleString('de-DE')+' km · '+durTxt(x.min):''].filter(Boolean).join(' · ');
   s.S.forEach((x,j)=>{const m=sm(x),ico=(TVM[m]||TVM.plane)[0];
-    if(!merged)h+=row(x.dt,ico,esc(tvShort(x.f,j===0)),legSub(x));merged=false;
+    if(!merged)h+=R2(x.dt,ico,x.f,legSub(x));merged=false;
     const nx=s.S[j+1],tA=x.at?(x.calc?'~':'')+x.at+plus(x):'?';
-    if(!nx){h+=row(tA,m==='plane'?'🛬':'🏁',esc(tvShort(x.t)),'','end');return}
+    if(!nx){h+=R2(tA,m==='plane'?'🛬':'🏁',x.t,'','end');return}
     const wait=x.ad&&x.at?(utcOf(nx.dd,nx.dt,nx.f.tz)-utcOf(x.ad,x.at,x.t.tz))/6e4:null,w=wait!=null&&wait>=0?durTxt(wait):'';
     if(tvShort(nx.f)===tvShort(x.t)){ // gleicher Ort: Umstieg in einer Zeile, weiter mit der nächsten Strecke
-      h+=row(tA,'🔁',esc(tvShort(x.t)),[w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
-    else h+=row(tA,'📍',esc(tvShort(x.t)),w?'⏱ '+w+' bis zur Weiterreise':'','mid')});
+      h+=R2(tA,'🔁',x.t,[w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
+    else h+=R2(tA,'📍',x.t,w?'⏱ '+w+' bis zur Weiterreise':'','mid')});
   const chips=[s.dur!=null?`<span>⏱ ${durTxt(s.dur)}</span>`:'',s.shift?`<span class="w">🕒 Uhr ${s.shift>0?'+':'−'}${Math.abs(s.shift)} Std.</span>`:'',s.shift&&s.home&&k==='out'?`<span>🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}</span>`:''].filter(Boolean).join('');
   const cs=s.S.filter(x=>sm(x)==='car').pop(),nav=cs&&cs.t.lat!=null?`<a class="lnk" href="https://www.google.com/maps/dir/?api=1&origin=${cs.f.lat},${cs.f.lon}&destination=${cs.t.lat},${cs.t.lon}&travelmode=driving" target="_blank" rel="noopener">Navigation ›</a>`:'';
   const head=`${ic} ${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
