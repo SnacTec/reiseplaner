@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Nur diese Google-Konten (gleiche Liste wie in firestore.rules, E-Mails klein schreiben).
+    // Die echten Adressen nur in der Firebase-Konsole eintragen, nicht hier im öffentlichen Repository.
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email.lower() in ['<mail1>', '<mail2>'];
+    }
+
+    // Hochladen: höchstens 25 MB pro Datei
+    function okSize() {
+      return request.resource == null || request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // Reise-Mappe: gemeinsame Dateien je Reise
+    match /trips/{trip}/files/{file} {
+      allow read: if allowed();
+      allow write: if allowed() && okSize();
+    }
+
+    // Private Dateien: nur die Person selbst
+    match /trips/{trip}/users/{uid}/files/{file} {
+      allow read, write: if allowed() && request.auth.uid == uid && okSize();
+    }
+
+    // Alles andere gesperrt
+    match /{all=**} { allow read, write: if false; }
+  }
+}

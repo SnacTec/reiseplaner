@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Nur diese Google-Konten (E-Mail-Adressen klein schreiben).
+    // Die echten Adressen nur in der Firebase-Konsole eintragen, nicht hier im öffentlichen Repository.
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email.lower() in ['<mail1>', '<mail2>'];
+    }
+
+    // Reisen: Stammdaten (Stationen, Zeiten, Ausflüge, Fotos) und alle gemeinsamen Einträge je Reise
+    match /trips/{trip} {
+      allow read, write: if allowed();
+
+      match /{coll}/{id} {
+        allow read: if allowed();
+        // Getränke-Favoriten und Mitreisenden-Eintrag: jeder schreibt nur sein eigenes Dokument (ID = Nutzer-ID)
+        // Quiz-Punkte (plandays/quiz_<uid>): nur die eigenen
+        allow write: if allowed()
+          && ((coll != 'drinkfavs' && coll != 'members') || request.auth.uid == id)
+          && (coll != 'plandays' || !id.matches('quiz_.*') || id == 'quiz_' + request.auth.uid);
+      }
+
+      // Private Listen und Aufgaben: nur die Person selbst kann sie lesen und schreiben
+      match /users/{uid}/{coll}/{id} {
+        allow read, write: if allowed() && request.auth.uid == uid;
+      }
+    }
+
+    // Schiffe: Deckplan, Getränkekarte (für mehrere Reisen nutzbar)
+    match /ships/{ship} {
+      allow read, write: if allowed();
+      match /{coll}/{id} { allow read, write: if allowed(); }
+    }
+
+    // Allgemeine Einstellungen (z. B. welche Reise aktiv ist)
+    match /config/{id} { allow read, write: if allowed(); }
+
+    // Alles andere ist gesperrt
+    match /{document=**} { allow read, write: if false; }
+  }
+}
