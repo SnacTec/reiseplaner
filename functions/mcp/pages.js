@@ -19,9 +19,9 @@ const error = msg => shell('Reiseplaner – Anmeldung', `<h1>Reiseplaner</h1><p>
 const consent = ({ id, csrf, email, client, trip }) => shell('Reiseplaner – Zugriff erlauben', `<h1>Zugriff erlauben?</h1>
 <p><b>${esc(client)}</b> möchte deinen Reiseplan <b>lesen</b>.</p>
 <ul><li>Angemeldet als <b>${esc(email)}</b></li><li>Reise: ${esc(trip)}</li>
-<li>Nur lesen: Tage, Orte, Zeiten, Einträge, Ausflüge, Abendessen, Tipps</li><li>Nicht: Sitzplätze, Buchungsnummern, Kabine, Adresse, Namen</li></ul>
+<li>Nur lesen: Tage, Orte, Zeiten, Einträge (mit Notizen), Ausflüge, Abendessen, Tipps, Dateinamen der Mappe</li><li>Nicht: Sitzplätze, Buchungsnummern, Kabinen-/Tischnummer, Adressen, eure Namen und E-Mail-Adressen, Dateiinhalte</li></ul>
 <p class="w">Nur fortfahren, wenn du <b>gerade selbst</b> in Claude auf „Verbinden“ getippt hast.</p>
-<p class="m">Was Claude liest, landet in deinem Claude-Verlauf bei Anthropic. Trennen jederzeit in der Reise-App unter Einstellungen → Konto.</p>
+<p class="m">Was Claude liest, landet in deinem Claude-Verlauf bei Anthropic. Trennen jederzeit in Claude (Konnektor entfernen).</p>
 <form method="post" action="/authorize/complete" class="b"><input type="hidden" name="req" value="${esc(id)}"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="p" name="decision" value="allow" type="submit">Erlauben</button><button name="decision" value="deny" type="submit">Ablehnen</button></form>`);
 

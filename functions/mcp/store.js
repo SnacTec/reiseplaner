@@ -10,7 +10,7 @@ function firestoreStore(db, admin) {
     async del(p) { await ref(p).delete(); },
     async list(col) { const s = await db.collection(col).get(); return s.docs.map(d => ({ id: d.id, data: d.data() })); },
     async where(col, field, value) { const s = await db.collection(col).where(field, '==', value).get(); return s.docs.map(d => ({ id: d.id, data: d.data() })); },
-    async incr(p, field, by) { await ref(p).set({ [field]: admin.firestore.FieldValue.increment(by), exp: new Date(Date.now() + 2 * 864e5) }, { merge: true }); },
+    async incr(p, field, by) { await ref(p).set({ [field]: admin.firestore.FieldValue.increment(by), ttl: new Date(Date.now() + 2 * 864e5) }, { merge: true }); },
     // Transaktion: fn bekommt {get(p), set(p,data,merge)}; alles oder nichts
     async txn(fn) {
       return db.runTransaction(async t => fn({

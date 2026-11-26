@@ -16,13 +16,20 @@ const err = (res, code, error, desc) => res.status(code).set('Cache-Control', 'n
 /* einfache Begrenzung je Schlüssel im Arbeitsspeicher der Instanz */
 function limiter(max, winMs) {
   const m = new Map();
-  return k => { const t = Date.now(), a = (m.get(k) || []).filter(x => t - x < winMs); a.push(t); m.set(k, a); if (m.size > 5000) m.clear(); return a.length <= max; };
+  return k => {
+    const t = Date.now(), a = (m.get(k) || []).filter(x => t - x < winMs);
+    if (a.length >= max) { m.set(k, a); return false; }   // über dem Limit nicht weiter anhängen
+    a.push(t); m.delete(k); m.set(k, a);
+    if (m.size > 5000) m.delete(m.keys().next().value);   // ältesten Schlüssel verdrängen, nicht alle zurücksetzen
+    return true;
+  };
 }
 
 function oauth(deps) {
   const S = deps.store, now = deps.now || now0;
   const H = s => U.hmac(deps.pepper(), s);
-  const lim = { auth: limiter(C.LIMITS.authPerHour, 3600e3), reg: limiter(C.LIMITS.registerPerHour, 3600e3), token: limiter(C.LIMITS.authPerHour * 2, 3600e3) };
+  const lim = { auth: limiter(C.LIMITS.authPerHour, 3600e3), reg: limiter(C.LIMITS.registerPerHour, 3600e3), token: limiter(C.LIMITS.authPerHour * 2, 3600e3), bad: limiter(C.LIMITS.badPerHour, 3600e3) };
+  const TOK_RE = /^[A-Za-z0-9_-]{43}$/;   // Form unserer Codes/Tokens (rand(32)) – andere gar nicht erst nachschlagen
   const ttl = ms => new Date(now() + ms);   // für die Firestore-TTL-Richtlinie (Feld „ttl“); geprüft wird immer „exp“
 
   async function activeTrip() { const c = await S.get('config/app'); const id = c && c.activeTrip; return /^[\w-]{1,80}$/.test(String(id || '')) ? id : null; }
@@ -30,9 +37,9 @@ function oauth(deps) {
   const allowed = email => !!email && deps.allowed().has(String(email).toLowerCase());
 
   async function client(id) {
-    if (id === C.FIXED_CLIENT_ID) return { id, redirect_uris: [C.CLAUDE_REDIRECT] };
+    if (id === C.FIXED_CLIENT_ID) return { id, redirect_uris: C.CLAUDE_REDIRECTS };
     if (!/^c_[A-Za-z0-9_-]{20,64}$/.test(String(id || ''))) return null;
-    const c = await S.get('mcp_clients/' + id); return c && c.exp > now() ? { id, redirect_uris: c.redirect_uris } : null;
+    const c = await S.get('mcp_clients/' + id); return c && c.exp > now() ? { id, redirect_uris: c.redirect_uris, exp: c.exp } : null;
   }
 
   /* ---------- Metadaten ---------- */
@@ -48,13 +55,15 @@ function oauth(deps) {
   async function register(req, res) {
     if (!lim.reg(U.clientIp(req))) return err(res, 429, 'slow_down', 'Zu viele Registrierungen');
     const b = req.body || {}, ru = Array.isArray(b.redirect_uris) ? b.redirect_uris : [];
-    if (!ru.length || ru.some(u => u !== C.CLAUDE_REDIRECT)) return err(res, 400, 'invalid_redirect_uri', 'Nur die Rücksprungadresse von Claude ist erlaubt');
-    if (b.token_endpoint_auth_method && b.token_endpoint_auth_method !== 'none') return err(res, 400, 'invalid_client_metadata', 'Nur öffentliche Clients (none)');
+    if (!ru.length || ru.some(u => !C.CLAUDE_REDIRECTS.includes(u))) return err(res, 400, 'invalid_redirect_uri', 'Nur die Rücksprungadresse von Claude ist erlaubt');
+    // andere Client-Authentifizierung wird nicht abgelehnt, sondern durch „none“ ersetzt (RFC 7591, 3.2.1)
+    const uris = [...new Set(ru)];
     const act = (await S.list('mcp_clients')).filter(x => x.data && x.data.exp > now());
     if (act.length >= C.LIMITS.maxClients) return err(res, 400, 'invalid_client_metadata', 'Zu viele registrierte Clients');
+    // unbenutzte Clients verfallen nach 1 h (sonst ließen sich alle Plätze 90 Tage blockieren); jede Token-Ausgabe verlängert
     const id = 'c_' + U.rand(24), t = now();
-    await S.set('mcp_clients/' + id, { redirect_uris: [C.CLAUDE_REDIRECT], name: U.clean(b.client_name || '', 60), created: t, exp: t + C.TTL.client, ttl: ttl(C.TTL.client) });
-    res.status(201).set('Cache-Control', 'no-store').json({ client_id: id, client_id_issued_at: Math.floor(t / 1000), redirect_uris: [C.CLAUDE_REDIRECT], token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'] });
+    await S.set('mcp_clients/' + id, { redirect_uris: uris, name: U.clean(b.client_name || '', 60), created: t, exp: t + C.TTL.clientUnused, ttl: ttl(C.TTL.clientUnused) });
+    res.status(201).set('Cache-Control', 'no-store').json({ client_id: id, client_id_issued_at: Math.floor(t / 1000), redirect_uris: uris, token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'] });
   }
 
   /* ---------- 1. Anmeldestart ---------- */
@@ -116,7 +125,8 @@ function oauth(deps) {
     if (!b.csrf || !U.safeEq(p.csrf || '', H(String(b.csrf)))) return res.status(400).send(P.error('Ungültige Anfrage.'));
     if (now() - p.authAt > C.TTL.authAge) return res.status(400).send(P.error('Die Google-Anmeldung ist zu lange her. Bitte erneut verbinden.'));
     // Anfrage genau einmal verbrauchen
-    const ok = await S.txn(async t => { const x = await t.get('mcp_pending/' + H(id)); if (!x || x.used) return false; t.set('mcp_pending/' + H(id), { used: true }, true); return true; });
+    // Anfrage genau einmal verbrauchen; dabei prüfen, dass sie seit dem Lesen nicht verändert wurde (Konto/CSRF)
+    const ok = await S.txn(async t => { const x = await t.get('mcp_pending/' + H(id)); if (!x || x.used || x.uid !== p.uid || x.csrf !== p.csrf || x.authAt !== p.authAt) return false; t.set('mcp_pending/' + H(id), { used: true }, true); return true; });
     if (!ok) return res.status(400).send(P.error('Diese Anmeldung wurde schon verwendet.'));
     U.setCookie(res, '', 0);
     const back = q => res.set('Cache-Control', 'no-store').redirect(302, `${p.redirect_uri}?${q}&state=${encodeURIComponent(p.state)}&iss=${encodeURIComponent(C.BASE)}`);
@@ -135,6 +145,11 @@ function oauth(deps) {
     await S.set('mcp_tokens/' + H(r), { kind: 'refresh', uid, family: fam, aud: C.RESOURCE, scope, exp: t + C.TTL.refresh, ttl: ttl(C.TTL.refresh) });
     return { access_token: a, token_type: 'Bearer', expires_in: Math.round(C.TTL.access / 1000), refresh_token: r, scope };
   }
+  // DCR-Client lebt so lange wie seine Nutzung: jede Token-Ausgabe verlängert auf 90 Tage (höchstens einmal am Tag schreiben)
+  async function keepClient(cl) {
+    if (cl.id === C.FIXED_CLIENT_ID || cl.exp - now() > C.TTL.client - 864e5) return;
+    await S.set('mcp_clients/' + cl.id, { exp: now() + C.TTL.client, ttl: ttl(C.TTL.client), used: true }, true);
+  }
   const revokeFamily = (fam, why) => fam && S.set('mcp_families/' + fam, { revoked: true, revokedAt: now(), why }, true);
 
   async function token(req, res) {
@@ -151,23 +166,28 @@ function oauth(deps) {
       const r = await S.txn(async t => {
         const c = await t.get(key); if (!c) return { e: 'invalid_grant' };
         if (c.used) return { e: 'invalid_grant', reuse: c.family };
-        if (c.exp <= now() || c.client_id !== cl.id || c.redirect_uri !== s('redirect_uri')) return { e: 'invalid_grant' };
+        // redirect_uri muss passen, wenn sie mitgeschickt wird (Claude/SDK schicken sie immer)
+        if (c.exp <= now() || c.client_id !== cl.id || (s('redirect_uri') !== undefined && c.redirect_uri !== s('redirect_uri'))) return { e: 'invalid_grant' };
         if (!U.safeEq(U.sha256b64u(ver), c.code_challenge)) return { e: 'invalid_grant' };
-        t.set(key, { used: true, family: fam }, true); return { c };
+        t.set(key, { used: true, family: fam }, true);
+        // Familie in derselben Transaktion anlegen (ein gleichzeitiger Widerruf kann nicht überschrieben werden)
+        const t0 = now(); t.set('mcp_families/' + fam, { uid: c.uid, email: c.email, client_id: cl.id, created: t0, lastUsed: t0, maxExp: t0 + C.TTL.family, revoked: false, ttl: ttl(C.TTL.family) });
+        return { c };
       });
       if (r.reuse) await revokeFamily(r.reuse, 'code-reuse');   // Code doppelt benutzt → alles daraus widerrufen
       if (r.e) return err(res, 400, r.e, 'Code ungültig, abgelaufen oder schon benutzt');
-      const c = r.c, t = now();
-      await S.set('mcp_families/' + fam, { uid: c.uid, email: c.email, client_id: cl.id, created: t, lastUsed: t, maxExp: t + C.TTL.family, revoked: false, ttl: ttl(C.TTL.family) });
-      return res.json(await issue(fam, c.uid, c.scope));
+      await keepClient(cl);
+      return res.json(await issue(fam, r.c.uid, r.c.scope));
     }
     if (s('grant_type') === 'refresh_token') {
       const rt = s('refresh_token'); if (!rt) return err(res, 400, 'invalid_request', 'refresh_token fehlt');
+      if (!TOK_RE.test(rt)) return err(res, 400, 'invalid_grant', 'Refresh-Token ungültig');
       const key = 'mcp_tokens/' + H(rt);
       const r = await S.txn(async t => {
         const x = await t.get(key); if (!x || x.kind !== 'refresh' || x.exp <= now()) return { e: 1 };
-        if (x.rotatedAt && now() - x.rotatedAt > C.TTL.grace) return { e: 1, reuse: x.family };   // alter Refresh-Token wiederverwendet
-        if (!x.rotatedAt) t.set(key, { rotatedAt: now() }, true);
+        // alter Refresh-Token wiederverwendet: nach dem Kulanzfenster oder ein zweites Mal → ganze Verbindung widerrufen
+        if (x.rotatedAt && (now() - x.rotatedAt > C.TTL.grace || x.graceUsed)) return { e: 1, reuse: x.family };
+        t.set(key, x.rotatedAt ? { graceUsed: true } : { rotatedAt: now() }, true);   // Kulanz genau einmal (z. B. Antwort ging verloren)
         return { x };
       });
       if (r.reuse) await revokeFamily(r.reuse, 'refresh-reuse');
@@ -180,20 +200,22 @@ function oauth(deps) {
       if (!allowed(f.email) || !u || u.disabled || (u.validAfter && u.validAfter > f.created) || !await isMember(trip, x.uid)) {
         await revokeFamily(x.family, 'access-removed'); return err(res, 400, 'invalid_grant', 'Zugang nicht mehr freigegeben');
       }
+      await keepClient(cl);
       return res.json(await issue(x.family, x.uid, x.scope));
     }
     return err(res, 400, 'unsupported_grant_type', 'Nur authorization_code und refresh_token');
   }
 
   async function revoke(req, res) {
+    if (!lim.bad(U.clientIp(req))) return err(res, 429, 'slow_down', 'Zu viele Anfragen');
     const tk = (req.body || {}).token;
-    if (typeof tk === 'string' && tk.length < 200) { const x = await S.get('mcp_tokens/' + H(tk)); if (x && x.family) await revokeFamily(x.family, 'revoked'); }
+    if (typeof tk === 'string' && TOK_RE.test(tk)) { const x = await S.get('mcp_tokens/' + H(tk)); if (x && x.family) await revokeFamily(x.family, 'revoked'); }
     res.status(200).set('Cache-Control', 'no-store').end();
   }
 
   /* ---------- Zugriffsprüfung für /mcp ---------- */
   async function verifyAccess(tok) {
-    if (!tok || tok.length > 200) return null;
+    if (!tok || !TOK_RE.test(tok)) return null;
     const x = await S.get('mcp_tokens/' + H(tok));
     if (!x || x.kind !== 'access' || x.exp <= now() || x.aud !== C.RESOURCE) return null;
     const f = await S.get('mcp_families/' + x.family);
@@ -216,6 +238,7 @@ function oauth(deps) {
     res.json({ connections: L.map(x => ({ id: x.id, created: x.data.created, lastUsed: x.data.lastUsed })) });
   }
 
-  return { prm, asm, register, authorize, googleCallback, complete, token, revoke, verifyAccess, connections, activeTrip, isMember };
+  const badOk = ip => lim.bad(ip);   // Begrenzung für Anfragen mit ungültigem Token (Kosten)
+  return { prm, asm, badOk, register, authorize, googleCallback, complete, token, revoke, verifyAccess, connections, activeTrip, isMember };
 }
 module.exports = { oauth };

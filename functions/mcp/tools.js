@@ -55,7 +55,7 @@ function tagPlan(v, X, a) {
   L.push(`Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''} (${KIND[p.kind] || p.kind})`);
   if (p.kind === 'port') { const m = /^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/.exec(p.times || ''); if (m) L.push(X.cruise ? `Liegezeit ${m[1]}–${m[2]}, alle an Bord ${RPDP.hm(RPDP.tm(m[2]) - 30)}` : `Aufenthalt ${m[1]}–${m[2]}`); }
   if (p.kind !== 'sea') { const de = RPDP.deOff(p.date) - X.dp.tzOf(p); L.push(de ? `Zeitunterschied: in Deutschland ist es ${Math.abs(de)} Std. ${de > 0 ? 'später' : 'früher'}` : 'Gleiche Uhrzeit wie in Deutschland'); }
-  const ev = X.dp.embList(p).map(e => ({ a: e.a, s: `${e.t} ${e.txt.replace(/^\S+\s/, '')}${e.extra ? ' · ' + clean(e.extra, 60) : ''}` }));
+  const ev = X.dp.embList(p).map(e => ({ a: e.a, s: `${clean(e.t, 8)} ${clean(e.txt.replace(/^\S+\s/, ''), 80)}${e.extra ? ' · ' + clean(e.extra, 60) : ''}` }));
   const rows = c.rows.map(r => ({ a: r.a == null ? 1e9 : r.a, s: rowLine(v, X, p, r) }));
   if (c.port && X.cruise && c.rows.length) rows.unshift({ a: c.W.on, s: `${RPDP.hm(c.W.on)} Von Bord gehen (frühestens)` });
   const all = ev.concat(rows).sort((x, y) => x.a - y.a);
@@ -76,7 +76,7 @@ function jetzt(v, X) {
   const L = [`Heute: Tag ${p.day} · ${clean(p.name, 60)}`], n = X.dp.nowNext(p), aab = X.dp.aabInfo(p);
   const ref = p.kind === 'sea' ? P.slice(0, P.indexOf(p)).reverse().find(q => q.kind !== 'sea') || p : p;
   L.push('Ortszeit jetzt: ' + X.dp.portNow(ref).hm);
-  if (aab) L.push(`${aab.big} ${aab.txt}`);
+  if (aab) L.push(clean(`${aab.big} ${aab.txt}`, 120));
   const nm = r => r.dinner ? 'Abendessen' : (r.tour ? X.op + '-Ausflug ' : '') + clean(r.q.n, 80);
   if (!n) L.push('Für heute ist nichts mit Uhrzeit geplant.');
   else if (!n.cur && !n.nx) L.push('Alles Geplante ist für heute erledigt.');
@@ -89,7 +89,7 @@ function anAb(v, X, a) {
   const s = RPDP.tvSum(o); if (!s) return HEAD + `${lbl}: noch nicht eingetragen.`;
   const pl = x => x ? (x.c ? x.c + ' ' + clean(x.n, 40) : clean(x.n, 40)) : '?', M = { plane: 'Flug', train: 'Zug', car: 'Auto', bus: 'Bus' };
   const L = [`${lbl} (alle Zeiten Ortszeit):`];
-  s.S.forEach(x => L.push(`- ${M[x.m || o.mode] || 'Strecke'}${x.no ? ' ' + clean(x.no, 12) : ''}: ${pl(x.f)} ab ${fmtDate(x.dd)} ${x.dt} → ${pl(x.t)} an ${x.ad ? fmtDate(x.ad) + ' ' : ''}${x.at || '?'}${x.calc ? ' (berechnet)' : ''}`));
+  s.S.forEach(x => L.push(`- ${M[x.m || o.mode] || 'Strecke'}${x.no ? ' ' + clean(x.no, 12) : ''}: ${pl(x.f)} ab ${fmtDate(x.dd)} ${clean(x.dt, 5)} → ${pl(x.t)} an ${x.ad ? fmtDate(x.ad) + ' ' : ''}${clean(x.at, 5) || '?'}${x.calc ? ' (berechnet)' : ''}`));
   if (s.dur != null) L.push('Gesamtdauer: ' + RPDP.durTxt(s.dur));
   s.lay.forEach(l => L.push(`Umstieg in ${pl(l.at)}: ${RPDP.durTxt(l.min)}`));
   if (s.shift) L.push(`Zeitumstellung: Uhr ${s.shift > 0 ? '+' : '−'}${Math.abs(s.shift)} Std.`);
@@ -104,7 +104,7 @@ function suchen(v, X, a) {
   v.ports.forEach(p => {
     const d = `Tag ${p.day} (${clean(p.name, 40)})`;
     if (n(p.name + ' ' + p.land).includes(q)) H.push(`${d}: Reiseziel`);
-    (v.plan[p.day] || []).forEach(s => { if (s.x && n(s.n + ' ' + (s.note || '')).includes(q)) H.push(`${d}: Eintrag „${clean(s.n, 60)}“${s.at ? ' um ' + s.at : ''}`); });
+    (v.plan[p.day] || []).forEach(s => { if (s.x && n(s.n + ' ' + (s.note || '')).includes(q)) H.push(`${d}: Eintrag „${clean(s.n, 60)}“${s.at ? ' um ' + clean(s.at, 5) : ''}`); });
     (p.pois || []).forEach(t => { if (n(t.n).includes(q)) H.push(`${d}: Tipp „${clean(t.n, 60)}“ (${TYPE[t.t] || ''})`); });
     (p.ex || []).forEach(e => { if (n(e.c + ' ' + e.n).includes(q)) H.push(`${d}: ${X.op}-Ausflug ${clean(e.c, 12)} „${clean(e.n, 60)}“${X.dp.isPicked(p, e) ? ' (gewählt)' : ''}`); });
   });
@@ -114,7 +114,7 @@ function suchen(v, X, a) {
 
 function tipps(v, X, a) {
   const p = pickDay(v, X, a || {}); if (!p) return HEAD + 'Für dieses Datum gibt es keinen Reisetag.';
-  const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + String(t.km).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + t.g.t + ' Min' : ''}${t.d ? '\n  ' + clean(t.d, 240) : ''}`);
+  const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + clean(t.km, 6).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + clean(t.g.t, 4) + ' Min' : ''}${t.d ? '\n  ' + clean(t.d, 240) : ''}`);
   const planned = new Set((v.plan[p.day] || []).filter(s => !s.x).map(s => s.ti));
   return HEAD + `Tipps für Tag ${p.day} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : '- Keine Tipps hinterlegt.') + (planned.size ? `\n(${planned.size} davon im Tagesplan)` : '');
 }

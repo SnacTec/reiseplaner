@@ -24,7 +24,7 @@ function build() {
     google: {
       authUrl: ({ state, nonce, challenge, redirectUri }) => 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({ client_id: gid, redirect_uri: redirectUri, response_type: 'code', scope: 'openid email', state, nonce, code_challenge: challenge, code_challenge_method: 'S256', prompt: 'select_account' }),
       async exchange({ code, verifier, redirectUri }) {
-        const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(8000),
           body: new URLSearchParams({ code, code_verifier: verifier, client_id: gid, client_secret: process.env.MCP_GOOGLE_SECRET || '', redirect_uri: redirectUri, grant_type: 'authorization_code' }) });
         if (!r.ok) throw new Error('Google-Token ' + r.status);
         const j = await r.json(), t = await g.verifyIdToken({ idToken: j.id_token, audience: gid }), c = t.getPayload();

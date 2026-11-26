@@ -101,7 +101,10 @@ ob die Option „eigene Client-ID“ für Privatkonten sichtbar ist (sonst DCR, 
 ### 3.3 Client-Registrierung: feste Client-ID statt offener Registrierung
 - Empfehlung: in Claude „**Use your own OAuth client**“ mit einer festen, öffentlichen Client-ID (z. B. `reiseplaner-claude`),
   ohne Secret (öffentlicher Client, PKCE).
-- Server akzeptiert **nur** diese Client-ID und **nur** die Redirect-URL `https://claude.ai/api/mcp/auth_callback`.
+- Server akzeptiert **nur** diese Client-ID und **nur** die Redirect-URLs `https://claude.ai/api/mcp/auth_callback`
+  und `https://claude.com/api/mcp/auth_callback` (von Anthropic angekündigt).
+- Per DCR registrierte Clients verfallen nach **1 h**, wenn sie nie Tokens bekommen (sonst ließen sich alle 20 Plätze
+  blockieren); jede Token-Ausgabe verlängert auf 90 Tage. Andere `token_endpoint_auth_method` werden durch `none` ersetzt.
 - Kein offener `/register`-Endpunkt → weniger Angriffsfläche.
 - Fallback, falls die Option fehlt: DCR anbieten, aber eingeschränkt (nur diese Redirect-URL, max. N Clients, Ablauf 90 Tage).
 
@@ -116,7 +119,8 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 ### 3.5 Tokens: undurchsichtig, gehasht gespeichert
 - Access-Token: 32 Byte Zufall, **1 h** gültig. Refresh-Token: 32 Byte Zufall, **30 Tage**, bei jeder Nutzung **rotiert**;
   Wiederverwendung eines alten Refresh-Tokens → ganze Kette widerrufen (Diebstahlschutz) – **außer** innerhalb eines
-  Kulanzfensters von 60 s (Claude erneuert evtl. doppelt oder wiederholt nach Netzfehler): dann dasselbe neue Paar zurückgeben.
+  Kulanzfensters von 60 s (Claude erneuert evtl. doppelt oder wiederholt nach Netzfehler): dann **einmal** ein weiteres Paar
+  derselben Kette (kein Klartext-Speicher nötig); eine zweite Wiederverwendung widerruft die Kette.
 - Absolute Höchstdauer einer Kette: **90 Tage**, danach neu anmelden.
 - Gespeichert wird nur `HMAC-SHA256(token, MCP_PEPPER)` (Pepper im Secret Manager) in `mcp_tokens/<hash>`:
   `{uid, kind, aud, trip, exp, family, createdAt, lastUsed, client}`.
@@ -125,7 +129,7 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 - `exp` wird **immer im Code** geprüft (die Firestore-TTL löscht erst mit bis zu 24 h Verzögerung).
 - Vorteil gegenüber JWT: **sofort widerrufbar** (App: „Trennen“), keine Schlüsselverwaltung für Signaturen.
 - Sammlungen `mcp_*` liegen auf oberster Ebene → durch die bestehende Regel „Alles andere ist gesperrt“ für die App
-  **nicht lesbar**; nur die Function (Admin SDK) greift zu. Firestore-TTL-Richtlinie auf `exp` räumt Altes auf.
+  **nicht lesbar**; nur die Function (Admin SDK) greift zu. Firestore-TTL-Richtlinie auf das Feld **`ttl`** (Zeitstempel; `exp` ist eine Zahl in ms und taugt dafür nicht) räumt Altes auf.
 
 ### 3.6 Gemeinsame Rechenlogik `dayplan.js` (umgesetzt in S1)
 - Die Tageslogik (wann „Ab Schiff“, „Zurück an Bord“, Puffer, Ausflüge, Abendessen, Ein-/Ausschiffung, An-/Abreise,
@@ -184,7 +188,8 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 - **Ratenbegrenzung:** z. B. 120 Werkzeug-Aufrufe/Stunde und 600/Tag je Person (Zähler in Firestore); `/authorize` und
   `/token` je IP/Kennung begrenzt.
 - **`maxInstances: 2`**, Speicher 256–512 MiB, Zeitlimit 30 s → Kosten nach oben begrenzt.
-- **Host-/Origin-Prüfung** (SDK: `hostHeaderValidation`, `originValidation`); CORS nur für `snactec.github.io`
+- **Host-Prüfung** (eigene Middleware, nur `<Basis>`-Host); Origin-Prüfung auf `/mcp` entfällt, weil dort nur Bearer-Tokens
+  ohne Cookies gelten (kein Browser-Angriff möglich). CORS nur für `snactec.github.io`
   auf `/connections` (die Zustimmungsseite liegt auf derselben Herkunft wie der Server).
 - **Optional:** `/mcp` und `/token` nur aus den Anthropic-IP-Bereichen annehmen (Zusatzschutz, ersetzt keine Anmeldung).
 - **Not-Aus (schnell):** Dokument `mcp_ctl/state` `{enabled:false}` (von der App aus nicht erreichbar, in der
@@ -193,7 +198,11 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 - **Protokolle:** nur uid-Kürzel, Werkzeugname, Dauer, Ergebnis-Status – **keine Inhalte, keine Tokens**. Fehlerausgaben
   über einen eigenen Logger, der Anfrage-Inhalte (Code, Verifier, Refresh-Token, ID-Token) nie mitschreibt.
   Hinweis: Cloud Run protokolliert die Anfrage-URL von `/authorize` automatisch (enthält nur `state`/`code_challenge`, unkritisch).
-- **IP-Prüfung (E5):** echte Absender-IP über `X-Forwarded-For` mit korrekt gesetztem `trust proxy` auslesen.
+- **IP-Prüfung (E5):** Absender-IP = letzter Eintrag in `X-Forwarded-For` (Cloud Run hängt ihn an; `trust proxy` bleibt aus).
+  Nur IPv4-Bereiche. Vor `MCP_IP_ENFORCE=1` im Protokoll (`ip-fremd`) prüfen, dass Claudes Aufrufe passen.
+- Ungültige Tokens werden vor jedem Firestore-Zugriff an der Form erkannt; Fehlversuche je IP begrenzt (Kosten).
+- Die Freigabeliste (`MCP_ALLOWED_EMAILS`) wird je Instanz einmal gelesen: Entfernen wirkt erst nach neuem Hochladen –
+  sofort sperren über den Not-Aus `mcp_ctl/state`.
 - **Ratenzähler:** im Speicher der Instanz plus ein Tageszähler je Person in Firestore (wenige Schreibzugriffe).
 - **Kosten-Deckel:** Budget-Alarm in Google Cloud (z. B. 5 €/Monat, Benachrichtigung per E-Mail).
 - **Kaltstart:** Secrets, Firebase Admin und MCP-SDK nur einmal pro Instanz laden (erwartet 1–3 s, Grenze 10 s).
@@ -256,7 +265,8 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 1. In der Google-Cloud-Konsole einen OAuth-Client „Webanwendung“ anlegen (Weiterleitungs-URI `<Basis>/google/callback`).
    Secrets anlegen (einmalig, am PC): `MCP_PEPPER` (langer Zufallswert), `MCP_ALLOWED_EMAILS` (die beiden Adressen,
    kommagetrennt), `MCP_GOOGLE_SECRET` (Client-Secret). Die Client-ID fragt die Firebase-CLI beim Hochladen ab.
-2. Firestore-TTL-Richtlinie für `mcp_tokens.exp` und `mcp_pending.exp` aktivieren (Konsole, Klick-Anleitung folgt).
+2. Firestore-TTL-Richtlinien auf Feld `ttl` für `mcp_pending`, `mcp_codes`, `mcp_tokens`, `mcp_families`, `mcp_clients`,
+   `mcp_rate` aktivieren (Klick-Anleitung `docs/MCP.md`).
 3. `firebase deploy --only functions` (wie bei `mapLink`; Regeln nie per CLI).
 4. Budget-Alarm einrichten.
 5. Konnektor in Claude einrichten (4.1); die zweite Person ebenso mit ihrem eigenen Konto.

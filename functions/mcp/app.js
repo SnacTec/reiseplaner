@@ -19,7 +19,7 @@ function createApp(deps) {
   let ctl = { at: 0, on: true };
   app.use(async (req, res, next) => {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
-      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://claude.ai; frame-ancestors 'none'; base-uri 'none'",
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://claude.ai https://claude.com; frame-ancestors 'none'; base-uri 'none'",
       'Strict-Transport-Security': 'max-age=31536000' });
     if (!deps.testHost && String(req.headers.host || '').toLowerCase() !== C.HOST) return res.status(421).json({ error: 'falscher Host' });
     if (process.env.MCP_ENABLED === '0') return res.status(503).json({ error: 'abgeschaltet' });
@@ -38,7 +38,7 @@ function createApp(deps) {
   /* Metadaten (RFC 9728 / RFC 8414) */
   app.get(['/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-protected-resource'], (req, res) => json(res, O.prm));
   app.get('/.well-known/oauth-authorization-server', (req, res) => json(res, O.asm));
-  app.post('/register', express.json(small), (req, res) => O.register(req, res).catch(e => fail(res, e)));
+  app.post('/register', anthropicOnly, express.json(small), (req, res) => O.register(req, res).catch(e => fail(res, e)));
   app.get('/authorize', (req, res) => O.authorize(req, res).catch(e => fail(res, e)));
   app.get('/google/callback', (req, res) => O.googleCallback(req, res).catch(e => fail(res, e)));
   app.post('/authorize/complete', express.urlencoded({ extended: false, ...small }), (req, res) => O.complete(req, res).catch(e => fail(res, e)));
@@ -58,8 +58,10 @@ function createApp(deps) {
     try {
       const tok = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (!tok) return unauth(res, false);
-      const who = await O.verifyAccess(tok); if (!who) return unauth(res, true);
+      const who = await O.verifyAccess(tok);
+      if (!who) { if (!O.badOk(U.clientIp(req))) return res.status(429).json({ error: 'too_many_requests' }); return unauth(res, true); }
       const msgs = Array.isArray(req.body) ? req.body : [req.body], out = [];
+      if (!msgs.length || !msgs.every(m => m && typeof m === 'object' && m.jsonrpc === '2.0' && typeof m.method === 'string')) return res.status(400).json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Ungültige Anfrage' } });
       for (const m of msgs) { const r = await handle(m, who); if (r) out.push(r); }
       if (!out.length) return res.status(202).end();
       res.set('Cache-Control', 'no-store').json(Array.isArray(req.body) ? out : out[0]);

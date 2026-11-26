@@ -48,7 +48,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   const go = (u, o = {}) => fetch(u.startsWith('http') ? u : BASE + u, { redirect: 'manual', ...o });
   const cookieOf = r => { const c = r.headers.get('set-cookie') || ''; const m = /__Host-mcp_req=([^;]*)/.exec(c); return m ? m[1] : null; };
   const pkce = () => { const v = U.rand(48); return { v, c: U.sha256b64u(v) }; };
-  const authQ = (o = {}) => '/authorize?' + new URLSearchParams({ response_type: 'code', client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECT, state: 'st-1', code_challenge_method: 'S256', resource: C.RESOURCE, scope: 'reise.lesen offline_access', ...o });
+  const authQ = (o = {}) => '/authorize?' + new URLSearchParams({ response_type: 'code', client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECTS[0], state: 'st-1', code_challenge_method: 'S256', resource: C.RESOURCE, scope: 'reise.lesen offline_access', ...o });
   async function login({ q = {}, profile = { sub: 'gA', email: 'Anna@Example.com', email_verified: true }, cookie, decision = 'allow', clientId } = {}) {
     const k = pkce(); const r1 = await go(authQ({ code_challenge: k.c, ...(clientId ? { client_id: clientId } : {}), ...q }));
     if (r1.status !== 302) return { step: 'authorize', status: r1.status, body: await r1.text() };
@@ -62,7 +62,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     return { step: 'consent', html: h2, send, k };
   }
   async function fullCode(o) { const L = await login(o); const r = await L.send(); const u = new URL(r.headers.get('location')); return { code: u.searchParams.get('code'), u, k: L.k }; }
-  const tokenReq = b => go('/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECT, resource: C.RESOURCE, ...b }) });
+  const tokenReq = b => go('/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECTS[0], resource: C.RESOURCE, ...b }) });
   async function tokens() { const { code, k } = await fullCode(); const r = await tokenReq({ grant_type: 'authorization_code', code, code_verifier: k.v }); return r.json(); }
   const rpc = (tok, method, params, id = 1) => go('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
   const call = async (tok, name, args) => (await (await rpc(tok, 'tools/call', { name, arguments: args })).json()).result;
@@ -85,7 +85,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
     const { UnauthorizedError } = require('@modelcontextprotocol/sdk/client/auth.js');
     let info, tok, ver, authUrl;
-    const provider = { get redirectUrl() { return C.CLAUDE_REDIRECT; }, get clientMetadata() { return { client_name: 'Test', redirect_uris: [C.CLAUDE_REDIRECT], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' }; },
+    const provider = { get redirectUrl() { return C.CLAUDE_REDIRECTS[0]; }, get clientMetadata() { return { client_name: 'Test', redirect_uris: [C.CLAUDE_REDIRECTS[0]], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' }; },
       state: () => 'st-sdk', clientInformation: () => info, saveClientInformation: i => { info = i; }, tokens: () => tok, saveTokens: t => { tok = t; },
       redirectToAuthorization: u => { authUrl = u; }, saveCodeVerifier: v => { ver = v; }, codeVerifier: () => ver };
     const mk = () => new StreamableHTTPClientTransport(new URL(C.RESOURCE), { authProvider: provider });
@@ -100,6 +100,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const r3 = await go('/authorize/complete', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: '__Host-mcp_req=' + ck }, body: new URLSearchParams({ req: /name="req" value="([^"]+)"/.exec(h)[1], csrf: /name="csrf" value="([^"]+)"/.exec(h)[1], decision: 'allow' }) });
     const back = new URL(r3.headers.get('location')); assert.equal(back.searchParams.get('state'), 'st-sdk'); assert.equal(back.searchParams.get('iss'), BASE);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
+    const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
     const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'jetzt', 'reise_info', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
@@ -186,8 +187,12 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const t = await tokens(); clock += 10e3;
     const n1 = await (await tokenReq({ grant_type: 'refresh_token', refresh_token: t.refresh_token })).json(); assert.ok(n1.access_token);
     const n2 = await (await tokenReq({ grant_type: 'refresh_token', refresh_token: t.refresh_token })).json(); assert.ok(n2.access_token, 'Kulanz');
-    clock += 70e3; assert.equal((await tokenReq({ grant_type: 'refresh_token', refresh_token: t.refresh_token })).status, 400);
-    assert.equal((await rpc(n1.access_token, 'ping')).status, 401, 'Familie nicht widerrufen'); clock = T0;
+    assert.equal((await tokenReq({ grant_type: 'refresh_token', refresh_token: t.refresh_token })).status, 400, 'Kulanz nur einmal');
+    assert.equal((await rpc(n2.access_token, 'ping')).status, 401, 'Familie nach zweiter Kulanz nicht widerrufen');
+    const u = await tokens(); clock += 10e3;
+    const m1 = await (await tokenReq({ grant_type: 'refresh_token', refresh_token: u.refresh_token })).json(); assert.ok(m1.access_token);
+    clock += 70e3; assert.equal((await tokenReq({ grant_type: 'refresh_token', refresh_token: u.refresh_token })).status, 400);
+    assert.equal((await rpc(m1.access_token, 'ping')).status, 401, 'Familie nicht widerrufen'); clock = T0;
   });
   await test('refresh: Freigabe entzogen / Konto gesperrt → widerrufen', async () => {
     let t = await tokens(); allowed = new Set(); assert.equal((await tokenReq({ grant_type: 'refresh_token', refresh_token: t.refresh_token })).status, 400); allowed = new Set(['anna@example.com']);
@@ -202,8 +207,11 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   await test('registrierung: nur Claudes Adresse, Obergrenze', async () => {
     const reg = b => go('/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
     assert.equal((await reg({ redirect_uris: ['https://boese.example/cb'] })).status, 400);
-    assert.equal((await reg({ redirect_uris: [C.CLAUDE_REDIRECT], token_endpoint_auth_method: 'client_secret_basic' })).status, 400);
-    for (let i = 0; i < 25; i++) await reg({ redirect_uris: [C.CLAUDE_REDIRECT] });
+    const r0 = await reg({ redirect_uris: [C.CLAUDE_REDIRECTS[0]], token_endpoint_auth_method: 'client_secret_basic' });
+    assert.equal(r0.status, 201, 'andere Auth-Methode wird ersetzt'); const j0 = await r0.json(); assert.equal(j0.token_endpoint_auth_method, 'none');
+    assert.ok((await S.get('mcp_clients/' + j0.client_id)).exp <= clock + 3600e3, 'unbenutzter Client verfällt nach 1 h');
+    assert.equal((await reg({ redirect_uris: C.CLAUDE_REDIRECTS })).status, 201, 'claude.com');
+    for (let i = 0; i < 25; i++) await reg({ redirect_uris: [C.CLAUDE_REDIRECTS[0]] });
     assert.ok((await S.list('mcp_clients')).length <= C.LIMITS.maxClients);
   });
   await test('trennen (App): Liste und Widerruf', async () => {
@@ -213,6 +221,12 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await go('/connections', { method: 'POST', headers: { authorization: 'Bearer fb-ok', 'content-type': 'application/json' }, body: JSON.stringify({ all: true }) });
     assert.equal((await rpc(t.access_token, 'ping')).status, 401);
     assert.equal((await (await go('/connections', { headers: { authorization: 'Bearer fb-ok' } })).json()).connections.length, 0);
+  });
+  await test('mcp: ungültige Nachricht → 400, Text-Säuberung', async () => {
+    const t = await tokens();
+    const r = await go('/mcp', { method: 'POST', headers: { authorization: 'Bearer ' + t.access_token, 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ hallo: 1 }) });
+    assert.equal(r.status, 400);
+    const U = require('../mcp/util'); assert.equal(U.clean('a\u{E0041}\u{E0042}b\u2060c\u00add'), 'abcd');
   });
   await test('not-aus: mcp_ctl/state.enabled=false → 503', async () => {
     TK = await tokens(); await S.set('mcp_ctl/state', { enabled: false }); clock += 31e3;
