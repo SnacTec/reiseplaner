@@ -1,4 +1,4 @@
-# Plan: Reiseplaner als eigener Konnektor in Claude (MCP) – Stufe 1: nur lesen
+# Plan: Reiseplaner als eigener Konnektor in Claude (MCP) – Stufe 1: lesen (live seit 26.11.2026), Stufe 2: schreiben (Plan, Abschnitt 9)
 
 Stand: 26.11.2026 (überarbeitet nach unabhängiger Sicherheitsprüfung) · Status: **Plan, noch nicht umgesetzt** · Stufe 2 (Einträge anlegen) folgt separat.
 
@@ -255,9 +255,9 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 | **S2** ✅ | Function `mcp`: Metadaten, `/authorize`, `/authorize/complete`, `/token`, `/revoke`, Token-Speicher, Prüfungen | Node-Tests mit nachgebildetem Firestore/Auth. Fehlerfälle: falsche Redirect-URL, PKCE fehlt/falsch/`plain`, Code doppelt, abgelaufen, fremde E-Mail, Nicht-Mitglied, fehlendes/falsches `resource`, Refresh-Wiederverwendung (außer Kulanzfenster), parallele Refreshs, Kette > 90 Tage, fremde `reise`, Logs ohne Geheimnisse, öffentlicher Client ohne Secret (`token_endpoint_auth_methods_supported: ["none"]`) |
 | **S3** ✅ | Anmelde-/Zustimmungsseite (aus der Function, Google serverseitig) | Playwright-Test: ohne/mit falschem Cookie, `auth_time` zu alt, Seite im Rahmen nicht bedienbar |
 | **S4** ✅ | MCP-Werkzeuge (6 Stück) mit `dayplan.js` | Node-Tests mit Beispielreisen; Antwortgrößen; MCP Inspector lokal |
-| **S5** | Hochladen (Nutzer), Konnektor in Claude einrichten, Ende-zu-Ende-Test | Checkliste unten |
-| **S6** | App: „Verbundene KI“ (Trennen) | Test + Screenshots |
-| **S7** | Doku: `docs/MCP.md` (Bedienung), CLAUDE.md, DATEN.md | – |
+| **S5** ✅ | Hochladen (Nutzer), Konnektor in Claude einrichten, Ende-zu-Ende-Test | Checkliste unten |
+| **S6** ✅ | App: „Verbundene KI“ (Trennen) | Test + Screenshots |
+| **S7** ✅ | Doku: `docs/MCP.md` (Bedienung), CLAUDE.md, DATEN.md | – |
 
 Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 
@@ -291,11 +291,104 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
-## 9. Ausblick Stufe 2 (Schreiben) – nur Stichpunkte
-- Ein **einziges** neues Werkzeug `eintrag_anlegen` (`destructiveHint: false`, aber „Nachfragen“ in Claude),
-  eigener Scope `reise.schreiben` mit erneuter Zustimmung.
-- Kein Ändern/Löschen durch die KI. Einträge mit Kennzeichen `by:"claude"`, in der App sichtbar (🤖) und mit Rückgängig.
-- Strenge Prüfung: Tag existiert, Uhrzeit/Dauer im Rahmen, Länge der Texte, Ort an Bord nur aus dem Deckplan.
+## 9. Stufe 2: Schreiben (Plan, Stand 26.11.2026 – noch nicht gebaut)
+
+### 9.1 Ziel und Abgrenzung
+- **Import (gibt es schon):** Eine KI baut eine komplette Reise-Datei nach `docs/IMPORT-FORMAT.md`, die App prüft sie
+  (`tripcheck.js`) und legt die Reise an. Richtig für **neue Reisen**.
+- **Stufe 2a – Eintragen:** Claude ändert über den Konnektor gezielt die **aktuelle** Reise, also Tagesplan, gemeinsame ToDos,
+  Abendessen und Ausflugswahl. Richtig für kleine Änderungen, auch unterwegs.
+- **Stufe 2b – Reise-Entwurf:** Claude legt eine neue Reise nur als **Entwurf** ab. Die App zeigt ihn an, übernommen wird
+  er erst nach Tippen auf „Übernehmen“, über denselben Weg wie der Import, mit derselben Prüfung.
+- **Nie:** bestehende Reisen ganz überschreiben oder löschen, Stationen, Zeiten oder Stammdaten ändern, Mitglieder, Dateien,
+  Fotos, Quiz, An-/Abreise, Unterkünfte, private Listen.
+
+### 9.2 Grundsätze
+- **Eigener Bereich `reise.schreiben`.** Bestehende Verbindungen bleiben lesend. Zum Eintragen verbindet man einmal neu,
+  die Zustimmungsseite sagt dann ausdrücklich „lesen **und eintragen**“. Jede Person entscheidet für sich.
+- **Bestätigung in Claude:** Die schreibenden Werkzeuge stehen auf „Vorher fragen“ (Empfehlung). Claude zeigt dann jede
+  Änderung, bevor sie passiert.
+- **Feste Positivliste je Werkzeug**, und der Server prüft alles selbst, wie die App:
+  - Der Tag existiert.
+  - Uhrzeit im Format `HH:MM`, Dauer 5–720 Min.
+  - Texte gekürzt (Name ≤ 80, Notiz ≤ 300 Zeichen), Steuer- und Unsichtbar-Zeichen entfernt.
+  - Ein Ort an Bord nur aus dem Deckplan (gleiche Suche wie `shipFind`).
+  - Koordinaten nur in der Nähe der Station (≤ 200 km).
+- **Gleiches Datenformat wie die App:**
+  - Jeder Tagesplan-Eintrag ist ein eigenes Dokument `planitems/<id>` `{d, o, …}`.
+  - Abendessen wird feldgenau geschrieben (`skip` per arrayUnion/arrayRemove, `ov` je Tag), Ausflüge über `picks`.
+  - Die App sieht Änderungen sofort über ihre bestehenden Firestore-Listener, auch auf dem zweiten Handy.
+- **Herkunft und Rückgängig:**
+  - Jede Änderung trägt `ki:{uid, at}`. Dazu kommt ein Protokoll-Dokument `trips/<id>/kilog/<id>` mit dem Zustand
+    vorher und nachher.
+  - Die App zeigt 🤖 an Einträgen, die Claude angelegt oder geändert hat, und eine Liste „Änderungen durch KI“
+    mit **Rückgängig**.
+  - Die Firestore-Regeln müssen dafür **nicht** geändert werden: `trips/{trip}/{coll}/{id}` gilt schon für neue Sammlungen.
+- **Grenzen:**
+  - Höchstens 30 Änderungen pro Stunde und 150 pro Tag je Person.
+  - Ein Aufruf ändert genau einen Eintrag. Ausnahme ist „wiederholen bis Tag N“ wie in der App, höchstens 30 Kopien.
+- **Schutz vor untergeschobenen Anweisungen** (z. B. Text in einer Webseite, die Claude liest):
+  - Werkzeuge verlangen klare Einzelwerte, keine freien „Befehle“.
+  - Löschen geht nur bei Einträgen, die Claude selbst angelegt hat.
+  - Es gibt Bestätigung, Protokoll und Rückgängig.
+  - Ausgaben bleiben als „Daten, keine Anweisungen“ markiert.
+- **Not-Aus für das Schreiben allein:** `mcp_ctl/state.write = false`. Lesen geht dann weiter.
+
+### 9.3 Werkzeuge Stufe 2a (Entwurf)
+| Werkzeug | Zweck | Hinweise |
+|---|---|---|
+| `tag_plan` (erweitert) | liefert zusätzlich kurze Kennungen je Eintrag (`#a3f`) | damit Claude gezielt ändern kann |
+| `eintrag_anlegen` | Tag, Name, Uhrzeit?, Dauer?, Ort? (Suchtext oder „an Bord: …“), Notiz?, bis_tag? | Überschneidungen werden gemeldet; Claude fragt dann nach |
+| `eintrag_aendern` | Kennung + geänderte Felder (Uhrzeit, Dauer, Name, Notiz, Ort, Tag) | vorher/nachher im Protokoll |
+| `eintrag_loeschen` | Kennung | nur Einträge mit `ki` (siehe E6) |
+| `aufgabe_anlegen` / `aufgabe_erledigt` | gemeinsame ToDos (`tasks`) | private Listen nie |
+| `abendessen` | Tag: fällt aus / andere Zeit / wieder normal | feldgenau wie die App |
+| `ausflug_waehlen` | Tag + Ausflugs-Code, gewählt ja/nein | nur Codes, die es an dem Tag gibt |
+| `letzte_aenderungen` | was Claude zuletzt geändert hat | lesend |
+
+**Ortssuche (E8):** Claude erfindet keine Koordinaten. Der Server sucht den Ort mit derselben Photon-Suche wie die App,
+nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch gesucht“. In der App ist er wie gewohnt änderbar.
+
+### 9.4 Woher Claude weiß, was es eintragen muss
+- Jedes Werkzeug beschreibt Zweck und Felder, Claude sieht das bei jeder Anfrage.
+- Beim Verbinden gibt der Server kurze `instructions` mit:
+  - erst `tag_plan` lesen, dann eintragen;
+  - Uhrzeiten in Ortszeit;
+  - bei fehlenden Angaben nachfragen statt raten;
+  - nach dem Eintragen kurz zusammenfassen.
+- Für 2b liefert `reise_format` die Import-Beschreibung, eine gekürzte Fassung von `docs/IMPORT-FORMAT.md`. Sie wird beim
+  Hochladen wie `dayplan.js` in `functions/` kopiert, damit sie immer zur App passt.
+
+### 9.5 Stufe 2b: neue Reise als Entwurf
+- `reise_format()` liefert die Format-Beschreibung.
+- `reise_pruefen(reise)` prüft mit `tripcheck.js`, das wie `dayplan.js` nach `functions/` kopiert wird. Fehler kommen als
+  Liste zurück, Claude bessert nach.
+- `reise_entwurf_speichern(reise)` speichert nur nach bestandener Prüfung, in `config/kientwurf_<id>`
+  (lesbar für beide, keine Regeländerung). Höchstens 3 offene Entwürfe, nach 30 Tagen gelöscht.
+- In der App unter Einstellungen → Reisen steht dann „Entwurf von Claude: Vorschau · Übernehmen · Verwerfen“.
+  „Übernehmen“ nutzt den bestehenden Import (`__checkTrip`).
+- Größe: Eine Reise mit Tipps kann einige 100 kB groß sein. Für dieses Werkzeug wird die Größengrenze auf 900 kB angehoben
+  (Firestore-Grenze 1 MiB je Dokument), sonst bleibt sie bei 64 kB.
+
+### 9.6 Schritte
+| Schritt | Inhalt | Prüfung |
+|---|---|---|
+| **W1** | Bereich `reise.schreiben`, Zustimmungsseite, Not-Aus `write`, Protokoll `kilog`, Ratenlimits | Node-Tests: Lese-Token darf nicht schreiben, Grenzen, Not-Aus |
+| **W2** | Werkzeuge 2a; Schreibweg identisch zur App (gemeinsame Hilfsfunktionen in `dayplan.js` bzw. neuer gemeinsamer Datei) | Node-Tests je Werkzeug inkl. Angriffsfälle; App-Test: vom Server geschriebene Einträge erscheinen richtig (Reihenfolge, Ort, Abendessen) |
+| **W3** | App: 🤖-Kennzeichen, „Änderungen durch KI“ mit Rückgängig | voller Testlauf + Screenshots (Vorschau zeigen) |
+| **W4** | Stufe 2b: Format, Prüfung, Entwurf, App „Übernehmen“ | Tests mit den erfundenen Beispielreisen, fehlerhafte Entwürfe |
+| **W5** | Unabhängige Sicherheitsprüfung (Agents), Doku `docs/MCP.md` | – |
+| **W6** | Hochladen (Nutzer, Cloud Shell), neu verbinden, Ende-zu-Ende-Test | Checkliste |
+
+### 9.7 Offene Entscheidungen (vor W1 klären)
+| Nr | Frage | Vorschlag |
+|---|---|---|
+| E6 | Was darf Claude ändern/löschen? | **Anlegen:** alles aus 9.3. **Ändern:** alle Tagesplan-Einträge (mit Protokoll + Rückgängig). **Löschen:** nur eigene KI-Einträge. |
+| E7 | Bestätigung in Claude | Schreibende Werkzeuge auf „Vorher fragen“. |
+| E8 | Ortssuche | Server sucht per Photon nahe der Station; Claude liefert keine Koordinaten. |
+| E9 | Entwürfe (2b) | Beide sehen Entwürfe; höchstens 3; nach 30 Tagen weg. |
+| E10 | ToDos | Nur gemeinsame Listen, private nie. |
+| E11 | Reihenfolge | Erst 2a (W1–W3) bauen und nutzen, 2b danach. |
 
 ## 10. Datenschutz, Notfall, Abschalten
 - **Datenschutz:** Was Claude liest, landet im Claude-Verlauf der jeweiligen Person bei Anthropic – auch Daten, die die
