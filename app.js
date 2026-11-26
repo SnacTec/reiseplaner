@@ -66,7 +66,7 @@
     function calc(p) {
       const plan = ctx.plan || {};
       const W = portWin(p), items = (plan[p.day] || []).map((s, pi) => ({ s, pi }));
-      const rows = []; let fee = 0, cost = 0, u = /Guadeloupe/.test(p.land || '') ? '€' : '$';
+      const rows = []; let fee = 0, cost = 0, u = '$';   // Standard-Währungszeichen; Tipps bringen ihr eigenes mit (g.u)
       const cq = s => ({ n: s.n, g: { o: '', n: s.note || '', f: null, u, v: 0, s: s.s || 60 } });
       if (p.kind === 'port') {
         const sched = order => { const rows = []; let cur = W.on, prev = null, lastT = 0, fee = 0, cost = 0, uu = u;
@@ -922,7 +922,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R103';
+const APP_VER='25.11. · R104';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+

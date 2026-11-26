@@ -64,7 +64,7 @@
     function calc(p) {
       const plan = ctx.plan || {};
       const W = portWin(p), items = (plan[p.day] || []).map((s, pi) => ({ s, pi }));
-      const rows = []; let fee = 0, cost = 0, u = /Guadeloupe/.test(p.land || '') ? '€' : '$';
+      const rows = []; let fee = 0, cost = 0, u = '$';   // Standard-Währungszeichen; Tipps bringen ihr eigenes mit (g.u)
       const cq = s => ({ n: s.n, g: { o: '', n: s.note || '', f: null, u, v: 0, s: s.s || 60 } });
       if (p.kind === 'port') {
         const sched = order => { const rows = []; let cur = W.on, prev = null, lastT = 0, fee = 0, cost = 0, uu = u;
