@@ -71,6 +71,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Spiele: Quiz (Lobby mit Podest, Tages-Duell, Rangliste, Abzeichen; Punkte je Reise in Firestore),
   Spider Solitaire (eigene Umsetzung, Spielstand/Statistik nur auf dem Gerät: `rp-spider`, `rp-spider-stats`).
 
+- Eintrag: Ortssuche findet auch Orte an Bord (`shipFind`, setzt `dk/dv`); „Wiederholen bis Tag N“ (Feld `rep`, Kopien je Tag mit `rep`-Kennung, Überschneidungen: auslassen oder trotzdem). Zuhause + Spider je Konto in `config/user_<uid>`.
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.
 - Tipps auf der Tagesseite: andere Tage klein/blass (`oth`); `tipDlg` fügt zum geöffneten Tag hinzu (fremder Tag → eigener Eintrag mit Lage), „Anderer Tag …“.
 - Karte: unabhängig vom gewählten Tag; ★ = Einträge im Tagesplan (alle Tage), Tipps (`pois`) = gefüllter Kreis mit Symbol,
