@@ -18,6 +18,9 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - `index.html` – Oberfläche, CSS und der **Lader** (Anmeldung → Daten aus Firestore → `app.js` starten).
 - `app.js` – die eigentliche App. Liest alles Reisebezogene aus `window.__T` (vom Lader gesetzt).
 - `sw.js` – Service Worker (offline). Bei Änderungen an index.html/app.js `VERSION` erhöhen.
+- `dayplan.js` – **gemeinsame Tageslogik** ohne Oberfläche (calc, Zeiten, Abendessen, Ein-/Ausschiffung, An-/Abreise, „heute/jetzt“),
+  für App **und** späteren Server (Claude-Konnektor, `docs/MCP-PLAN.md`). In `app.js` **wörtlich eingebettet** (zwischen Markierungen):
+  nur `dayplan.js` ändern, dann `node tools/dayplan-sync.js`; Test prüft Gleichheit. App nutzt sie über `DP=RPDP.make(ctx)`.
 - `firebase-config.js` – öffentliche Firebase-Konfiguration (Projekt `reiseplaner-accd8`).
 - `firestore.rules`, `storage.rules` – Regeln (Platzhalter `<mail1>`/`<mail2>`; echte Adressen nur in der Konsole).
 - `docs/DATEN.md` – Aufbau der Daten in Firestore und der Import-Datei.

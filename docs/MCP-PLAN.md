@@ -129,15 +129,16 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 - Sammlungen `mcp_*` liegen auf oberster Ebene → durch die bestehende Regel „Alles andere ist gesperrt“ für die App
   **nicht lesbar**; nur die Function (Admin SDK) greift zu. Firestore-TTL-Richtlinie auf `exp` räumt Altes auf.
 
-### 3.6 Gemeinsame Rechenlogik `shared/dayplan.js`
+### 3.6 Gemeinsame Rechenlogik `dayplan.js` (umgesetzt in S1)
 - Die Tageslogik (wann „Ab Schiff“, „Zurück an Bord“, Puffer, Ausflüge, Abendessen, Ein-/Ausschiffung, An-/Abreise,
   „heute“, „jetzt/als Nächstes“) steckt heute DOM-frei, aber an globale Variablen gebunden in `app.js`
   (`calc`, `portWin`, `leg`, `dinRow`, `embMarks`, `tvSum`, `todayStr`, `portNow`, `aabInfo`, `rowTxt`/`tripText` …).
-- **Herauslösen** in `shared/dayplan.js` (UMD-Stil wie `tripcheck.js`), Aufruf mit Kontext
+- **Herauslösen** in `dayplan.js` (Projektwurzel, UMD-Stil wie `tripcheck.js`), Aufruf mit Kontext
   `ctx = {trip, ports, plan, picks, dinner, ship, stays, travel, now}`. Die App nutzt dünne Hüllen
-  (`calc = p => DP.calc(p, ctx())`), die Function dieselbe Datei.
+  (`function calc(p){return DP.calc(p)}`), die Function dieselbe Datei. In `app.js` ist `dayplan.js` wörtlich eingebettet
+  (`node tools/dayplan-sync.js`), damit die App offline und bei Updates nie eine zweite, evtl. veraltete Datei braucht.
 - Grund: **Zwei Kopien würden auseinanderlaufen** (calc wurde schon oft erweitert).
-- Die Function bekommt die Datei beim Hochladen per `predeploy`-Schritt kopiert (`functions/shared/`); ein Test prüft,
+- Die Function bekommt die Datei beim Hochladen per `predeploy`-Schritt kopiert (`functions/dayplan.js`); ein Test prüft,
   dass beide Dateien gleich sind.
 - Normalisierung wie in der App: fehlende `pois[].id` → `t<Tag>_<i>`, Tipp-Index `i` aus `ti` neu bestimmen,
   `planitems` je Tag nach `o`, dann `id` sortieren (`o` ist immer die Reihenfolge-Zahl).
@@ -243,10 +244,10 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 
 | Schritt | Inhalt | Prüfung |
 |---|---|---|
-| **S1** | `shared/dayplan.js` aus `app.js` herauslösen; App nutzt es; keine sichtbare Änderung | voller `node tests/run.js` + neuer Node-Test: gleiche Ergebnisse für die Beispielreisen in Browser und Node |
+| **S1** ✅ | `dayplan.js` aus `app.js` herauslösen; App nutzt es; keine sichtbare Änderung | voller `node tests/run.js` + neuer Node-Test: gleiche Ergebnisse für die Beispielreisen in Browser und Node |
 | **S2** | Function `mcp`: Metadaten, `/authorize`, `/authorize/complete`, `/token`, `/revoke`, Token-Speicher, Prüfungen | Node-Tests mit nachgebildetem Firestore/Auth. Fehlerfälle: falsche Redirect-URL, PKCE fehlt/falsch/`plain`, Code doppelt, abgelaufen, fremde E-Mail, Nicht-Mitglied, fehlendes/falsches `resource`, Refresh-Wiederverwendung (außer Kulanzfenster), parallele Refreshs, Kette > 90 Tage, fremde `reise`, Logs ohne Geheimnisse, öffentlicher Client ohne Secret (`token_endpoint_auth_methods_supported: ["none"]`) |
 | **S3** | Anmelde-/Zustimmungsseite (aus der Function) | Playwright-Test: ohne/mit falschem Cookie, `auth_time` zu alt, Seite im Rahmen nicht bedienbar |
-| **S4** | MCP-Werkzeuge (6 Stück) mit `shared/dayplan.js` | Node-Tests mit Beispielreisen; Antwortgrößen; MCP Inspector lokal |
+| **S4** | MCP-Werkzeuge (6 Stück) mit `dayplan.js` | Node-Tests mit Beispielreisen; Antwortgrößen; MCP Inspector lokal |
 | **S5** | Hochladen (Nutzer), Konnektor in Claude einrichten, Ende-zu-Ende-Test | Checkliste unten |
 | **S6** | App: „Verbundene KI“ (Trennen) | Test + Screenshots |
 | **S7** | Doku: `docs/MCP.md` (Bedienung), CLAUDE.md, DATEN.md | – |

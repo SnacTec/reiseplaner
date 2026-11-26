@@ -107,6 +107,30 @@ test('anreise: Flug + Mietwagen, Zeitumstellung', async ({ browser, base }) => {
   await c.close(); ok(/Uhr −1 Std\./.test(s) && /⏱/.test(s) && /🔁|📍/.test(s), s.replace(/\n/g, ' | ')); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+/* ---------- Gemeinsame Tageslogik: Node (Server) rechnet wie die App ---------- */
+test('tageslogik: app.js enthält dayplan.js unverändert (sonst: node tools/dayplan-sync.js)', async () => {
+  const S = require(path.join(H.ROOT, 'tools/dayplan-sync.js')), b = S.block(fs.readFileSync(path.join(H.ROOT, 'app.js'), 'utf8'));
+  ok(b !== null, 'Markierungen in app.js fehlen'); ok(b === fs.readFileSync(path.join(H.ROOT, 'dayplan.js'), 'utf8').replace(/\s*$/, '\n'), 'app.js und dayplan.js weichen ab');
+});
+// Projektion der Ergebnisse (gleicher Code in Browser und Node)
+const DP_PROJ = `P.map(p=>{const c=dp.calc(p);return {day:p.day,today:dp.todayStr(),W:c.W,back:c.back,slack:c.slack,fee:c.fee,cost:c.cost,u:c.u,ret:c.ret,
+  rows:c.rows.map(r=>[r.a,r.b,r.st,r.q.n,!!r.tour,!!r.board,!!r.dinner,!!r.skip,r.pi,r.lg&&r.lg.t]),emb:dp.embList(p),aab:dp.aabInfo(p),din:dp.dinRow(p)&&dp.dinRow(p).q.n,
+  nn:(n=>n&&[n.now,n.cur&&n.cur.q.n,n.nx&&n.nx.q.n])(dp.nowNext(p)),live:c.rows.map(r=>dp.rowLive(p,r)),now:dp.portNow(p)}})`;
+for (const name of ['kreuzfahrt', 'roadtrip'])
+  test(`tageslogik: Node rechnet wie die App (${name})`, async ({ browser, base }) => {
+    const RPDP = require(path.join(H.ROOT, 'dayplan.js')), t = H.trip(name), P = t.data.ports, plan = {};
+    P.forEach(p => { plan[p.day] = [...(p.pois || []).slice(0, 2).filter(q => q.g).map((q, i) => ({ i, ti: q.id })), { x: 1, n: 'Kaffee', s: 30, t: 10 }, { x: 1, n: 'Fix', s: 60, at: '13:15' }, { x: 1, n: 'Bord', s: 30, at: '21:00', dk: 9, dv: 0 }]; });
+    const din = { at: '18:30', s: 90, table: '7', skip: [3], ov: { 2: '19:45' } }, c = await H.context(browser), pg = await c.newPage();
+    await pg.clock.setFixedTime(new Date(t.trip.start + 'T09:40:00Z').getTime() + 864e5);   // Tag 2, vormittags
+    await pg.addInitScript(`window.__TEST_TRIP=${JSON.stringify(t)};localStorage.setItem('rp-${t.id}-plan-v1',${JSON.stringify(JSON.stringify(plan))});localStorage.setItem('rp-${t.id}-dinner',${JSON.stringify(JSON.stringify(din))})`);
+    const errs = []; pg.on('pageerror', e => errs.push(e.message)); await pg.goto(base + '/index.html#plan'); await pg.waitForTimeout(1500);
+    const r = await pg.evaluate(PROJ => ({ app: new Function('dp', 'P', 'return ' + PROJ)(DP, D.ports), data: JSON.parse(JSON.stringify({ trip: TRIP, ports: D.ports, plan, picks, din: DIN, ship: SHIP, cruise: CRUISE, now: nowMs() })) }), DP_PROJ);
+    const d = r.data, dp = RPDP.make({ trip: d.trip, ports: d.ports, plan: d.plan, picks: d.picks, din: d.din, ship: d.ship, cruise: d.cruise, now: () => d.now });
+    const node = new Function('dp', 'P', 'return ' + DP_PROJ)(dp, d.ports), a = JSON.stringify(r.app), b = JSON.stringify(node);
+    await c.close(); ok(!errs.length, errs.join(' | ')); ok(r.app.some(x => x.rows.length > 2) && r.app.some(x => x.din), 'zu wenig geprüft');
+    ok(a === b, 'Unterschied App/Node: ' + (() => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a.slice(Math.max(0, i - 80), i + 80) + ' ≠ ' + b.slice(Math.max(0, i - 80), i + 80); })());
+  });
+
 /* ---------- Teilen aus Google Maps ---------- */
 test('teilen: Google-Maps-Link setzt den Pin', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt');
