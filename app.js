@@ -639,12 +639,14 @@ function addPointDlg(day,pre,ed){pre=pre||{};
   ${(E?V.dk:pre.dk)?(()=>{const dk=E?V.dk:pre.dk,dv=E?V.dv:pre.dv,v=(deckOf(dk)||[0,0,[]])[2][dv];return v?`<p class="dkref">🛳 An Bord · Deck ${dk} ${esc(deckOf(dk)[1])} · ${posTxt(v[1])} · ${sideTxt(v[3]||0)} <button type="button" class="lnk" id="apdk">Deckplan ›</button></p>`:''})():''}
   <label>Was<input name="n" required maxlength="80" placeholder="z. B. Frühstück, Poolzeit, Strandbar" value="${esc(E?V.n:(pre.n||''))}"></label>
   ${(E?V.dk:pre.dk)?'':'<div id="apl"></div>'}
-  <div class="two" id="apw"></div><label>Dauer (Min)<input name="s" type="number" min="5" max="720" value="${E?(+V.s||60):60}"></label>
+  <div class="two" id="apw"></div><label>Dauer (Min)<input name="s" type="number" min="5" max="720" value="${E?(+V.s||60):60}"></label>${E?'':'<label>Wiederholen<select name="rep"></select></label><div id="aprep"></div>'}
   <label>Notiz (optional)<textarea name="note" maxlength="1000" rows="2" class="autoh">${esc((E?V.note:pre.note)||'')}</textarea></label>
   <div class="btns"><button class="chip btn" type="submit">${E?'Speichern':'Hinzufügen'}</button><button class="chip" type="button" data-close>Abbrechen</button>${E?'<button class="chip del" type="button" id="apdel">Löschen</button>':''}</div></form>`,d=>{
     const f=d.querySelector('#apf'),sync=()=>{const p=byDay(+f.day.value),at=f.at?f.at.value:(E?V.at||'':''),tv=f.t?f.t.value:(E?(+V.t||0):0);
-      d.querySelector('#apw').innerHTML=`<label>Uhrzeit (optional)<input name="at" type="time" value="${esc(at)}"></label>`+(p.kind==='port'?`<label>Weg (Min)<input name="t" type="number" min="0" max="240" value="${+tv||0}"></label>`:'')};
+      d.querySelector('#apw').innerHTML=`<label>Uhrzeit (optional)<input name="at" type="time" value="${esc(at)}"></label>`+(p.kind==='port'?`<label>Weg (Min)<input name="t" type="number" min="0" max="240" value="${+tv||0}"></label>`:'');
+      if(f.rep){const old=+f.rep.value||0;f.rep.innerHTML='<option value="">Nur an diesem Tag</option>'+D.ports.filter(q=>q.day>p.day).map(q=>`<option value="${q.day}"${q.day===old?' selected':''}>Täglich bis Tag ${q.day} · ${fmtDate(q.date)} · ${esc(q.name)}</option>`).join('');f._rep=null;const ar=d.querySelector('#aprep');if(ar)ar.innerHTML=''}};
     if(f.day.tagName==='SELECT')f.day.onchange=()=>{sync();plDraw()};sync();
+    f.addEventListener('change',e=>{if(['at','s','rep'].includes(e.target.name)&&f._rep!==undefined){f._rep=null;const ar=d.querySelector('#aprep');if(ar)ar.innerHTML=''}});
     // Ort: gewählt (Pin auf der Karte, Weg) oder suchen
     let loc=E?(E.lat!=null?{name:E.n,lat:E.lat,lon:E.lon,addr:E.addr||'',gurl:E.gurl||'',osm:E.osm||'',o:E.o}:null):(pre.loc||(pre.lat!=null?{name:pre.n,lat:pre.lat,lon:pre.lon,osm:pre.osm||'',o:pre.o}:null));
     const pl=d.querySelector('#apl');let plT=0,plRes=[],ship=null;
@@ -686,6 +688,14 @@ function addPointDlg(day,pre,ed){pre=pre||{};
       const it={x:1,n,s:Math.max(5,+f.s.value||60),t:p.kind==='port'?Math.max(0,+(f.t&&f.t.value)||0):0,at:(f.at&&f.at.value)||'',note:f.note.value.trim(),...keep};
       if(E){const u1=planSnap(ed.day),u2=dd!==ed.day?planSnap(dd):null;if(dd===ed.day)plan[dd][ed.pi]=it;else{plan[ed.day].splice(ed.pi,1);(plan[dd]=plan[dd]||[]).push(it)}after(dd);
         if(dd!==ed.day)undoToast(`„${n}“ auf Tag ${dd} verschoben.`,()=>{u1();u2()},5000)}
+      else if(f.rep&&+f.rep.value>dd){const to=+f.rep.value,days=D.ports.filter(q=>q.day>=dd&&q.day<=to).map(q=>q.day),a0=it.at?tm(it.at):null;
+        // Überschneidungen nur bei fester Uhrzeit prüfen
+        const conf=a0==null?[]:days.map(x=>{const r=calc(byDay(x)).rows.find(r=>r.a!=null&&!r.skip&&r.a<a0+it.s&&(r.b!=null?r.b:r.a+(r.st||60))>a0);return r?{day:x,n:r.dinner?'Abendessen':r.tour?OP+'-Ausflug '+r.e.c:r.q.n,a:r.a}:null}).filter(Boolean);
+        if(conf.length&&!f._rep){const ar=d.querySelector('#aprep');ar.innerHTML=`<div class="repw"><b>⚠ Überschneidung an ${conf.length} ${conf.length>1?'Tagen':'Tag'}</b>${conf.map(c=>`<small>Tag ${c.day}: ${esc(c.n)} um ${hm(c.a)}</small>`).join('')}<div class="acts" style="margin-top:6px"><button type="button" class="lnk" data-rep="skip">Diese Tage auslassen ›</button><button type="button" class="lnk" data-rep="all">Trotzdem überall eintragen ›</button></div></div>`;
+          ar.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{f._rep=b.dataset.rep;f.requestSubmit()});ar.scrollIntoView({block:'nearest',behavior:'smooth'});return}
+        const skip=new Set(f._rep==='skip'?conf.map(c=>c.day):[]),use=days.filter(x=>!skip.has(x)),U=use.map(x=>planSnap(x)),rid=nid('r');
+        use.forEach(x=>{const P2=byDay(x);(plan[x]=plan[x]||[]).push({...it,t:P2.kind==='port'?it.t:0,rep:rid})});after(dd);
+        undoToast(`„${n}“ an ${use.length} Tagen eingetragen (Tag ${use[0]}–${use[use.length-1]})${skip.size?' · '+skip.size+' ausgelassen':''}.`,()=>U.forEach(u=>u()),6000)}
       else{(plan[dd]=plan[dd]||[]).push(it);after(dd);if(pre.dk)undoToast(`„${n}“ zu Tag ${dd} hinzugefügt.`,planSnapPre(dd,plan[dd].length-1),4000)}};
     const ak=d.querySelector('#apdk');if(ak)ak.onclick=()=>dkShow(E?V.dk:pre.dk,E?V.dv:pre.dv);
     const del=d.querySelector('#apdel');if(del)del.onclick=()=>{const u=planSnap(ed.day);plan[ed.day].splice(ed.pi,1);after(ed.day);undoToast(`„${V.n}“ aus Tag ${ed.day} entfernt.`,u)};
@@ -825,7 +835,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R99';
+const APP_VER='25.11. · R100';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+

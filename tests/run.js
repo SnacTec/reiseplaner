@@ -57,6 +57,15 @@ test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurü
   const txt = await p.evaluate(() => document.querySelector('.tl').innerText);
   await c.close(); ok(/Ab Schiff[\s\S]*Kaffee[\s\S]*Zurück an Bord/.test(txt), 'Reihenfolge falsch: ' + txt.slice(0, 200)); ok(!p.errs.length, p.errs.join(' | '));
 });
+test('tagesplan: Mehrfacheintrag über mehrere Tage, Überschneidung auslassen', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt');
+  const p = await H.open(c, base, t, '#tag-2', `localStorage.setItem('rp-${t.id}-plan-v1',JSON.stringify({4:[{x:1,n:'Yoga',s:60,at:'07:30'}]}))`);
+  await p.evaluate(() => addPointDlg(2)); await p.fill('#apf [name=n]', 'Frühstück'); await p.fill('#apf [name=at]', '07:00');
+  await p.selectOption('#apf [name=rep]', '5'); await p.click('#apf button[type=submit]'); await p.waitForTimeout(400);
+  const warn = await p.evaluate(() => !!document.querySelector('#aprep .repw')); await p.click('[data-rep="skip"]'); await p.waitForTimeout(500);
+  const r = await p.evaluate(() => [2, 3, 4, 5].map(d => (plan[d] || []).filter(x => x.n === 'Frühstück').length).join(''));
+  await c.close(); ok(warn, 'keine Warnung'); ok(r === '1101', 'Tage: ' + r); ok(!p.errs.length, p.errs.join(' | '));
+});
 
 /* ---------- Reise bearbeiten ---------- */
 test('bearbeiten: Station verschieben – Einträge und Ausflüge wandern mit', async ({ browser, base }) => {
