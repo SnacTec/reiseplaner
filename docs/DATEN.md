@@ -140,5 +140,12 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 
 ## Persönliche Daten je Google-Konto
 `config/user_<uid>`: `{ home:{n,a,lat,lon,tz} (Zuhause, Einstellungen → Konto), spider:{g:"<Spielstand als Text, ohne Rückgängig-Verlauf>",ts}, spst:{s:"<Statistik als Text>",ts} }`.
+
+**Änderungen durch den Claude-Konnektor** (Stufe 2a, `functions/mcp/write.js`):
+- Geänderte oder angelegte Einträge und Aufgaben tragen `ki:{uid, at, neu:1|0}` (`neu` = von Claude angelegt). Die App zeigt 🤖.
+  Wird der Eintrag in der App neu gespeichert, fällt `ki` weg.
+- Protokoll `trips/<id>/kilog/<id>`: `{uid, at, tool, col: planitems|tasks|picks|dinner, doc, before, after, txt, undone}`.
+- Rückgängig in der App (`kiUndo`, Einstellungen → Konto → Änderungen durch KI). Schreibt über die normalen Speicherwege
+  und setzt `undone:true`.
 Neuerer Stand (`ts`) gewinnt; auf dem Gerät zusätzlich `rp-home`, `rp-spider`, `rp-spider-stats` (+ `-ts`).
 Quiz-Duell: `plandays/quiz_<uid>.daily.<Datum> = {ok, t, done, res:[1|0 je Frage], ans:[gewählte Antwort je Frage]}`.

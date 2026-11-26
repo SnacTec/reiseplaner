@@ -291,7 +291,7 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
-## 9. Stufe 2: Schreiben (Plan, Stand 26.11.2026 – noch nicht gebaut)
+## 9. Stufe 2: Schreiben (2a gebaut 26.11.2026: W1–W3 ✅, Sicherheitsprüfung eingearbeitet; 2b offen)
 
 ### 9.1 Ziel und Abgrenzung
 - **Import (gibt es schon):** Eine KI baut eine komplette Reise-Datei nach `docs/IMPORT-FORMAT.md`, die App prüft sie

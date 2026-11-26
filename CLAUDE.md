@@ -75,6 +75,12 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Spider Solitaire (eigene Umsetzung, Spielstand/Statistik nur auf dem Gerät: `rp-spider`, `rp-spider-stats`).
 
 - Eintrag: Ortssuche findet auch Orte an Bord (`shipFind`, setzt `dk/dv`); „Wiederholen bis Tag N“ (Feld `rep`, Kopien je Tag mit `rep`-Kennung, Überschneidungen: auslassen oder trotzdem). Zuhause + Spider je Konto in `config/user_<uid>`.
+- Claude-Konnektor (`functions/mcp/`, `docs/MCP.md`, Plan `docs/MCP-PLAN.md`):
+  - Stufe 1 lesen; Stufe 2a eintragen (`write.js`) nur mit Bereich `reise.schreiben`, gewählt auf der Zustimmungsseite.
+  - Einträge mit `ki` → 🤖 in der App; Protokoll `kilog`, Rückgängig über `kiUndo`/`kiLogDlg`.
+  - App: Einstellungen → Konto → Verbundene KI (`aiLoad`).
+  - Server-Tests: `node functions/test/mcp.test.js`.
+  - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.
 - Tipps auf der Tagesseite: andere Tage klein/blass (`oth`); `tipDlg` fügt zum geöffneten Tag hinzu (fremder Tag → eigener Eintrag mit Lage), „Anderer Tag …“.
 - Karte: unabhängig vom gewählten Tag; ★ = Einträge im Tagesplan (alle Tage), Tipps (`pois`) = gefüllter Kreis mit Symbol,

@@ -101,6 +101,33 @@ test('konto: Änderungen durch KI – Kennzeichen 🤖 und Rückgängig (Plan, A
   const s = await p.evaluate(pk => ({ ek1: Object.values(plan).flat().some(x => x && x.id === 'ek1'), eu1: (plan[4] || []).find(x => x.id === 'eu1'), skip: DIN.skip.slice(), pk: pk in picks, undone: window.__TEST_KILOG.every(x => x.undone), txt: document.getElementById('kil').innerText }), r.pk);
   ok(!s.ek1, 'angelegter Eintrag nicht entfernt'); ok(s.eu1 && s.eu1.at === '14:00' && !s.eu1.ki, 'Änderung nicht zurückgesetzt: ' + JSON.stringify(s.eu1));
   ok(!s.skip.includes(2), 'Abendessen nicht zurückgesetzt'); ok(!s.pk, 'Ausflugswahl nicht zurückgesetzt'); ok(s.undone && /rückgängig gemacht/.test(s.txt), 'nicht als rückgängig markiert');
+  // gelöschten Eintrag wiederherstellen (Reihenfolge), Aufgabe, nach App-Bearbeitung kein Doppel, „Nein“ bei Rückfrage, Texte maskiert
+  const s2 = await p.evaluate(() => {
+    const out = {}, now = Date.now(), bad = '<img src=x onerror="window.__xss=1">';
+    closeDlg(); let asked = 0; window.alert = () => { asked++ };
+    const del = { x: 1, n: 'Gelöscht ' + bad, s: 30, t: 0, at: '', note: bad, d: 2, o: 0, ki: { uid: 'u1', at: now, neu: 1 } };
+    out.ok1 = kiUndo({ id: 'k5', col: 'planitems', doc: 'ed1', before: del, after: null });
+    out.restored = (plan[2] || [])[0] && plan[2][0].id === 'ed1';
+    renderPanel(); out.esc = !document.querySelector('#panel img[src="x"]');
+    // Aufgabe: angelegt → rückgängig = gelöscht
+    tsPutTask({ id: 'tk1', ts: now, done: false, text: 'KI-Aufgabe', who: '', due: '', list: 'l', note: '', subs: [], ki: { neu: 1 } });
+    out.ok2 = kiUndo({ id: 'k6', col: 'tasks', doc: 'tk1', before: null, after: { text: 'KI-Aufgabe', done: false, due: '', list: 'l', note: '' } });
+    out.task = TS.tasks.some(t => t.id === 'tk1');
+    // geändert, danach in der App neu gespeichert (Kennung weg) → abgelehnt, kein Doppel
+    const n0 = Object.values(plan).flat().length;
+    out.ok3 = kiUndo({ id: 'k7', col: 'planitems', doc: 'weg1', before: { x: 1, n: 'Alt', s: 30, at: '09:00', d: 2, o: 0 }, after: { x: 1, n: 'Neu', s: 30, at: '10:00', d: 2, o: 0 } });
+    out.n = Object.values(plan).flat().length - n0; out.asked = asked;
+    // Rückfrage mit „Nein“ → nichts geändert
+    (plan[4] = plan[4] || []).push({ x: 1, n: 'Lauf', s: 30, t: 0, at: '07:00', note: '', id: 'eu2' }); window.confirm = () => false;
+    out.ok4 = kiUndo({ id: 'k8', col: 'planitems', doc: 'eu2', before: { x: 1, n: 'Lauf', s: 30, t: 0, at: '06:00', note: '', d: 4, o: 0 }, after: { x: 1, n: 'Lauf', s: 30, t: 0, at: '06:30', note: '', d: 4, o: 0 } });
+    out.at = plan[4].find(x => x.id === 'eu2').at;
+    window.__TEST_KILOG = [{ id: 'k9', uid: 'u1', at: now, col: 'planitems', doc: 'z', before: null, after: null, txt: 'Eintrag „' + bad + '“ angelegt' }];
+    return out;
+  });
+  ok(s2.ok1 && s2.restored, 'gelöschter Eintrag nicht wiederhergestellt'); ok(s2.esc, 'Name nicht maskiert (XSS)');
+  ok(s2.ok2 && !s2.task, 'Aufgabe nicht entfernt'); ok(!s2.ok3 && s2.n === 0 && s2.asked === 1, 'nach App-Bearbeitung darf kein Doppel entstehen'); ok(!s2.ok4 && s2.at === '07:00', '„Nein“ bei Rückfrage nicht beachtet');
+  await p.evaluate(() => kiLogDlg()); await p.waitForTimeout(400);
+  ok(!(await p.evaluate(() => window.__xss)) && !(await p.$('#kil img')), 'Protokoll-Text nicht maskiert (XSS)');
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 

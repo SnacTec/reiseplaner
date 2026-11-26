@@ -945,7 +945,7 @@ async function aiLoad(el){
     +(L.length>1?'<button class="lnk" data-aicx="*">Alle trennen ›</button>':'')
     :'<span class="src">Keine KI verbunden.</span>')
     +'<button class="lnk" data-kilog>Änderungen durch KI ›</button>'
-    +'<small class="src" style="display:block">Claude kann deinen Reiseplan nur lesen. Verbinden in Claude: <a href="https://github.com/SnacTec/reiseplaner/blob/main/docs/MCP.md" target="_blank" rel="noopener" style="text-decoration:none">Anleitung ›</a></small>'}
+    +'<small class="src" style="display:block">Claude liest je nach Freigabe beim Verbinden nur oder trägt auch ein (mit 🤖 markiert). Verbinden in Claude: <a href="https://github.com/SnacTec/reiseplaner/blob/main/docs/MCP.md" target="_blank" rel="noopener" style="text-decoration:none">Anleitung ›</a></small>'}
 new MutationObserver(()=>{document.querySelectorAll('[data-aic]:not([data-done])').forEach(e=>{e.dataset.done=1;aiLoad(e)})}).observe(document.body,{childList:true,subtree:true});
 document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.closest('[data-aicr]');if(r){e.stopPropagation();aiLoad(r.closest('[data-aic]'));return}
   const b=e.target.closest&&e.target.closest('[data-aicx]');if(!b)return;e.stopPropagation();const all=b.dataset.aicx==='*',el=b.closest('[data-aic]');
@@ -953,7 +953,7 @@ document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.c
   b.disabled=true;try{await aiReq(all?{all:true}:{id:b.dataset.aicx});undoToast(all?'Alle Verbindungen getrennt':'Verbindung getrennt',null,2500)}catch(x){undoToast('Trennen fehlgeschlagen – bitte erneut versuchen',null,3000)}aiLoad(el)},true);
 /* Änderungen durch KI (Claude-Konnektor Stufe 2a, functions/mcp/write.js): Protokoll trips/<id>/kilog {uid, at, tool, col, doc, before, after, txt, undone}.
    Rückgängig setzt den Stand vor der Änderung über die normalen Speicherwege der App (Plan, Aufgaben, Ausflüge, Abendessen). */
-async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').get();return s.docs.map(d=>({id:d.id,...d.data()}))}
+async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').orderBy('at','desc').limit(40).get();return s.docs.map(d=>({id:d.id,...d.data()}))}
 const kiWho=u=>{const m=MEMBERS.find(x=>x.id===u);return m?m.n:''};
 const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v']};
 function kiProj(L,x){if(!x)return null;if(L.col==='dinner'){const d=+L.doc;return {s:(x.skip||[]).includes(d),o:(x.ov||{})[d]||null}}const o={};(KIK[L.col]||[]).forEach(k=>o[k]=x[k]??null);return o}
@@ -963,6 +963,8 @@ function kiCur(L){
   if(L.col==='picks'){const k=(L.after||L.before||{}).k;return k in picks?{k,v:picks[k]}:null}
   if(L.col==='dinner')return DIN;return null}
 function kiUndo(L){
+  // Eintrag/Aufgabe nach Claudes Änderung in der App neu gespeichert (neue Kennung) → kein Rückgängig, sonst gäbe es ihn doppelt
+  if((L.col==='planitems'||L.col==='tasks')&&L.before&&L.after&&!kiCur(L)){alert('Das geht nicht mehr: Der Eintrag wurde inzwischen in der App bearbeitet oder gelöscht.');return false}
   if(JSON.stringify(kiProj(L,kiCur(L)))!==JSON.stringify(kiProj(L,L.after))&&!confirm('Das wurde inzwischen in der App geändert. Trotzdem auf den Stand vor Claude zurücksetzen?'))return false;
   const B=L.before;
   if(L.col==='planitems'){Object.keys(plan).forEach(d=>{plan[d]=(plan[d]||[]).filter(x=>x.id!==L.doc)});

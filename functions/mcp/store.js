@@ -5,6 +5,7 @@
 function firestoreStore(db, admin) {
   const ref = p => db.doc(p);
   return {
+    DEL: admin.firestore.FieldValue.delete(),   // Feld beim Schreiben mit merge entfernen
     async get(p) { const s = await ref(p).get(); return s.exists ? s.data() : null; },
     async set(p, data, merge) { await ref(p).set(data, merge ? { merge: true } : {}); },
     async del(p) { await ref(p).delete(); },
@@ -26,11 +27,12 @@ function firestoreStore(db, admin) {
 function memoryStore(seed = {}) {
   const D = new Map(Object.entries(JSON.parse(JSON.stringify(seed))));
   const clone = x => x == null ? null : JSON.parse(JSON.stringify(x));
-  const put = (p, data, merge) => D.set(p, merge ? { ...(D.get(p) || {}), ...clone(data) } : clone(data));
+  const DEL = '\u0000DEL';   // wie FieldValue.delete()
+  const put = (p, data, merge) => { const o = merge ? { ...(D.get(p) || {}), ...clone(data) } : clone(data); Object.keys(o).forEach(k => { if (o[k] === DEL) delete o[k]; }); D.set(p, o); };
   const children = col => [...D.keys()].filter(k => k.startsWith(col + '/') && !k.slice(col.length + 1).includes('/'));
   let lock = Promise.resolve();
   return {
-    D,
+    D, DEL,
     async get(p) { return clone(D.get(p)); },
     async set(p, data, merge) { put(p, data, merge); },
     async del(p) { D.delete(p); },

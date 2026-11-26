@@ -24,26 +24,33 @@ function writer(W) {
   const { S, trip, uid, v, X } = W, base = 'trips/' + trip + '/', now = W.now();
   const dayOf = n => { const p = v.ports.find(q => q.day === +n); if (!p) fail(`Einen Tag ${n} gibt es nicht – die Reise hat ${v.ports.length} Tage.`); return p; };
   const ki = neu => ({ uid, at: now, neu: neu ? 1 : 0 });
-  async function log(tool, col, doc, before, after, txt) {
-    await S.set(base + 'kilog/' + nid('k'), { uid, at: now, tool, col, doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false });
-  }
+  // Protokoll-Eintrag; immer in derselben Transaktion wie die Änderung (T.set), damit es keine Änderung ohne Rückgängig gibt
+  const logDoc = (tool, col, doc, before, after, txt) => [base + 'kilog/' + nid('k'), { uid, at: now, tool, col, doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
+  // Tagesplan nur im aktuellen Format (planitems); alte Reisen erst einmal in der App öffnen (sonst ginge der Altbestand verloren)
+  const needV2 = () => { if (!v.planV2) fail('Diese Reise nutzt noch das alte Speicherformat. Bitte einmal in der Reise-App öffnen (mit Internet), dann geht das Eintragen.'); };
   const find = id => { if (!ID.test(String(id || ''))) fail('Unbekannte Kennung. Die Kennungen stehen in tag_plan in eckigen Klammern.');
     for (const [d, a] of Object.entries(v.plan)) { const k = (a || []).findIndex(x => x.id === id); if (k >= 0) return { day: +d, it: a[k] }; }
     fail('Diesen Eintrag gibt es nicht (mehr). Bitte tag_plan neu lesen.'); };
   const nextO = d => 1000 + (v.plan[d] || []).length;
 
   /* Ort: an Bord aus dem Deckplan, sonst Ortssuche (Photon) nahe der Station; Claude liefert nie Koordinaten */
-  function shipFind(q) {
-    if (!X.cruise || !v.ship) return null; const t = nrm(q).replace(/^an bord:?\s*/, ''); if (t.length < 3) return null;
-    for (const [dk, , V] of v.ship.dk) for (let i = 0; i < (V || []).length; i++) if (nrm(V[i][0]).includes(t) || t.includes(nrm(V[i][0]))) return { dk, dv: i, name: V[i][0] };
-    return null;
+  function shipFind(q) {   // wie shipFind in app.js: Name im Deckplan enthält den Suchtext
+    if (!X.cruise || !v.ship) return []; const t = nrm(q).replace(/^an bord\s*:?\s*/, ''); if (t.length < 3) return [];
+    const o = []; for (const [dk, , V] of v.ship.dk) (V || []).forEach((x, i) => { const n = nrm(x && x[0]); if (n.length >= 2 && n.includes(t)) o.push({ dk, dv: i, name: x[0] }); });
+    const ex = o.filter(x => nrm(x.name) === t); return ex.length ? ex : o;
   }
   async function place(p, q) {
     q = clean(q, 100); if (q.length < 3) fail('Ort bitte mit mindestens 3 Zeichen angeben.');
-    const sh = shipFind(q); if (sh) return { loc: { dk: sh.dk, dv: sh.dv }, txt: `an Bord: ${sh.name}, Deck ${sh.dk}` };
-    if (p.kind === 'sea' || /^an bord/i.test(q)) fail(`„${q}“ gibt es im Deckplan nicht. ${p.kind === 'sea' ? 'Auf See gehen nur Orte an Bord.' : ''} Mit suchen findest du Orte an Bord.`);
-    let R = []; try { R = await W.geo(q, p.lat != null ? { lat: p.lat, lon: p.lon } : null); } catch (e) { return { loc: {}, txt: 'Ortssuche gerade nicht erreichbar – ohne Ort gespeichert, in der App nachtragen' }; }
-    const near = p.lat == null ? R : R.filter(x => RPDP.hav(p, x) <= 200);
+    const onb = /^an bord\b/i.test(q);
+    if (onb || p.kind === 'sea') {   // Orte an Bord nur mit „an Bord: …“ bzw. auf See – sonst würde „Spanische Treppe“ zur „Spa“
+      const L = shipFind(q);
+      if (L.length === 1) return { loc: { dk: L[0].dk, dv: L[0].dv }, txt: `an Bord: ${clean(L[0].name, 60)}, Deck ${L[0].dk}` };
+      if (L.length > 1) fail(`Mehrere Orte an Bord passen: ${L.slice(0, 6).map(x => '„' + clean(x.name, 40) + '“ (Deck ' + x.dk + ')').join(', ')}. Bitte genauer angeben.`);
+      fail(`„${q}“ gibt es im Deckplan nicht.${p.kind === 'sea' ? ' Auf See gehen nur Orte an Bord.' : ''} Mit suchen findest du Orte an Bord.`);
+    }
+    if (p.lat == null) return { loc: {}, txt: 'Für diesen Tag ist keine Lage bekannt – ohne Ort gespeichert, in der App nachtragen' };
+    let R = []; try { R = await W.geo(q, { lat: p.lat, lon: p.lon }); } catch (e) { return { loc: {}, txt: 'Ortssuche gerade nicht erreichbar – ohne Ort gespeichert, in der App nachtragen' }; }
+    const near = R.filter(x => x && isFinite(x.lat) && isFinite(x.lon) && RPDP.hav(p, x) <= 200);
     if (!near.length) return { loc: {}, txt: `„${q}“ nahe ${clean(p.name, 40)} nicht gefunden – ohne Ort gespeichert, in der App nachtragen` };
     const x = near[0];
     return { loc: { lat: +(+x.lat).toFixed(6), lon: +(+x.lon).toFixed(6), osm: '', ...(x.addr ? { addr: clean(x.addr, 120) } : {}) }, txt: `Ort automatisch gesucht: ${clean(x.name, 60)}${x.addr ? ', ' + clean(x.addr, 80) : ''} – bitte in der App prüfen` };
@@ -67,7 +74,7 @@ function writer(W) {
 
   return {
     async eintrag_anlegen(a) {
-      const p = dayOf(a.tag), f = fields(a); if (!f.n) fail('Name fehlt.');
+      needV2(); const p = dayOf(a.tag), f = fields(a); if (!f.n) fail('Name fehlt.');
       const to = a.bis_tag != null ? a.bis_tag : p.day; if (to < p.day) fail('bis_tag muss nach dem Tag liegen.'); dayOf(to);
       if (to - p.day > 29) fail('Höchstens 30 Tage auf einmal.');
       const days = v.ports.filter(q => q.day >= p.day && q.day <= to).map(q => q.day);
@@ -76,38 +83,46 @@ function writer(W) {
       if (conf.length && !a.ueberschneidung) return `Nicht gespeichert – Überschneidung: ${confTxt(conf)}.\nBitte nachfragen und dann erneut aufrufen mit ueberschneidung = „auslassen“ (diese Tage überspringen) oder „trotzdem“.`;
       const skip = new Set(a.ueberschneidung === 'auslassen' ? conf.map(c => c.day) : []), use = days.filter(d => !skip.has(d));
       if (!use.length) return 'Nichts gespeichert – an allen Tagen gibt es eine Überschneidung.';
-      const pl = a.ort ? await place(p, a.ort) : null, rid = use.length > 1 ? nid('r') : null, out = [];
+      const pl = a.ort ? await place(p, a.ort) : null, rid = use.length > 1 ? nid('r') : null, out = [], ops = [];
       for (const d of use) {
         const q = dayOf(d), id = nid('e'), doc = { ...it, t: q.kind === 'port' ? it.t : 0, ...(pl ? pl.loc : {}), ...(rid ? { rep: rid } : {}), ki: ki(true), d, o: nextO(d) };
         if (q.kind === 'sea' && doc.lat != null) { delete doc.lat; delete doc.lon; delete doc.addr; delete doc.osm; }
-        await S.set(base + 'planitems/' + id, doc); (v.plan[d] = v.plan[d] || []).push({ ...doc, id });
-        await log('eintrag_anlegen', 'planitems', id, null, doc, `Eintrag „${it.n}“ an Tag ${d} angelegt`);
-        out.push(`${line(d, doc)} [${id}]`);
+        ops.push([base + 'planitems/' + id, doc], logDoc('eintrag_anlegen', 'planitems', id, null, doc, `Eintrag „${it.n}“ an Tag ${d} angelegt`));
+        (v.plan[d] = v.plan[d] || []).push({ ...doc, id }); out.push(`${line(d, doc)} [${id}]`);
       }
+      await S.txn(async T => { ops.forEach(([k, x]) => T.set(k, x)); });   // alles oder nichts
       return `Gespeichert (${out.length} ${out.length === 1 ? 'Eintrag' : 'Einträge'}):\n` + out.join('\n') + (pl ? '\n' + pl.txt : '') + (skip.size ? `\nAusgelassen wegen Überschneidung: ${confTxt(conf)}` : '');
     },
 
     async eintrag_aendern(a) {
-      const { day, it } = find(a.id); if (!it.x) fail('Das ist ein Tipp aus dem Reiseführer – bitte in der App ändern (dort „Aus dem Plan entfernen“ bzw. Uhrzeit setzen).');
-      const key = base + 'planitems/' + a.id, f = fields(a), cur = await S.get(key); if (!cur) fail('Diesen Eintrag gibt es nicht (mehr).');
-      const nd = a.tag != null ? dayOf(a.tag).day : day, p = dayOf(nd), nx = { ...cur, ...f, d: nd };
-      if (nd !== day) { nx.o = nextO(nd); if (p.kind !== 'port') nx.t = 0; }
-      let pl = null;
-      if (a.ort != null) { ['lat', 'lon', 'addr', 'osm', 'gurl', 'dk', 'dv'].forEach(k => delete nx[k]); if (a.ort !== '') { pl = await place(p, a.ort); Object.assign(nx, pl.loc); } }
-      if (p.kind === 'sea' && nx.lat != null) fail('Auf See gehen nur Orte an Bord.');
-      nx.ki = { ...ki(cur.ki && cur.ki.neu) };
-      const same = JSON.stringify({ ...cur, ki: 0 }) === JSON.stringify({ ...nx, ki: 0 }); if (same) return 'Keine Änderung nötig – der Eintrag ist schon so.';
-      await S.set(key, nx);
-      await log('eintrag_aendern', 'planitems', a.id, cur, nx, `Eintrag „${nx.n}“ geändert (Tag ${nd})`);
+      needV2(); const { day, it } = find(a.id); if (!it.x) fail('Das ist ein Tipp aus dem Reiseführer – bitte in der App ändern (dort „Aus dem Plan entfernen“ bzw. Uhrzeit setzen).');
+      const key = base + 'planitems/' + a.id, f = fields(a), nd = a.tag != null ? dayOf(a.tag).day : day, p = dayOf(nd);
+      const pl = a.ort != null && a.ort !== '' ? await place(p, a.ort) : null, LOC = ['lat', 'lon', 'addr', 'osm', 'gurl', 'dk', 'dv'];
+      // feldgenau: nur geänderte Felder schreiben (gleichzeitige Änderungen in der App an anderen Feldern bleiben erhalten)
+      const r = await S.txn(async T => {
+        const cur = await T.get(key); if (!cur) return { e: 'Diesen Eintrag gibt es nicht (mehr).' };
+        const nx = { ...cur, ...f, d: nd };
+        if (nd !== day) { nx.o = nextO(nd); if (p.kind !== 'port') nx.t = 0; }
+        if (a.ort != null) { LOC.forEach(k => delete nx[k]); if (pl) Object.assign(nx, pl.loc); }
+        if (p.kind === 'sea' && nx.lat != null) return { e: 'Auf See gehen nur Orte an Bord.' };
+        nx.ki = ki(cur.ki && cur.ki.neu);
+        if (JSON.stringify({ ...cur, ki: 0 }) === JSON.stringify({ ...nx, ki: 0 })) return { same: true };
+        const diff = {}; new Set([...Object.keys(cur), ...Object.keys(nx)]).forEach(k => { if (!(k in nx)) diff[k] = S.DEL; else if (JSON.stringify(cur[k]) !== JSON.stringify(nx[k])) diff[k] = nx[k]; });
+        T.set(key, diff, true); const [lk, ld] = logDoc('eintrag_aendern', 'planitems', a.id, cur, nx, `Eintrag „${nx.n}“ geändert (Tag ${nd})`); T.set(lk, ld);
+        return { nx };
+      });
+      if (r.e) fail(r.e); if (r.same) return 'Keine Änderung nötig – der Eintrag ist schon so.';
+      const nx = r.nx;
       const conf = nx.at ? conflicts([nd], tm(nx.at), +nx.s || 60, a.id) : [];
       return `Geändert: ${line(nd, nx)} [${a.id}]` + (pl ? '\n' + pl.txt : '') + (conf.length ? `\nHinweis – Überschneidung: ${confTxt(conf)}` : '');
     },
 
     async eintrag_loeschen(a) {
-      const { day, it } = find(a.id), key = base + 'planitems/' + a.id, cur = await S.get(key);
-      if (!cur) fail('Diesen Eintrag gibt es nicht (mehr).');
-      if (!(cur.ki && cur.ki.neu)) fail('Löschen geht nur bei Einträgen, die Claude selbst angelegt hat. Diesen Eintrag bitte in der App löschen.');
-      await S.del(key); await log('eintrag_loeschen', 'planitems', a.id, cur, null, `Eintrag „${cur.n}“ an Tag ${day} gelöscht`);
+      needV2(); const { day, it } = find(a.id), key = base + 'planitems/' + a.id;
+      const e = await S.txn(async T => { const cur = await T.get(key); if (!cur) return 'Diesen Eintrag gibt es nicht (mehr).';
+        if (!(cur.ki && cur.ki.neu)) return 'Löschen geht nur bei Einträgen, die Claude selbst angelegt hat. Diesen Eintrag bitte in der App löschen.';
+        T.del(key); const [lk, ld] = logDoc('eintrag_loeschen', 'planitems', a.id, cur, null, `Eintrag „${cur.n}“ an Tag ${day} gelöscht`); T.set(lk, ld); return null; });
+      if (e) fail(e);
       return `Gelöscht: ${line(day, it)}.`;
     },
 
@@ -119,17 +134,20 @@ function writer(W) {
       if (a.liste) { const q = nrm(a.liste); l = L.find(x => nrm(x.name) === q) || L.find(x => nrm(x.name).includes(q) || q.includes(nrm(x.name))) || null; if (!l) fail(`Die Liste „${clean(a.liste, 40)}“ gibt es nicht. Listen: ${L.map(x => '„' + clean(x.name, 40) + '“').join(', ')}.`); }
       if (!l) return `In welche Liste? Es gibt: ${L.map(x => '„' + clean(x.name, 40) + '“').join(', ')}. Bitte nachfragen und mit liste erneut aufrufen.`;
       const id = nid('t'), doc = { ts: now, done: false, text, who: '', due: a.faellig || '', list: l.id, note: a.notiz ? note(a.notiz) : '', subs: [], ki: ki(true) };
-      await S.set(base + 'tasks/' + id, doc); await log('aufgabe_anlegen', 'tasks', id, null, doc, `Aufgabe „${text}“ angelegt (${l.name})`);
+      await S.txn(async T => { T.set(base + 'tasks/' + id, doc); const [lk, ld] = logDoc('aufgabe_anlegen', 'tasks', id, null, doc, `Aufgabe „${text}“ angelegt (${l.name})`); T.set(lk, ld); });
       return `Aufgabe angelegt in „${clean(l.name, 40)}“: ${text}${doc.due ? ' (fällig ' + doc.due + ')' : ''} [${id}]`;
     },
 
     async aufgabe_erledigt(a) {
       if (!ID.test(String(a.id || ''))) fail('Unbekannte Kennung. Die Kennungen stehen in aufgaben in eckigen Klammern.');
       const t = v.tasks.find(x => x.id === a.id); if (!t) fail('Diese Aufgabe gibt es nicht (oder sie ist privat).');
-      const key = base + 'tasks/' + a.id, cur = await S.get(key), done = a.erledigt !== false; if (!cur) fail('Diese Aufgabe gibt es nicht (mehr).');
-      if (!!cur.done === done) return `Schon ${done ? 'erledigt' : 'offen'}: ${clean(cur.text, 120)}`;
-      const nx = { ...cur, done, ki: ki(cur.ki && cur.ki.neu) };
-      await S.set(key, nx); await log('aufgabe_erledigt', 'tasks', a.id, cur, nx, `Aufgabe „${cur.text}“ ${done ? 'erledigt' : 'wieder offen'}`);
+      const key = base + 'tasks/' + a.id, done = a.erledigt !== false;
+      const r = await S.txn(async T => { const cur = await T.get(key); if (!cur) return { e: 'Diese Aufgabe gibt es nicht (mehr).' };
+        if (!!cur.done === done) return { same: cur };
+        const k2 = ki(cur.ki && cur.ki.neu); T.set(key, { done, ki: k2 }, true);
+        const [lk, ld] = logDoc('aufgabe_erledigt', 'tasks', a.id, cur, { ...cur, done, ki: k2 }, `Aufgabe „${cur.text}“ ${done ? 'erledigt' : 'wieder offen'}`); T.set(lk, ld); return { cur }; });
+      if (r.e) fail(r.e); if (r.same) return `Schon ${done ? 'erledigt' : 'offen'}: ${clean(r.same.text, 120)}`;
+      const cur = r.cur;
       return `${done ? 'Erledigt' : 'Wieder offen'}: ${clean(cur.text, 120)}`;
     },
 
@@ -144,20 +162,22 @@ function writer(W) {
         if (a.aktion === 'normal' || a.aktion === 'ausfallen') delete nx.ov[p.day];
         if (a.aktion === 'zeit') { if (a.uhrzeit === dn.at) delete nx.ov[p.day]; else nx.ov[p.day] = a.uhrzeit; }
         if (JSON.stringify(before) === JSON.stringify(nx)) return { same: true };
-        T.upd(key, { dinner: { ...dn, skip: nx.skip, ov: nx.ov } }); return { before, nx, at: dn.at };
+        T.upd(key, { dinner: { ...dn, skip: nx.skip, ov: nx.ov } });
+        const txt = a.aktion === 'ausfallen' ? `Abendessen an Tag ${p.day} fällt aus` : a.aktion === 'zeit' ? `Abendessen an Tag ${p.day} um ${a.uhrzeit}` : `Abendessen an Tag ${p.day} wieder zur normalen Zeit (${dn.at})`;
+        const [lk, ld] = logDoc('abendessen', 'dinner', String(p.day), before, nx, txt); T.set(lk, ld); return { txt };
       });
       if (r.e) fail(r.e); if (r.same) return 'Keine Änderung nötig – das Abendessen ist an diesem Tag schon so eingetragen.';
-      const txt = a.aktion === 'ausfallen' ? `Abendessen an Tag ${p.day} fällt aus` : a.aktion === 'zeit' ? `Abendessen an Tag ${p.day} um ${a.uhrzeit}` : `Abendessen an Tag ${p.day} wieder zur normalen Zeit (${r.at})`;
-      await log('abendessen', 'dinner', String(p.day), r.before, r.nx, txt);
-      return 'Gespeichert: ' + txt + '.';
+      return 'Gespeichert: ' + r.txt + '.';
     },
 
     async ausflug_waehlen(a) {
       const p = dayOf(a.tag), e = (p.ex || []).find(x => String(x.c) === String(a.code));
       if (!e) fail(`An Tag ${p.day} gibt es keinen Ausflug mit Code „${clean(a.code, 12)}“.${(p.ex || []).length ? ' Codes: ' + p.ex.slice(0, 12).map(x => clean(x.c, 12)).join(', ') : ''}`);
-      const k = X.dp.pickKey(p.day, e.c), pid = 'p_' + k.replace(/[^A-Za-z0-9]/g, '_'), key = base + 'picks/' + pid, cur = await S.get(key), nx = { k, v: !!a.gewaehlt };
-      if (cur && cur.v === nx.v) return `Schon ${nx.v ? 'gewählt' : 'abgewählt'}: ${clean(e.c, 12)} „${clean(e.n, 60)}“.`;
-      await S.set(key, nx); await log('ausflug_waehlen', 'picks', pid, cur, nx, `Ausflug ${e.c} an Tag ${p.day} ${nx.v ? 'gewählt' : 'abgewählt'}`);
+      if (a.gewaehlt && e.sold) fail(`Der Ausflug ${clean(e.c, 12)} ist ausverkauft.`);
+      const k = X.dp.pickKey(p.day, e.c), pid = 'p_' + k.replace(/[^A-Za-z0-9]/g, '_'), key = base + 'picks/' + pid, nx = { k, v: !!a.gewaehlt };
+      const same = await S.txn(async T => { const cur = await T.get(key); if (cur && cur.v === nx.v) return true;
+        T.set(key, nx); const [lk, ld] = logDoc('ausflug_waehlen', 'picks', pid, cur, nx, `Ausflug ${e.c} an Tag ${p.day} ${nx.v ? 'gewählt' : 'abgewählt'}`); T.set(lk, ld); return false; });
+      if (same) return `Schon ${nx.v ? 'gewählt' : 'abgewählt'}: ${clean(e.c, 12)} „${clean(e.n, 60)}“.`;
       return `${nx.v ? 'Gewählt' : 'Abgewählt'}: Tag ${p.day} · ${X.op}-Ausflug ${clean(e.c, 12)} „${clean(e.n, 60)}“.`;
     },
   };

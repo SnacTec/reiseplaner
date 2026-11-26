@@ -39,13 +39,33 @@ in `functions/.env` `MCP_BASE_URL=<Adresse>` setzen, neu hochladen und die Weite
 4. Empfohlen: Werkzeuge auf „Immer erlauben“ stellen (nur lesend).
 5. Datenschutz: in Claude unter Einstellungen → Datenschutz „Zur Verbesserung von Claude beitragen“ **ausschalten**.
 
+## Eintragen lassen (Stufe 2a)
+Beim Verbinden wählst du auf der Seite „Zugriff erlauben?“ **Nur lesen** oder **Lesen und eintragen**.
+Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu verbinden, dann „Lesen und eintragen“ wählen.
+- Claude kann dann:
+  - Einträge im Tagesplan anlegen (auch täglich bis Tag N), ändern und löschen. Löschen geht nur bei Einträgen,
+    die Claude selbst angelegt hat.
+  - Gemeinsame ToDos anlegen und abhaken.
+  - Das Abendessen an einem Tag ausfallen lassen, auf eine andere Zeit legen oder wieder normal setzen.
+  - Ausflüge wählen oder abwählen.
+- **Nie:** Reisen anlegen oder löschen, Stationen/Zeiten, An-/Abreise, Unterkünfte, Dateien, private Listen.
+- Orte sucht der Server selbst, nahe der Station. Auf See gehen nur Orte an Bord, an Land nur mit „an Bord: …“.
+- Gibt es eine Überschneidung, speichert Claude nichts und fragt nach.
+- **In der App:** Änderungen von Claude tragen ein 🤖. Unter Einstellungen → Konto → „Änderungen durch KI ›“ lässt sich
+  jede Änderung rückgängig machen.
+- **Empfehlung:** In Claude die schreibenden Werkzeuge auf „Vorher fragen“ stellen, dann bestätigst du jede Änderung.
+- **Grenzen:** höchstens 30 Änderungen pro Stunde und 150 pro Tag je Person.
+
 ## Nutzen
 Einfach fragen, z. B. „Was machen wir heute?“, „Plan für Tag 3“, „Wann geht morgen der Flug?“,
-„Welche Tipps gibt es für den nächsten Hafen?“. Werkzeuge: `reise_info`, `tag_plan`, `jetzt`, `an_abreise`,
-`suchen`, `tipps`. Gelesen wird immer die in der App als aktuell eingestellte Reise.
+„Welche Tipps gibt es für den nächsten Hafen?“, mit Eintragen auch „Trag an Tag 5 Schnorcheln von 10 bis 12 ein“.
+Lesende Werkzeuge: `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `tipps`, `aufgaben`.
+Eintragende: `eintrag_anlegen`, `eintrag_aendern`, `eintrag_loeschen`, `aufgabe_anlegen`, `aufgabe_erledigt`,
+`abendessen`, `ausflug_waehlen`, `letzte_aenderungen`. Gelesen wird immer die in der App als aktuell eingestellte Reise.
 
 ## Trennen und Notfall
 - **Eine Verbindung trennen:** in Claude den Konnektor entfernen (später auch in der App unter Einstellungen → Konto).
 - **Sofort alles sperren:** Firestore → Dokument `mcp_ctl/state` mit Feld `enabled` = `false` (wirkt nach ≤ 30 s).
+- **Nur das Eintragen sperren:** im selben Dokument Feld `write` = `false`. Lesen geht weiter.
 - **Ganz entfernen:** `firebase functions:delete mcp --region europe-west3`, OAuth-Client aus Schritt 1 und die
   drei Secrets löschen, Sammlungen `mcp_*` löschen.

@@ -44,7 +44,7 @@ function reader(S) {
     // ToDos: nur gemeinsame Listen (private liegen unter users/<uid>/ und werden nie gelesen)
     const lists = ls.filter(x => x.data && !x.data.priv).map(({ id, data }) => ({ id, name: data.name || 'Liste', ord: data.ord || 0 }));
     const tasks = tk.filter(x => x.data && lists.some(l => l.id === x.data.list)).map(({ id, data }) => ({ id, text: data.text || '', done: !!data.done, due: data.due || '', list: data.list, note: data.note || '', ts: data.ts || 0, ki: data.ki || null }));
-    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files, lists, tasks };
+    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files, lists, tasks, planV2: !!(m && m.planV2) };
     cache.set(trip, { at: Date.now(), v }); if (cache.size > 10) cache.delete(cache.keys().next().value);
     return v;
   }

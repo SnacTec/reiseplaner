@@ -188,7 +188,7 @@ function WRITE_TOOLS() {
 function checkArgs(t, a) {
   if (a == null) a = {}; if (typeof a !== 'object' || Array.isArray(a)) return 'Ungültige Eingabe';
   const pr = t.inputSchema.properties || {};
-  for (const k of Object.keys(a)) if (!pr[k]) return 'Unbekanntes Feld: ' + k;
+  for (const k of Object.keys(a)) if (!Object.hasOwn(pr, k)) return 'Unbekanntes Feld: ' + k;
   for (const k of t.inputSchema.required || []) if (a[k] == null) return 'Pflichtfeld fehlt: ' + k;
   for (const [k, s] of Object.entries(pr)) { const x = a[k]; if (x == null) continue;
     if (s.type === 'boolean' && typeof x !== 'boolean') return 'Ungültig: ' + k;
