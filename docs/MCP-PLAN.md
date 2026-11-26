@@ -291,7 +291,7 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
-## 9. Stufe 2: Schreiben (2a gebaut 26.11.2026: W1–W3 ✅, Sicherheitsprüfung eingearbeitet; 2b offen)
+## 9. Stufe 2: Schreiben (2a gebaut 26.11.2026: W1–W3 ✅, Sicherheitsprüfung eingearbeitet; 2b gebaut 26.11.2026: W4 ✅, Vorschau)
 
 ### 9.1 Ziel und Abgrenzung
 - **Import (gibt es schon):** Eine KI baut eine komplette Reise-Datei nach `docs/IMPORT-FORMAT.md`, die App prüft sie
@@ -377,6 +377,12 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   (lesbar für beide, keine Regeländerung). Höchstens 3 offene Entwürfe, nach 30 Tagen gelöscht.
 - In der App unter Einstellungen → Reisen steht dann „Entwurf von Claude: Vorschau · Übernehmen · Verwerfen“.
   „Übernehmen“ nutzt den bestehenden Import (`__checkTrip`).
+- **Umgesetzt (26.11.):** `reise_format` und `reise_pruefen` auch für Lese-Verbindungen (speichern nichts), Speichern nur mit
+  `reise.schreiben` und unter Not-Aus `write`. Verzeichnis `config/kientwuerfe`, damit weder Server noch App `config/*`
+  (mit `config/user_*`) auflisten müssen. Kennung schon vergeben → Fehler; Schiff schon vorhanden → Deckplan bleibt;
+  Fotos werden entfernt. Übernehmen ändert `config/app.activeTrip` nicht (nur auf dem eigenen Gerät öffnen).
+  Großer Inhalt (bis 960 kB) wird erst **nach** der Token-Prüfung gelesen und nur für einen einzelnen Aufruf von
+  `reise_pruefen`/`reise_entwurf_speichern` angenommen, sonst 413.
 - Größe: Eine Reise mit Tipps kann einige 100 kB groß sein. Für dieses Werkzeug wird die Größengrenze auf 900 kB angehoben
   (Firestore-Grenze 1 MiB je Dokument), sonst bleibt sie bei 64 kB.
 
@@ -386,7 +392,7 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 | **W1** | Bereich `reise.schreiben`, Zustimmungsseite, Not-Aus `write`, Protokoll `kilog`, Ratenlimits | Node-Tests: Lese-Token darf nicht schreiben, Grenzen, Not-Aus |
 | **W2** | Werkzeuge 2a; Schreibweg identisch zur App (gemeinsame Hilfsfunktionen in `dayplan.js` bzw. neuer gemeinsamer Datei) | Node-Tests je Werkzeug inkl. Angriffsfälle; App-Test: vom Server geschriebene Einträge erscheinen richtig (Reihenfolge, Ort, Abendessen) |
 | **W3** | App: 🤖-Kennzeichen, „Änderungen durch KI“ mit Rückgängig | voller Testlauf + Screenshots (Vorschau zeigen) |
-| **W4** | Stufe 2b: Format, Prüfung, Entwurf, App „Übernehmen“ | Tests mit den erfundenen Beispielreisen, fehlerhafte Entwürfe |
+| **W4** ✅ | Stufe 2b: Format, Prüfung, Entwurf, App „Übernehmen“ (`functions/mcp/draft.js`, `functions/format/`, App `kdRender`/`kdPreview`/`kdAccept`) | Tests mit den erfundenen Beispielreisen, fehlerhafte Entwürfe |
 | **W5** | Unabhängige Sicherheitsprüfung (Agents), Doku `docs/MCP.md` | – |
 | **W6** | Hochladen (Nutzer, Cloud Shell), neu verbinden, Ende-zu-Ende-Test | Checkliste |
 

@@ -109,7 +109,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
     const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
-    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_info', 'suchen', 'tag_plan', 'tipps']);
+    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
     const r = await client.callTool({ name: 'tag_plan', arguments: { wann: 'heute' } }); const txt = r.content[0].text;
     assert.match(txt, /Tag 2/); assert.match(txt, /Café am Hafen/); assert.match(txt, /Abendessen/); assert.match(txt, /Zurück an Bord ca\./);
@@ -391,6 +391,70 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     try { assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /Unbekanntes Werkzeug|abgeschaltet/); assert.equal((await call(WT.access_token, 'reise_info', {})).isError, false); }
     finally { S.get = g; clock += 31e3; }
     clock = T0;
+  });
+  /* ---------- Stufe 2b: neue Reise als Entwurf ---------- */
+  const road = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/beispiel/BEISPIEL-roadtrip.json'), 'utf8'));
+  const cruise = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/beispiel/BEISPIEL-kreuzfahrt.json'), 'utf8'));
+  const drafts = () => [...S.D.keys()].filter(k => k.startsWith('config/kientwurf_'));
+  RT = await tokens(); WT = await tokens({ access: 'write' });
+  await test('entwurf: Kopien in functions/format/ gleich den Quellen, Beispiele bestehen die Prüfung', async () => {
+    const { FORMAT } = require(path.join(ROOT, 'tools/dayplan-sync.js'));
+    for (const [a, b] of FORMAT) assert.ok(fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b)), path.basename(b) + ' veraltet – node tools/dayplan-sync.js');
+    const tc = require(path.join(ROOT, 'functions/format/tripcheck.js'));
+    for (const f of ['BEISPIEL-kreuzfahrt.json', 'BEISPIEL-roadtrip.json']) { const r = tc(fs.readFileSync(path.join(ROOT, 'functions/format', f), 'utf8')); assert.ok(r.ok, f + ': ' + r.errors.join('; ')); }
+  });
+  await test('entwurf: reise_format liefert Beschreibung + passendes erfundenes Beispiel, auch für Lese-Verbindung', async () => {
+    const tl = (await (await rpc(RT.access_token, 'tools/list')).json()).result.tools.map(t => t.name);
+    assert.ok(tl.includes('reise_format') && tl.includes('reise_pruefen') && !tl.includes('reise_entwurf_speichern'), 'Lese-Verbindung: ' + tl.join(','));
+    const k = await W(RT.access_token, 'reise_format', { art: 'kreuzfahrt' });
+    assert.ok(!k.err); assert.match(k.t, /reiseplaner-trip-1/); assert.match(k.t, /FREI ERFUNDEN/); assert.match(k.t, /"ship"/); assert.ok(!k.t.includes('"Beispiel-Roadtrip') && k.t.length > 20000, 'Länge ' + k.t.length);
+    const r = await W(RT.access_token, 'reise_format', { art: 'rundreise' }); assert.ok(!r.t.includes('BEISPIEL-kreuzfahrt') || r.t.split('=== Beispielreise').length === 2);
+    const b = await W(RT.access_token, 'reise_format', {}); assert.equal(b.t.split('=== Beispielreise').length, 3, 'ohne Angabe beide Beispiele');
+    assert.ok((await W(RT.access_token, 'reise_format', { art: 'boese' })).err);
+  });
+  await test('entwurf: reise_pruefen meldet Fehler, Kennung vergeben, gültige Reise', async () => {
+    const o = road(); o.id = 'Falsche ID'; o.data.ports.pop();
+    const a = await W(RT.access_token, 'reise_pruefen', { reise: o }); assert.match(a.t, /NICHT gültig/); assert.match(a.t, /"id"/); assert.match(a.t, /data\.ports hat aber/);
+    const c = cruise(); const b = await W(RT.access_token, 'reise_pruefen', { reise: c }); assert.match(b.t, /gibt es schon/, 'aktive Reise darf nicht überschrieben werden');
+    const g = road(); g.id = 'neue-testreise'; const d = await W(RT.access_token, 'reise_pruefen', { reise: g }); assert.match(d.t, /^Reiseplaner \(Prüfergebnis/); assert.match(d.t, /Gültig: /);
+    assert.ok((await W(RT.access_token, 'reise_pruefen', { reise: 'kein Objekt' })).err, 'Text statt Objekt abgelehnt');
+    assert.equal(drafts().length, 0, 'Prüfen speichert nichts');
+  });
+  await test('entwurf: speichern nur mit Bereich Eintragen und nach bestandener Prüfung; ersetzen, Grenze 3, Schiff bleibt', async () => {
+    const g = road(); g.id = 'neue-testreise';
+    const r0 = await (await rpc(RT.access_token, 'tools/call', { name: 'reise_entwurf_speichern', arguments: { reise: g } })).json(); assert.ok(r0.error && r0.error.code === -32602, 'Lese-Token darf nicht speichern');
+    const bad = road(); bad.id = 'kaputt-1'; delete bad.trip.start;
+    const e = await W(WT.access_token, 'reise_entwurf_speichern', { reise: bad }); assert.ok(e.err); assert.match(e.t, /Nicht gespeichert/); assert.equal(drafts().length, 0);
+    g.photos = { X1: 'data:image/png;base64,AAAA' };
+    const s1 = await W(WT.access_token, 'reise_entwurf_speichern', { reise: g }); assert.ok(!s1.err, s1.t); assert.match(s1.t, /Entwurf gespeichert/); assert.match(s1.t, /Fotos/);
+    const d = S.D.get('config/kientwurf_neue-testreise'); assert.equal(d.by, 'uidA'); assert.equal(JSON.parse(d.json).id, 'neue-testreise'); assert.ok(!JSON.parse(d.json).photos, 'Fotos entfernt');
+    assert.deepEqual(S.D.get('config/kientwuerfe').list.map(x => x.id), ['neue-testreise']);
+    g.trip.title = 'Geändert'; const s2 = await W(WT.access_token, 'reise_entwurf_speichern', { reise: g }); assert.match(s2.t, /Entwurf ersetzt/);
+    assert.equal(S.D.get('config/kientwurf_neue-testreise').title, 'Geändert'); assert.equal(S.D.get('config/kientwuerfe').list.length, 1);
+    for (const n of ['zwei', 'drei']) { const x = road(); x.id = 'neue-' + n; assert.ok(!(await W(WT.access_token, 'reise_entwurf_speichern', { reise: x })).err); }
+    const x4 = road(); x4.id = 'neue-vier'; const s4 = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x4 }); assert.ok(s4.err); assert.match(s4.t, /höchstens 3/); assert.equal(drafts().length, 3);
+    // nach 30 Tagen verschwinden alte Entwürfe beim nächsten Speichern
+    clock += 31 * 864e5; WT = await tokens({ access: 'write' }); const s5 = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x4 }); assert.ok(!s5.err, s5.t);
+    assert.deepEqual(drafts(), ['config/kientwurf_neue-vier']); assert.deepEqual(S.D.get('config/kientwuerfe').list.map(x => x.id), ['neue-vier']);
+    // Kreuzfahrt mit vorhandenem Schiff: Hinweis, Deckplan bleibt
+    S.D.delete('config/kientwurf_neue-vier'); S.D.set('config/kientwuerfe', { list: [] });
+    const c = cruise(); c.id = 'neue-kreuzfahrt'; const s6 = await W(WT.access_token, 'reise_entwurf_speichern', { reise: c }); assert.ok(!s6.err, s6.t); assert.match(s6.t, /Deckplan unverändert/);
+  });
+  RT = await tokens(); WT = await tokens({ access: 'write' });
+  await test('entwurf: Größe – 64 kB für normale Aufrufe, große Reise nur für Prüfen/Speichern, über 900 kB abgelehnt', async () => {
+    const big = road(); big.id = 'gross-1'; big._pad = 'x'.repeat(200 * 1024);
+    const a = await rpc(WT.access_token, 'tools/call', { name: 'suchen', arguments: { text: 'ab' }, _pad: 'x'.repeat(100 * 1024) }); assert.equal(a.status, 413);
+    const b = await W(WT.access_token, 'reise_pruefen', { reise: big }); assert.match(b.t, /Gültig/);
+    const huge = road(); huge.id = 'gross-2'; huge._pad = 'x'.repeat(910 * 1024);
+    const c = await W(WT.access_token, 'reise_pruefen', { reise: huge }); assert.match(c.t, /zu groß/);
+    const d = await rpc(WT.access_token, 'tools/call', { name: 'reise_pruefen', arguments: { reise: { pad: 'x'.repeat(1100 * 1024) } } }); assert.equal(d.status, 413);
+    const n = await rpc(null, 'tools/call', { name: 'reise_pruefen', arguments: { reise: { pad: 'x'.repeat(200 * 1024) } } }); assert.equal(n.status, 401, 'ohne Token wird der Inhalt gar nicht gelesen');
+  });
+  await test('entwurf: Not-Aus Schreiben sperrt auch das Speichern', async () => {
+    S.D.set('mcp_ctl/state', { write: false }); clock += 31e3;
+    try { const x = road(); x.id = 'notaus-1'; const r = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x }); assert.ok(r.err); assert.ok(!S.D.get('config/kientwurf_notaus-1'));
+      assert.ok(!(await W(WT.access_token, 'reise_format', {})).err, 'Format geht weiter'); }
+    finally { S.D.set('mcp_ctl/state', {}); clock += 31e3; }
   });
   await test('host: fremder Host wird abgelehnt (ohne Testmodus)', async () => {
     deps.testHost = false; const app2 = createApp(deps); const s2 = http.createServer(app2); await new Promise(r => s2.listen(0, r));

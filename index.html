@@ -245,6 +245,8 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax
 .osmrow{display:grid;grid-template-columns:110px 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
 .osmrow span{color:var(--muted);font-size:12.5px}
 .osmrow a{color:var(--accent);word-break:break-all}
+.kdr{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:4px 0 8px}.kdt b,.kdh b{display:block}.kdt small,.kdh small{display:block}.kdb{display:flex;align-items:center;gap:10px;margin-top:6px}.kdb .chip{padding:6px 12px}
+.kdh{margin:0 0 10px}.kdh b{font:700 18px var(--head)}.kdd{display:flex;gap:10px;padding:4px 0;font-size:14px}.kdd>.src{flex:none;width:92px}
 .aic{display:flex;align-items:center;gap:8px;margin:0 0 6px}.aic>div{flex:1;min-width:0}.aic .chip.del{padding:5px 10px;flex:none}
 #fltpop{position:absolute;left:8px;top:44px;z-index:4;display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;box-shadow:0 4px 14px #0003}
 #mattr{position:absolute;top:6px;right:8px;z-index:3;font:600 10.5px Inter,sans-serif;color:#333;background:#ffffffcc;padding:2px 7px;border-radius:6px;pointer-events:none;max-width:calc(100% - 60px);text-align:right}
@@ -1171,6 +1173,12 @@ html[data-xmas] .hb.on{color:#14532d}
     let code;try{const r=await fetch('app.js',{cache:'no-cache'});if(!r.ok)throw 0;code=await r.text()}catch(e){return fail('Die App konnte nicht geladen werden. Bitte mit Internet neu laden.')}
     const s=document.createElement('script');s.textContent=code;document.body.appendChild(s);
   }
+  /* Import-Datei prüfen (tripcheck.js): Fehler anzeigen, Hinweise bestätigen lassen, korrigierte Fassung zurückgeben */
+  window.__checkTrip=async(text,m)=>{if(!window.tripCheck)await new Promise((ok,no)=>{const s=document.createElement('script');s.src='tripcheck.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+    const r=tripCheck(text),list=(a,n)=>a.slice(0,n).map(x=>'• '+x).join('\n')+(a.length>n?'\n… und '+(a.length-n)+' weitere':'');
+    if(!r.ok){m.style.whiteSpace='pre-line';m.textContent='Die Datei kann so nicht importiert werden:\n'+list(r.errors,12);return null}
+    if(!confirm('Reise „'+(r.trip.trip.title||r.trip.id)+'“ importieren?'+(r.warnings.length?'\n\nHinweise:\n'+list(r.warnings,8):'')+(r.fixes.length?'\n\n'+r.fixes.length+' Kleinigkeiten werden automatisch ergänzt.':'')))return null;
+    return r.trip};
   if(window.__TEST_TRIP){start(fromFile(window.__TEST_TRIP));return}
   const cfg=window.FIREBASE_CONFIG;
   if(!window.firebase||!cfg||!cfg.apiKey)return fail('Keine Verbindung zu Firebase. Bitte mit Internet neu laden.');
@@ -1191,21 +1199,28 @@ html[data-xmas] .hb.on{color:#14532d}
     g.querySelector('[data-f]').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const m=g.querySelector('[data-m]');
       try{m.textContent='Wird geprüft …';const o=await window.__checkTrip(await f.text(),m);if(!o)return;
         m.textContent='Wird hochgeladen …';await importTrip(o);m.textContent='Fertig.';location.reload()}catch(e){m.textContent='Fehler: '+(e.message||e.code||e)}}}
-  /* Import-Datei prüfen (tripcheck.js): Fehler anzeigen, Hinweise bestätigen lassen, korrigierte Fassung zurückgeben */
-  window.__checkTrip=async(text,m)=>{if(!window.tripCheck)await new Promise((ok,no)=>{const s=document.createElement('script');s.src='tripcheck.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
-    const r=tripCheck(text),list=(a,n)=>a.slice(0,n).map(x=>'• '+x).join('\n')+(a.length>n?'\n… und '+(a.length-n)+' weitere':'');
-    if(!r.ok){m.style.whiteSpace='pre-line';m.textContent='Die Datei kann so nicht importiert werden:\n'+list(r.errors,12);return null}
-    if(!confirm('Reise „'+(r.trip.trip.title||r.trip.id)+'“ importieren?'+(r.warnings.length?'\n\nHinweise:\n'+list(r.warnings,8):'')+(r.fixes.length?'\n\n'+r.fixes.length+' Kleinigkeiten werden automatisch ergänzt.':'')))return null;
-    return r.trip};
-  async function importTrip(o){ls('rp-trip',o.id);
+  // neu=true (Entwurf von Claude): nur neue Reisen, vorhandenes Schiff bleibt unverändert, Standard-Reise der anderen bleibt
+  async function importTrip(o,neu){
+    if(neu&&(await db.collection('trips').doc(o.id).get({source:'server'})).exists)throw new Error('Eine Reise mit der Kennung „'+o.id+'“ gibt es schon – nichts überschrieben.');
+    ls('rp-trip',o.id);
     const t=Object.assign({},o.trip,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()});
     await db.collection('trips').doc(o.id).set(t);
-    for(const [k,v] of Object.entries(o.photos||{}))await db.collection('trips').doc(o.id).collection('photos').doc(k.replace(/\//g,'_')).set({c:k,d:v});
-    if(o.ship)await db.collection('ships').doc(o.ship.id).set({name:o.ship.name,short:o.ship.short||'',deckNote:o.ship.deckNote||'',json:JSON.stringify(o.ship.data),drinks:JSON.stringify(o.ship.drinks)});
-    await db.collection('config').doc('app').set({activeTrip:o.id},{merge:true});
+    if(!neu)for(const [k,v] of Object.entries(o.photos||{}))await db.collection('trips').doc(o.id).collection('photos').doc(k.replace(/\//g,'_')).set({c:k,d:v});
+    if(o.ship&&!(neu&&(await db.collection('ships').doc(o.ship.id).get({source:'server'})).exists))await db.collection('ships').doc(o.ship.id).set({name:o.ship.name,short:o.ship.short||'',deckNote:o.ship.deckNote||'',json:JSON.stringify(o.ship.data),drinks:JSON.stringify(o.ship.drinks)});
+    if(!neu)await db.collection('config').doc('app').set({activeTrip:o.id},{merge:true});
     try{localStorage.setItem('rp-trip',o.id)}catch(e){}
   }
   window.__importTrip=importTrip;
+  // Entwürfe von Claude (Stufe 2b, functions/mcp/draft.js): Verzeichnis config/kientwuerfe, Inhalt config/kientwurf_<id>
+  window.__kiDrafts={
+    async list(){const s=await db.collection('config').doc('kientwuerfe').get();const L=(s.exists&&Array.isArray(s.data().list))?s.data().list:[];return L.filter(x=>x&&/^kientwurf_[a-z0-9-]{3,60}$/.test(x.k)&&Date.now()-(+x.at||0)<30*864e5)},
+    async get(k){const s=await db.collection('config').doc(k).get({source:'server'});return s.exists?s.data():null},
+    // verwerfen/nach Übernehmen: Inhalt und Verzeichnis-Eintrag zusammen (Transaktion)
+    async drop(k){const ix=db.collection('config').doc('kientwuerfe'),dr=db.collection('config').doc(k);let old=null;
+      await db.runTransaction(async T=>{const a=await T.get(ix),b=await T.get(dr);old=b.exists?b.data():null;const L=a.exists&&Array.isArray(a.data().list)?a.data().list:[];T.set(ix,{list:L.filter(x=>x&&x.k!==k)});if(b.exists)T.delete(dr)});return old},
+    async restore(k,d){const ix=db.collection('config').doc('kientwuerfe'),dr=db.collection('config').doc(k);
+      await db.runTransaction(async T=>{const a=await T.get(ix);const L=a.exists&&Array.isArray(a.data().list)?a.data().list:[];T.set(dr,d);T.set(ix,{list:L.filter(x=>x&&x.k!==k).concat([{k,id:d.id,title:d.title,kind:d.kind,start:d.start,end:d.end,by:d.by,at:d.at}])})})},
+  };
   // Neue Reise aus dem Assistenten: nur die Reise anlegen, die Standard-Reise der anderen nicht ändern
   // ohne Netz: wird im Gerät gespeichert und automatisch hochgeladen ('offline'), die Reise lässt sich sofort öffnen
   window.__createTrip=async(o,open)=>{const ref=db.collection('trips').doc(o.id),to=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('offline')),ms))]);

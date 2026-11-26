@@ -79,6 +79,9 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   - Stufe 1 lesen; Stufe 2a eintragen (`write.js`) nur mit Bereich `reise.schreiben`, gewählt auf der Zustimmungsseite.
   - Einträge mit `ki` → 🤖 in der App; Protokoll `kilog`, Rückgängig über `kiUndo`/`kiLogDlg`.
   - App: Einstellungen → Konto → Verbundene KI (`aiLoad`).
+  - Stufe 2b Reise-Entwurf (`draft.js`): `reise_format`, `reise_pruefen`, `reise_entwurf_speichern` → `config/kientwurf_<id>`;
+    App: Einstellungen → Reisen „Entwurf von Claude“ (`kdRender`, `kdPreview`, `kdAccept` → `__checkTrip` + `__importTrip(o,true)`).
+    Kopien von IMPORT-FORMAT.md, Beispielen und tripcheck.js in `functions/format/` über `node tools/dayplan-sync.js` (Test prüft).
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.

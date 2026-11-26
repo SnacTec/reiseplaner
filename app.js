@@ -924,7 +924,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='26.11. · R107';
+const APP_VER='26.11. · R108';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -984,6 +984,38 @@ function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen 
   const draw=()=>{el.innerHTML=L.length?L.map((x,i)=>`<div class="aic"><div><span>${esc(x.txt||'Änderung')}</span><small class="src" style="display:block">${esc(aiDt(x.at))}${kiWho(x.uid)?' · Claude von '+esc(kiWho(x.uid)):''}${x.undone?' · rückgängig gemacht':''}</small></div>${x.undone?'':`<button class="chip" data-kiu="${i}">Rückgängig</button>`}</div>`).join(''):'<p class="src">Claude hat in dieser Reise noch nichts geändert.</p>';
     el.querySelectorAll('[data-kiu]').forEach(b=>b.onclick=()=>{if(kiUndo(L[+b.dataset.kiu])){undoToast('Rückgängig gemacht',null,2500);draw()}})};
   draw()})}
+/* Entwürfe neuer Reisen von Claude (Stufe 2b, docs/MCP-PLAN.md 9.5): Einstellungen → Reisen.
+   Übernehmen = derselbe Weg wie der Datei-Import (__checkTrip prüft erneut, dann __importTrip(o,true): nie überschreiben). */
+const KD_KIND={kreuzfahrt:'Kreuzfahrt',roadtrip:'Roadtrip',staedtereise:'Städtereise',rundreise:'Rundreise'};
+const kdDates=x=>[x.start,x.end].map(d=>d?String(d).split('-').reverse().join('.'):'').join(' – ');
+async function kdRender(el){if(!el||!window.__kiDrafts)return;let L=[];try{L=await window.__kiDrafts.list()}catch(e){el.innerHTML='';return}
+  el.innerHTML=L.length?`<b style="font-size:13px;display:block;margin:12px 0 2px">🤖 Entwurf von Claude</b>`+L.map(x=>`<div class="kdr"><div class="kdt"><b>${esc(x.title||x.id)}</b><small class="src">${esc(kdDates(x))}${KD_KIND[x.kind]?' · '+esc(KD_KIND[x.kind]):''}${kiWho(x.by)?' · von '+esc(kiWho(x.by)):''}</small></div><div class="kdb"><button class="lnk" data-kdv="${esc(x.k)}">Vorschau ›</button><button class="chip btn" data-kda="${esc(x.k)}">Übernehmen</button><button class="chip del" data-kdx="${esc(x.k)}">Verwerfen</button></div><p class="src kdm" data-kdm="${esc(x.k)}" style="margin:0"></p></div>`).join(''):'';
+  el.querySelectorAll('[data-kdv]').forEach(b=>b.onclick=()=>kdPreview(b.dataset.kdv));
+  el.querySelectorAll('[data-kda]').forEach(b=>b.onclick=()=>kdAccept(b.dataset.kda,el.querySelector(`[data-kdm="${b.dataset.kda}"]`)));
+  el.querySelectorAll('[data-kdx]').forEach(b=>b.onclick=()=>kdDrop(b.dataset.kdx,()=>kdRender(el)))}
+async function kdAccept(k,m){m=m||{};if(!window.__importTrip||!window.__checkTrip){m.textContent='Übernehmen geht nur mit Anmeldung und Internet.';return}
+  try{m.textContent='Wird geladen …';const d=await window.__kiDrafts.get(k);if(!d){m.textContent='Diesen Entwurf gibt es nicht mehr.';return}
+    m.textContent='Wird geprüft …';const o=await window.__checkTrip(d.json,m);if(!o){if(m.textContent==='Wird geprüft …')m.textContent='';return}
+    m.textContent='Wird angelegt …';await window.__importTrip(o,true);try{await window.__kiDrafts.drop(k)}catch(e){}
+    m.textContent='Fertig, die Reise wird geöffnet …';setTimeout(()=>location.reload(),600)}catch(e){m.textContent='Fehler: '+(e.message||e.code||e)}}
+async function kdDrop(k,after){let old=null;try{old=await window.__kiDrafts.drop(k)}catch(e){undoToast('Verwerfen ging nicht: '+(e.message||e),null,4000);return}
+  if(after)after();undoToast('Entwurf verworfen.',old?()=>window.__kiDrafts.restore(k,old).then(after).catch(e=>undoToast('Wiederherstellen ging nicht.',null,4000)):null)}
+async function kdPreview(k){let d=null;try{d=await window.__kiDrafts.get(k)}catch(e){}
+  if(!d)return undoToast('Entwurf nicht abrufbar.',null,3000);
+  let o=null;try{o=JSON.parse(d.json)}catch(e){}
+  const P=(o&&o.data&&Array.isArray(o.data.ports))?o.data.ports:[],t=(o&&o.trip)||{},n=f=>P.reduce((a,p)=>a+((p&&Array.isArray(p[f]))?p[f].length:0),0);
+  const nq=o&&o.data&&Array.isArray(o.data.quiz)?o.data.quiz.length:0,sh=o&&o.ship&&o.ship.name;
+  const kind={start:'Start',end:'Ende',sea:'Seetag'},W=Array.isArray(d.warn)?d.warn:[];
+  dlgReturn=()=>offlineDlg('trip');
+  openSheet(`<div class="hd"><h3 style="margin:0">Entwurf von Claude</h3><button class="x" data-close aria-label="Schließen">✕</button></div>
+  <div class="kdh"><b>${esc(t.title||d.title||d.id)}</b><small class="src">${esc(kdDates(t.start?t:d))} · ${P.length} Tage${KD_KIND[t.kind]?' · '+esc(KD_KIND[t.kind]):''}${sh?' · Schiff '+esc(sh):''}</small><small class="src">${kiWho(d.by)?'Von Claude für '+esc(kiWho(d.by))+' · ':''}gespeichert ${esc(aiDt(d.at))} · noch nicht angelegt</small></div>
+  <div class="kdl">${P.map(p=>`<div class="kdd"><span class="src">Tag ${+p.day||''} · ${esc(p.date?fmtD(p.date):'')}</span><span>${esc(p.name||'')}${p.land?' <small class="src">'+esc(String(p.land))+'</small>':''}${kind[p.kind]&&kind[p.kind]!==p.name?' <small class="src">· '+kind[p.kind]+'</small>':''}${p.times?' <small class="src">· '+esc(String(p.times))+'</small>':''}</span></div>`).join('')}</div>
+  <p class="src" style="margin:10px 0 0">${[[n('pois'),'Tipp','Tipps'],[n('ex'),'Ausflug','Ausflüge'],[nq,'Quizfrage','Quizfragen']].filter(x=>x[0]).map(x=>x[0]+' '+(x[0]===1?x[1]:x[2])).join(' · ')||'Nur Stationen, keine Tipps.'}</p>
+  ${W.length?`<details class="kul" style="margin-top:8px"><summary>${W.length} Hinweis${W.length===1?'':'e'} der Prüfung</summary><ul class="src" style="margin:4px 0 0;padding-left:18px">${W.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
+  <p class="src" style="margin:12px 0 6px">„Übernehmen“ prüft den Entwurf wie eine Import-Datei und legt die Reise für alle Mitreisenden an. Sie wird auf diesem Gerät geöffnet; bestehende Reisen bleiben unverändert.</p>
+  <div class="btns"><button class="chip btn" id="kdacc">Übernehmen</button><button class="chip del" id="kddel">Verwerfen</button></div><p class="src" id="kdmsg" style="margin:6px 0 0"></p>`,dd=>{asPage();
+    dd.querySelector('#kdacc').onclick=()=>kdAccept(k,dd.querySelector('#kdmsg'));
+    dd.querySelector('#kddel').onclick=()=>{closeDlg();setTimeout(()=>kdDrop(k,()=>{const el=document.getElementById('kidr');if(el)kdRender(el)}),120)}})}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-kilog]');if(!b)return;e.stopPropagation();closeDlg();setTimeout(kiLogDlg,80)},true);
 /* App-Check-Status für die Anzeige (Konto/Einstellungen) */
 async function acToken(){const A=window.__AC;if(!A||!A.on)return null;try{return (await Promise.race([A.ac.getToken(false),new Promise((_,no)=>setTimeout(()=>no(new Error('Zeitüberschreitung')),8000))])).token}catch(e){A.err=String(e&&e.message||e);return null}}
@@ -2738,7 +2770,7 @@ function offlineDlg(open){
   const online=!OFFLINE;
   openSheet(`<div class="hd"><h3 id="dt" style="margin:0">Einstellungen</h3><button class="x" data-close aria-label="Schließen">✕</button></div>
   <details class="kul setg" id="tripset" ${open==='trip'?'open':''}><summary><span class="sgt"><b>🧳 Reisen</b><small>${esc(TRIP.title||TRIP_ID)} · ${esc(fmtD(TRIP.start))}–${esc(fmtD(TRIP.end))}</small></span></summary><div class="sgb">
-  <div id="triplist"><p class="src">Reisen werden geladen …</p></div>
+  <div id="triplist"><p class="src">Reisen werden geladen …</p></div><div id="kidr"></div>
   ${window.__createTrip?`<p style="margin:12px 0 4px"><button class="chip btn" id="wizgo">+ Neue Reise anlegen</button></p><p class="src" style="margin:0 0 4px">Mit dem Assistenten: Grunddaten → Stationen → fertig.</p>`:''}
   ${window.__importTrip?`<b style="font-size:13px;display:block;margin-top:10px">Oder Import-Datei</b><p class="src" style="margin:2px 0 6px">Import-Datei (….trip.json) wählen. Die Reise ist danach für alle Mitreisenden da und wird auf diesem Gerät geöffnet.</p><input type="file" id="tripimp" accept=".json,application/json" style="margin:0 0 4px;max-width:100%"><p class="src" id="tripmsg" style="margin:0"></p>`:''}</div></details>
   <details class="kul setg" id="dinset" ${open==='din'?'open':''}><summary><span class="sgt"><b>🍽 Abendessen &amp; Kabine</b><small>${esc([DIN.at?DIN.at+' Uhr'+(dinVenue()?' · '+dinName():''):'Tischzeit fehlt',myCab()?'Kabine '+myCab():'Kabine fehlt'].join(' · '))}</small></span></summary><div class="sgb">
@@ -2783,6 +2815,7 @@ function offlineDlg(open){
         tl.querySelectorAll('[data-trip]').forEach(b=>b.onclick=()=>{const id=b.dataset.trip;if(id===TRIP_ID)return editOpen();try{localStorage.setItem('rp-trip',id)}catch(e){}tl.innerHTML='<p class="src">Reise wird geöffnet …</p>';location.reload()})};
       if(window.__listTrips)window.__listTrips().then(draw).catch(()=>draw([{id:TRIP_ID,title:TRIP.title,start:TRIP.start,end:TRIP.end}]));else draw([{id:TRIP_ID,title:TRIP.title,start:TRIP.start,end:TRIP.end}])}
     {const wg=d.querySelector('#wizgo');if(wg)wg.onclick=()=>wizOpen()}
+    kdRender(d.querySelector('#kidr'));
     {const ti=d.querySelector('#tripimp');if(ti)ti.onchange=async()=>{const f=ti.files[0],m=d.querySelector('#tripmsg');if(!f)return;try{m.textContent='Wird gelesen …';m.textContent='Wird geprüft …';const o=await window.__checkTrip(await f.text(),m);if(!o)return;m.textContent='Wird hochgeladen …';await window.__importTrip(o);m.textContent='Fertig, wird neu geladen …';setTimeout(()=>location.reload(),600)}catch(e){m.textContent='Fehler: '+(e.message||e.code||e)}}}
     {const mn=d.querySelector('#memn'),ml=d.querySelector('#meml');if(mn){const sv=()=>{const me=memMe();if(!me)return;const n=mn.value.trim(),l=ml.value.trim().toUpperCase().slice(0,2);if(!n||!l)return;
       if(MEMBERS.some(x=>x.id!==me.id&&(x.l===l||x.n===n))){d.querySelector('#memmsg').textContent='Name oder Buchstabe ist schon vergeben.';return}

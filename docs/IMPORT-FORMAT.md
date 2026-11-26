@@ -248,6 +248,9 @@ Nur verwenden, wenn die Nutzungsrechte vorliegen.
    (beim allerersten Start erscheint der Import-Bildschirm automatisch).
 3. Die App zeigt Fehler bzw. Hinweise und speichert die Reise dann für alle Mitreisenden.
 
+Mit dem Claude-Konnektor (`docs/MCP.md`) geht es ohne Datei: `reise_pruefen` statt `node tripcheck.js`,
+dann `reise_entwurf_speichern`; in der App unter Einstellungen → 🧳 Reisen „Entwurf von Claude“ übernehmen.
+
 ## 11. Eine bestehende Reise erneut importieren
 
 Gleiche `id` überschreibt die Stammdaten. Damit eingetragene Pläne erhalten bleiben:

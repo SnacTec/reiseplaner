@@ -6,6 +6,7 @@ const path = require('path');
 const RPDP = require(path.join(__dirname, '..', 'dayplan.js'));
 const { clean } = require('./util');
 const { writer, recent } = require('./write');
+const DR = require('./draft');
 
 const TYPE = { sight: 'Sehenswürdigkeit', beach: 'Strand', nature: 'Natur', factory: 'Manufaktur/Fabrik', town: 'Ort/Stadt' };
 const WALK = { walk: 'zu Fuß vom Hafen', taxi: 'Taxi nötig', tour: 'nur per Ausflug oder Tour' };
@@ -151,8 +152,24 @@ const TOOLS = [
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
+  ...DRAFT_TOOLS(),
   ...WRITE_TOOLS(),
 ];
+/* Stufe 2b: neue Reise als Entwurf (draft.js). Format und Prüfung lesend für alle, Speichern nur mit reise.schreiben.
+ * big: Anfrage darf bis ~900 kB groß sein (sonst 64 kB); max: längere Antwort (Beschreibung + Beispiel ca. 26 kB). */
+function DRAFT_TOOLS() {
+  const REISE = { reise: { type: 'object', description: 'Die komplette Reise als JSON-Objekt im Format "reiseplaner-trip-1" (siehe reise_format)' } };
+  return [
+    { name: 'reise_format', title: 'Format für neue Reise', max: 60000, description: 'Für eine NEUE Reise: liefert die vollständige Beschreibung des Reise-Formats und eine erfundene Beispielreise als Vorlage. Danach reise_pruefen, dann reise_entwurf_speichern.',
+      inputSchema: { type: 'object', additionalProperties: false, properties: { art: { type: 'string', enum: ['kreuzfahrt', 'rundreise', 'roadtrip', 'staedtereise'], description: 'kreuzfahrt = Beispiel mit Schiff, sonst Beispiel ohne Schiff; ohne Angabe beide' } } },
+      run: (v, X, a) => DR.reiseFormat(a) },
+    { name: 'reise_pruefen', title: 'Neue Reise prüfen', big: true, description: 'Prüft eine neue Reise (wie der Import in der App) und meldet Fehler und Hinweise. Speichert nichts.',
+      inputSchema: { type: 'object', additionalProperties: false, properties: REISE, required: ['reise'] }, run: (v, X, a, w) => DR.reisePruefen(w.S, a) },
+    { name: 'reise_entwurf_speichern', title: 'Neue Reise als Entwurf speichern', big: true, write: true, description: 'Speichert eine geprüfte neue Reise als Entwurf. Sie wird erst angelegt, wenn ein Mitreisender sie in der App übernimmt. Gleiche Kennung ersetzt den eigenen Entwurf; bestehende Reisen werden nie überschrieben. Höchstens 3 offene Entwürfe.',
+      inputSchema: { type: 'object', additionalProperties: false, properties: REISE, required: ['reise'] }, ann: { destructiveHint: false, idempotentHint: true },
+      run: (v, X, a, w) => DR.entwurfSpeichern(w.S, w.uid, w.now, a) },
+  ];
+}
 /* Stufe 2a: eintragende Werkzeuge (nur mit Bereich reise.schreiben sichtbar und nutzbar) */
 function WRITE_TOOLS() {
   const S = (d, x) => ({ type: 'string', description: d, ...x }), I = (d, a, b) => ({ type: 'integer', minimum: a, maximum: b, description: d });
@@ -192,6 +209,7 @@ function checkArgs(t, a) {
   for (const k of t.inputSchema.required || []) if (a[k] == null) return 'Pflichtfeld fehlt: ' + k;
   for (const [k, s] of Object.entries(pr)) { const x = a[k]; if (x == null) continue;
     if (s.type === 'boolean' && typeof x !== 'boolean') return 'Ungültig: ' + k;
+    if (s.type === 'object' && (typeof x !== 'object' || Array.isArray(x))) return 'Ungültig: ' + k + ' (JSON-Objekt erwartet)';
     if (s.type === 'integer' && !(Number.isInteger(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;
     if (s.type === 'string' && (typeof x !== 'string' || (s.enum && !s.enum.includes(x)) || (s.pattern && !new RegExp(s.pattern).test(x)) || (s.maxLength && x.length > s.maxLength) || (s.minLength && x.length < s.minLength))) return 'Ungültig: ' + k; }
   return null;

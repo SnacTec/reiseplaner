@@ -1,0 +1,503 @@
+{
+ "format": "reiseplaner-trip-1",
+ "id": "beispiel-kreuzfahrt-2099",
+ "_hinweis": "BEISPIELDATEI – frei erfundene Reise zur Veranschaulichung des Import-Formats. Orte, Schiff, Zeiten, Preise und Texte sind ausgedacht; nur die Koordinaten liegen auf echten Inseln (Mallorca/Menorca), damit die Karte etwas zeigt. Felder, die mit \"_\" beginnen, ignoriert die App.",
+ "trip": {
+  "title": "BEISPIEL – Fantasia-Kreuzfahrt (erfunden)",
+  "region": "Beispielmeer",
+  "kind": "kreuzfahrt",
+  "start": "2099-05-01",
+  "end": "2099-05-05",
+  "ship": "ms-beispiel",
+  "tz": 2,
+  "operator": "Beispiel-Reederei",
+  "flight": true,
+  "look": "meer",
+  "special": [
+   {
+    "date": "2099-05-03",
+    "title": "Beispiel: Geburtstag! 🎂",
+    "style": "torte"
+   }
+  ]
+ },
+ "data": {
+  "ports": [
+   {
+    "day": 1,
+    "date": "2099-05-01",
+    "kind": "start",
+    "name": "Hafenstadt Alpha",
+    "land": "Beispielland",
+    "times": "Einschiffung",
+    "tz": 2,
+    "lat": 39.566,
+    "lon": 2.637,
+    "text": "Erfundener Starthafen der Beispielreise.",
+    "emb": {
+     "ci1": "12:00",
+     "ci2": "15:00",
+     "ab": "17:30",
+     "dep": "18:00",
+     "pier": "Terminal 1 (erfunden)"
+    },
+    "pois": [],
+    "ex": [],
+    "fact": [],
+    "tips": [],
+    "tr": []
+   },
+   {
+    "day": 2,
+    "date": "2099-05-02",
+    "kind": "port",
+    "name": "Inselort Beta",
+    "land": "Beispielland",
+    "times": "08:00–17:00",
+    "tz": 2,
+    "lat": 39.888,
+    "lon": 4.262,
+    "walk": "Ja, Altstadt 10 Min",
+    "price": 39,
+    "ort": "Erfundener Hafenort mit kleiner Altstadt (nur Beispieltext).",
+    "verdikt": "Auf eigene Faust gut machbar (Beispiel).",
+    "rec": "Ausflug B12 (erfunden).",
+    "recCodes": [
+     "B12"
+    ],
+    "tips": [
+     "Beispiel-Tipp: Wasser mitnehmen.",
+     "Beispiel-Tipp: Bargeld für Märkte."
+    ],
+    "tr": [
+     "Beispiel: Taxis stehen am Anleger."
+    ],
+    "pois": [
+     {
+      "id": "beta-altstadt",
+      "n": "Altstadt Beta (erfunden)",
+      "t": "town",
+      "lat": 39.889,
+      "lon": 4.265,
+      "w": "walk",
+      "d": "Erfundene Altstadt mit Gassen und Café-Plätzen.",
+      "g": {
+       "m": "walk",
+       "t": 10,
+       "s": 90,
+       "c": 0,
+       "u": "€",
+       "o": "immer offen",
+       "f": null,
+       "v": 0,
+       "n": ""
+      }
+     },
+     {
+      "id": "beta-strand",
+      "n": "Goldstrand (erfunden)",
+      "t": "beach",
+      "lat": 39.873,
+      "lon": 4.3,
+      "w": "taxi",
+      "d": "Erfundener Sandstrand.",
+      "g": {
+       "m": "taxi",
+       "t": 15,
+       "s": 120,
+       "c": 15,
+       "u": "€",
+       "o": "",
+       "f": 0,
+       "v": 0,
+       "n": ""
+      }
+     },
+     {
+      "id": "beta-leuchtturm",
+      "n": "Leuchtturm Beta (erfunden)",
+      "t": "sight",
+      "lat": 39.861,
+      "lon": 4.322,
+      "w": "tour",
+      "ex": "B12",
+      "d": "Erfundener Leuchtturm, im Beispiel per Ausflug erreichbar.",
+      "ca": 1,
+      "g": {
+       "m": "tour",
+       "t": 25,
+       "s": 60,
+       "c": 15,
+       "u": "€",
+       "o": "",
+       "f": 5,
+       "v": 0,
+       "n": ""
+      }
+     },
+     {
+      "id": "beta-salz",
+      "n": "Salzgarten (erfunden)",
+      "t": "factory",
+      "lat": 39.905,
+      "lon": 4.24,
+      "w": "taxi",
+      "d": "Erfundene Salzgewinnung.",
+      "g": {
+       "m": "taxi",
+       "t": 15,
+       "s": 45,
+       "c": 15,
+       "u": "€",
+       "o": "Mo–Fr 9–16",
+       "f": null,
+       "v": 0,
+       "n": ""
+      }
+     }
+    ],
+    "ex": [
+     {
+      "c": "B12",
+      "n": "Leuchtturm & Küste (erfunden)",
+      "dur": "3,5 Std.",
+      "p": 39,
+      "lv": "leicht",
+      "prog": "Erfundenes Programm: Busfahrt, Leuchtturm, Fotostopp.",
+      "note": "Beispielhinweis: festes Schuhwerk.",
+      "rec": 1
+     },
+     {
+      "c": "B20",
+      "n": "Bootsfahrt (erfunden)",
+      "dur": "2 Std.",
+      "p": 29,
+      "lv": "leicht",
+      "prog": "Erfundene Bootsfahrt.",
+      "sold": 1
+     }
+    ],
+    "fact": [
+     {
+      "n": "Salzgarten Beta (erfunden)",
+      "what": "Beispiel: Führung durch die Salzbecken",
+      "when": "Werktags (erfunden)",
+      "how": "Taxi, 15 Min",
+      "rel": "Erfundene Quelle",
+      "src": "bsp"
+     }
+    ]
+   },
+   {
+    "day": 3,
+    "date": "2099-05-03",
+    "kind": "sea",
+    "name": "Seetag",
+    "tz": 2,
+    "text": "Erfundener Seetag.",
+    "pois": [],
+    "ex": [],
+    "fact": [],
+    "tips": [],
+    "tr": []
+   },
+   {
+    "day": 4,
+    "date": "2099-05-04",
+    "kind": "port",
+    "name": "Bucht Gamma",
+    "land": "Beispielland",
+    "times": "09:00–18:00",
+    "tz": 2,
+    "lat": 39,
+    "lon": 1.43,
+    "walk": "Nein, Tender",
+    "price": 0,
+    "ort": "Erfundene Bucht (Tenderhafen).",
+    "verdikt": "Strandtag (Beispiel).",
+    "rec": "Kein Ausflug nötig (Beispiel).",
+    "recCodes": [],
+    "tips": [
+     "Beispiel: Tender ab 09:30."
+    ],
+    "tr": [],
+    "pois": [
+     {
+      "id": "gamma-bucht",
+      "n": "Muschelbucht (erfunden)",
+      "t": "nature",
+      "lat": 38.99,
+      "lon": 1.42,
+      "w": "walk",
+      "d": "Erfundene Naturbucht.",
+      "g": {
+       "m": "walk",
+       "t": 15,
+       "s": 120,
+       "c": 0,
+       "u": "€",
+       "o": "",
+       "f": null,
+       "v": 0,
+       "n": ""
+      }
+     }
+    ],
+    "ex": [],
+    "fact": []
+   },
+   {
+    "day": 5,
+    "date": "2099-05-05",
+    "kind": "end",
+    "name": "Hafenstadt Alpha",
+    "land": "Beispielland",
+    "times": "Rückkehr",
+    "tz": 2,
+    "lat": 39.566,
+    "lon": 2.637,
+    "text": "Ende der erfundenen Reise.",
+    "emb": {
+     "arr": "07:00",
+     "w1": "08:00",
+     "w2": "09:30",
+     "bag": "23:00",
+     "grp": "Gruppe 3 (erfunden)"
+    },
+    "pois": [],
+    "ex": [],
+    "fact": [],
+    "tips": [],
+    "tr": []
+   }
+  ],
+  "maps": {},
+  "src": {
+   "bsp": [
+    "Erfundene Beispielquelle",
+    "https://example.com/"
+   ]
+  },
+  "kul": {
+   "L": {
+    "Beispielland": {
+     "g": [
+      "Erfunden: Beispielland wurde im Jahr 1000 gegründet."
+     ],
+     "p": [
+      "Erfunden: Parlamentarische Beispielrepublik."
+     ],
+     "k": [
+      "Erfunden: Musik mit Muschelhörnern."
+     ],
+     "e": [
+      "Erfunden: Nationalgericht ist Beispielsuppe."
+     ]
+    }
+   },
+   "P": {
+    "Inselort Beta": [
+     "Erfunden: Beta hat 1.234 Einwohner."
+    ]
+   },
+   "maskRe": "Beispielland|Beta|Alpha|Gamma"
+  },
+  "quiz": [
+   [
+    "l",
+    "Wie heißt das Nationalgericht von Beispielland? (erfunden)",
+    "Beispielsuppe",
+    [
+     "Mustereintopf",
+     "Testsalat",
+     "Probenbrot"
+    ],
+    "Erfundene Beispielfrage."
+   ],
+   [
+    "r",
+    "Welcher Hafen kommt an Tag 2? (erfunden)",
+    "Inselort Beta",
+    [
+     "Bucht Gamma",
+     "Hafenstadt Alpha",
+     "Kap Delta"
+    ],
+    "Erfundene Beispielfrage."
+   ],
+   [
+    "s",
+    "Auf welchem Deck liegt der Pool der MS Beispiel? (erfunden)",
+    "Deck 9",
+    [
+     "Deck 5",
+     "Deck 7",
+     "Deck 11"
+    ],
+    "Erfundene Beispielfrage."
+   ],
+   [
+    "g",
+    "Was ist im Beispiel-Cocktail „Fantasia“? (erfunden)",
+    "Rum und Ananas",
+    [
+     "Gin und Tonic",
+     "Wodka und Kaffee",
+     "Sekt und Aperol"
+    ],
+    "Erfundene Beispielfrage."
+   ]
+  ],
+  "notes": [
+   "Dies ist eine erfundene Beispielreise. Alle Angaben sind ausgedacht."
+  ]
+ },
+ "photos": {
+  "B12": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+ },
+ "ship": {
+  "id": "ms-beispiel",
+  "name": "MS Beispiel (erfunden)",
+  "short": "Beispiel",
+  "deckNote": "Erfundener Deckplan mit drei Decks.",
+  "data": {
+   "dk": [
+    [
+     11,
+     "Sonnendeck",
+     [
+      [
+       "Sonnenterrasse (erfunden)",
+       50,
+       "sun",
+       0,
+       "Erfundenes Sonnendeck."
+      ]
+     ]
+    ],
+    [
+     9,
+     "Pooldeck",
+     [
+      [
+       "Hauptpool (erfunden)",
+       55,
+       "pool",
+       0,
+       "Erfundener Pool."
+      ],
+      [
+       "Buffet-Restaurant (erfunden)",
+       80,
+       "food",
+       0,
+       "Erfundenes Buffet."
+      ],
+      [
+       "Poolbar (erfunden)",
+       45,
+       "bar",
+       0.6,
+       "Erfundene Bar."
+      ]
+     ]
+    ],
+    [
+     5,
+     "Promenadendeck",
+     [
+      [
+       "Theater (erfunden)",
+       15,
+       "show",
+       0,
+       "Erfundenes Theater."
+      ],
+      [
+       "Rezeption (erfunden)",
+       50,
+       "service",
+       -0.5,
+       "Erfundene Rezeption."
+      ],
+      [
+       "Bordshop (erfunden)",
+       60,
+       "shop",
+       0.5,
+       "Erfundener Shop."
+      ]
+     ]
+    ]
+   ],
+   "cab": {
+    "7": "7001,20,1,60;7002,20,0,-60;7003,30,1,60;7004,30,0,-60;7005,40,1,60;7006,40,0,-60"
+   },
+   "lifts": {
+    "5": [
+     30,
+     70
+    ],
+    "7": [
+     30,
+     70
+    ],
+    "9": [
+     30,
+     70
+    ],
+    "11": [
+     50
+    ]
+   }
+  },
+  "drinks": {
+   "stand": "Erfundene Getränkekarte (Beispiel).",
+   "groups": [
+    {
+     "n": "Cocktails",
+     "secs": [
+      {
+       "n": "Beispiel-Cocktails",
+       "pr": "9,00 €",
+       "nt": "",
+       "items": [
+        {
+         "n": "Fantasia (erfunden)",
+         "p": "9,00 €",
+         "d": "Rum, Ananas, Limette",
+         "k": "M",
+         "h": "Erfundene Geschichte des Cocktails."
+        },
+        {
+         "n": "Blaue Bucht (erfunden)",
+         "p": "8,50 €",
+         "d": "Wodka, Blue Curaçao, Zitrone",
+         "k": ""
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "n": "Alkoholfrei",
+     "secs": [
+      {
+       "n": "Limonaden",
+       "pr": "3,50 €",
+       "nt": "",
+       "items": [
+        {
+         "n": "Beispiel-Limo (erfunden)",
+         "p": "3,50 €",
+         "d": "Zitrone, Minze",
+         "k": "M"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

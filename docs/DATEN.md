@@ -12,6 +12,8 @@ trips/<trip-id>/travel/out|back    { mode: plane|train|car|bus, segs:[{f,t:{n,c,
 trips/<trip-id>/members/<uid>      { n: Name, l: Buchstabe, c: Farbnummer, ts } – Mitreisende, legt sich bei der ersten Anmeldung selbst an
 trips/<trip-id>/users/<uid>/lists|tasks   private Listen/Aufgaben (Regel: nur die Person selbst)
 ships/<ship-id>                    { name, short, deckNote, json: "<Deckplan>", drinks: "<Getränkekarte>" }
+config/kientwuerfe                 { list:[{k, id, title, kind, start, end, by, at}] } – Verzeichnis der Reise-Entwürfe von Claude
+config/kientwurf_<trip-id>         { id, title, kind, start, end, days, by, at, json: "<geprüfte Import-Datei>", size, warn:[…], ttl }
 ```
 Große/verschachtelte Teile liegen als **JSON-String** in einem Feld (`json`), weil Firestore
 keine Arrays in Arrays erlaubt und ein Dokument höchstens 1 MB groß sein darf (Fotos deshalb einzeln).
@@ -147,5 +149,10 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 - Protokoll `trips/<id>/kilog/<id>`: `{uid, at, tool, col: planitems|tasks|picks|dinner, doc, before, after, txt, undone}`.
 - Rückgängig in der App (`kiUndo`, Einstellungen → Konto → Änderungen durch KI). Schreibt über die normalen Speicherwege
   und setzt `undone:true`.
+
+**Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos,
+höchstens 900 kB, höchstens 3, nach 30 Tagen weg (`ttl` kann zusätzlich als Firestore-TTL-Feld eingerichtet werden).
+„Übernehmen“ in der App: `__checkTrip` → `__importTrip(o, true)` (bricht ab, wenn die Reise schon existiert; vorhandenes Schiff
+bleibt; `config/app.activeTrip` bleibt) → Entwurf löschen (`__kiDrafts.drop`). Keine Regeländerung nötig (`config/*`).
 Neuerer Stand (`ts`) gewinnt; auf dem Gerät zusätzlich `rp-home`, `rp-spider`, `rp-spider-stats` (+ `-ts`).
 Quiz-Duell: `plandays/quiz_<uid>.daily.<Datum> = {ok, t, done, res:[1|0 je Frage], ans:[gewählte Antwort je Frage]}`.

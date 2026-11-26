@@ -1,0 +1,67 @@
+{
+ "format": "reiseplaner-trip-1",
+ "id": "beispiel-roadtrip-2099",
+ "_hinweis": "BEISPIELDATEI – frei erfundener Roadtrip (kleinstmögliche sinnvolle Datei, ohne Schiff). Orte und Texte sind ausgedacht, die Koordinaten liegen auf Teneriffa.",
+ "trip": {
+  "title": "BEISPIEL – Musterland-Roadtrip (erfunden)",
+  "region": "Musterland",
+  "kind": "roadtrip",
+  "start": "2099-08-10",
+  "end": "2099-08-12",
+  "ship": null,
+  "tz": 1,
+  "arrival": "plane",
+  "vehicle": "car"
+ },
+ "data": {
+  "ports": [
+   {
+    "day": 1,
+    "date": "2099-08-10",
+    "kind": "port",
+    "name": "Musterstadt",
+    "land": "Musterland",
+    "tz": 1,
+    "lat": 28.468,
+    "lon": -16.254,
+    "text": "Erfundener Startort.",
+    "pois": [
+     {
+      "id": "ms-markt",
+      "n": "Markthalle (erfunden)",
+      "t": "sight",
+      "lat": 28.466,
+      "lon": -16.251,
+      "w": "walk",
+      "d": "Erfundene Markthalle."
+     }
+    ]
+   },
+   {
+    "day": 2,
+    "date": "2099-08-11",
+    "kind": "port",
+    "name": "Bergdorf",
+    "land": "Musterland",
+    "tz": 1,
+    "lat": 28.355,
+    "lon": -16.835,
+    "text": "Erfundenes Bergdorf.",
+    "pois": []
+   },
+   {
+    "day": 3,
+    "date": "2099-08-12",
+    "kind": "port",
+    "name": "Strandort",
+    "land": "Musterland",
+    "tz": 1,
+    "lat": 28.048,
+    "lon": -16.716,
+    "text": "Erfundener Strandort.",
+    "pois": []
+   }
+  ],
+  "maps": {}
+ }
+}

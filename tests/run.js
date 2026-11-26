@@ -131,6 +131,50 @@ test('konto: Änderungen durch KI – Kennzeichen 🤖 und Rückgängig (Plan, A
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('reisen: Entwurf von Claude – Vorschau, Übernehmen (wie Import, nie überschreiben), Verwerfen mit Rückgängig', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), bad = '<img src=x onerror="window.__xss=1">';
+  const d = H.trip('roadtrip'); d.id = 'entwurf-test'; d.trip.title = 'Testentwurf ' + bad; d.data.ports[0].name = 'Ort ' + bad;
+  const d2 = H.trip('roadtrip'); d2.id = 'entwurf-zwei'; d2.trip.title = 'Zweiter Entwurf';
+  const docOf = (o, k) => ({ id: o.id, k, title: o.trip.title, kind: o.trip.kind, start: o.trip.start, end: o.trip.end, by: 'u1', at: Date.now(), json: JSON.stringify(o), warn: ['Hinweis ' + bad] });
+  // Firestore nachgebildet (wie window.__kiDrafts im Lader); Import wird nur aufgezeichnet
+  const pre = `(function(){var S=JSON.parse(localStorage.getItem('rp-test-kd')||'null')||${JSON.stringify({ 'kientwurf_entwurf-test': docOf(d, 'kientwurf_entwurf-test'), 'kientwurf_entwurf-zwei': docOf(d2, 'kientwurf_entwurf-zwei') })};
+    var sv=function(){localStorage.setItem('rp-test-kd',JSON.stringify(S))};
+    window.__kiDrafts={list:async function(){return Object.keys(S).map(function(k){var x=S[k];return {k:k,id:x.id,title:x.title,kind:x.kind,start:x.start,end:x.end,by:x.by,at:x.at}})},get:async function(k){return S[k]||null},
+      drop:async function(k){var o=S[k]||null;delete S[k];sv();return o},restore:async function(k,o){S[k]=o;sv()}};
+    window.__importTrip=async function(o,neu){localStorage.setItem('rp-test-imp',JSON.stringify({id:o.id,neu:neu,ports:o.data.ports.length}))};})();`;
+  const p = await H.open(c, base, t, '#plan', pre);
+  await p.evaluate(() => { window.confirm = () => true; offlineDlg('trip'); }); await p.waitForTimeout(600);
+  let txt = await p.innerText('#kidr');
+  ok(/Entwurf von Claude/.test(txt) && /Testentwurf/.test(txt) && /Zweiter Entwurf/.test(txt) && /Übernehmen/.test(txt) && /Verwerfen/.test(txt), 'Liste falsch: ' + txt);
+  // Vorschau als Seite: Tage, Hinweise, maskiert
+  await p.click('[data-kdv="kientwurf_entwurf-test"]'); await p.waitForTimeout(500);
+  const pv = await p.evaluate(() => ({ page: document.getElementById('dlg').classList.contains('page'), txt: document.getElementById('dlg').innerText, rows: document.querySelectorAll('#dlg .kdd').length }));
+  ok(pv.page && pv.rows === d.data.ports.length, 'Vorschau: ' + JSON.stringify({ page: pv.page, rows: pv.rows }));
+  ok(/Tag 1/.test(pv.txt) && /noch nicht angelegt/.test(pv.txt) && /Hinweis/.test(pv.txt), 'Vorschau-Text: ' + pv.txt.slice(0, 300));
+  ok(!(await p.evaluate(() => window.__xss)) && !(await p.$('#dlg img')), 'Vorschau nicht maskiert (XSS)');
+  // Verwerfen aus der Vorschau → Rückgängig stellt wieder her
+  await p.click('#kddel'); await p.waitForTimeout(500);
+  ok(!(await p.evaluate(() => 'kientwurf_entwurf-test' in JSON.parse(localStorage.getItem('rp-test-kd')))), 'nicht verworfen');
+  await p.click('#toast .tundo'); await p.waitForTimeout(400);
+  ok(await p.evaluate(() => 'kientwurf_entwurf-test' in JSON.parse(localStorage.getItem('rp-test-kd'))), 'Rückgängig ging nicht');
+  // Übernehmen: echte Prüfung (__checkTrip mit tripcheck.js), Import mit neu=true, Entwurf danach weg
+  await p.evaluate(() => { closeDlg(); setTimeout(() => offlineDlg('trip'), 100); }); await p.waitForTimeout(800);
+  await p.click('[data-kda="kientwurf_entwurf-test"]'); await p.waitForTimeout(2500);
+  const r = await p.evaluate(() => ({ imp: JSON.parse(localStorage.getItem('rp-test-imp') || 'null'), kd: Object.keys(JSON.parse(localStorage.getItem('rp-test-kd'))) }));
+  ok(r.imp && r.imp.id === 'entwurf-test' && r.imp.neu === true && r.imp.ports === d.data.ports.length, 'Import falsch: ' + JSON.stringify(r.imp));
+  ok(r.kd.length === 1 && r.kd[0] === 'kientwurf_entwurf-zwei', 'Entwurf nach Übernehmen nicht entfernt: ' + r.kd);
+  // fehlerhafter Entwurf: Prüfung lehnt ab, kein Import
+  await p.evaluate(() => { localStorage.removeItem('rp-test-imp'); const S = JSON.parse(localStorage.getItem('rp-test-kd')); const o = JSON.parse(S['kientwurf_entwurf-zwei'].json); o.data.ports.pop(); S['kientwurf_entwurf-zwei'].json = JSON.stringify(o); localStorage.setItem('rp-test-kd', JSON.stringify(S)); });
+  await p.reload(); await p.waitForTimeout(1500); await p.evaluate(() => offlineDlg('trip')); await p.waitForTimeout(600);
+  await p.click('[data-kda="kientwurf_entwurf-zwei"]'); await p.waitForTimeout(1200);
+  ok(/kann so nicht importiert werden/.test(await p.innerText('#kidr')) && !(await p.evaluate(() => localStorage.getItem('rp-test-imp'))), 'fehlerhafter Entwurf wurde nicht abgelehnt');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+test('entwurf: functions/format/ enthält aktuelle Kopien (sonst: node tools/dayplan-sync.js)', async () => {
+  const { FORMAT } = require(path.join(H.ROOT, 'tools/dayplan-sync.js'));
+  for (const [a, b] of FORMAT) ok(fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b)), path.relative(H.ROOT, b) + ' veraltet – node tools/dayplan-sync.js');
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
