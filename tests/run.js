@@ -110,7 +110,7 @@ test('anreise: Flug + Mietwagen, Zeitumstellung', async ({ browser, base }) => {
 /* ---------- Gemeinsame Tageslogik: Node (Server) rechnet wie die App ---------- */
 test('tageslogik: app.js enthält dayplan.js unverändert (sonst: node tools/dayplan-sync.js)', async () => {
   const S = require(path.join(H.ROOT, 'tools/dayplan-sync.js')), b = S.block(fs.readFileSync(path.join(H.ROOT, 'app.js'), 'utf8'));
-  ok(b !== null, 'Markierungen in app.js fehlen'); ok(b === fs.readFileSync(path.join(H.ROOT, 'dayplan.js'), 'utf8').replace(/\s*$/, '\n'), 'app.js und dayplan.js weichen ab');
+  ok(b !== null, 'Markierungen in app.js fehlen'); ok(b === fs.readFileSync(path.join(H.ROOT, 'dayplan.js'), 'utf8').replace(/\r\n/g, '\n').replace(/\s*$/, '\n'), 'app.js und dayplan.js weichen ab');
 });
 // Projektion der Ergebnisse (gleicher Code in Browser und Node)
 const DP_PROJ = `P.map(p=>{const c=dp.calc(p);return {day:p.day,today:dp.todayStr(),W:c.W,back:c.back,slack:c.slack,fee:c.fee,cost:c.cost,u:c.u,ret:c.ret,

@@ -8,12 +8,15 @@ const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const A = '/* === dayplan.js eingebettet: nicht hier ändern, sondern dayplan.js bearbeiten und `node tools/dayplan-sync.js` ausführen === */\n';
 const Z = '/* === Ende dayplan.js === */\n';
+// Zeilenenden vereinheitlichen (Windows-Git kann CRLF erzeugen)
+const lf = t => t.replace(/\r\n/g, '\n');
+function find(app) { const i = app.indexOf(A), j = i < 0 ? -1 : app.indexOf(Z, i + A.length); return i < 0 || j < 0 ? null : { i, j }; }
 function embed(app, dp) {
-  const i = app.indexOf(A), j = app.indexOf(Z);
-  if (i < 0 || j < i) throw new Error('Markierungen in app.js fehlen');
-  return app.slice(0, i + A.length) + dp.replace(/\s*$/, '\n') + app.slice(j);
+  app = lf(app); const m = find(app);
+  if (!m) throw new Error('Markierungen in app.js fehlen (Anfang: „=== dayplan.js eingebettet“, Ende: „=== Ende dayplan.js ===“)');
+  return app.slice(0, m.i + A.length) + lf(dp).replace(/\s*$/, '\n') + app.slice(m.j);
 }
-function block(app) { const i = app.indexOf(A), j = app.indexOf(Z); return i < 0 || j < i ? null : app.slice(i + A.length, j); }
+function block(app) { app = lf(app); const m = find(app); return m ? app.slice(m.i + A.length, m.j) : null; }
 module.exports = { embed, block, A, Z };
 if (require.main === module) {
   const f = path.join(ROOT, 'app.js'), app = fs.readFileSync(f, 'utf8'), dp = fs.readFileSync(path.join(ROOT, 'dayplan.js'), 'utf8');

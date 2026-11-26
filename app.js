@@ -922,7 +922,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R102';
+const APP_VER='25.11. · R103';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+
@@ -1837,7 +1837,7 @@ function embRead(f,kind){if(!f.em_x)return undefined;const o={};(EMBF[kind]||[])
 const embOf=DP.embOf;
 function embChips(p){const e=embOf(p);if(!e)return [];return p.kind==='start'?[e.ci1?`<span>🚢 Check-in ${e.ci1}${e.ci2?'–'+e.ci2:''}</span>`:'',e.ab?`<span>an Bord <b>${e.ab}</b></span>`:'',e.dep?`<span>Ablegen ${e.dep}</span>`:'']
   :[e.arr?`<span>Ankunft ${e.arr}</span>`:'',e.w1?`<span>🏁 Ausschiffung ${e.w1}${e.w2?'–'+e.w2:''}</span>`:'']}
-function embMarks(p){return DP.embList(p).map(x=>({a:x.a,t:x.t,h:x.txt+(x.extra?' · '+esc(x.extra):'')}))}
+function embMarks(p){return DP.embList(p).map(x=>({a:x.a,t:x.t,h:esc(x.txt)+(x.extra?' · '+esc(x.extra):'')}))}
 /* Passt die An-/Abreise zur Ein-/Ausschiffung? */
 function embWarn(k,s){if(!CRUISE||!s)return '';const P=k==='out'?D.ports[0]:D.ports[D.ports.length-1],e=embOf(P);if(!e)return '';
   if(k==='out'&&e.ci2&&s.z.ad&&s.z.at){if(s.z.ad>P.date||(s.z.ad===P.date&&tm(s.z.at)>tm(e.ci2)))return `<p class="tvw">⚠️ Ankunft ${s.z.ad===P.date?s.z.at+' Uhr':'erst am '+fmtDate(s.z.ad)} – der Check-in endet um ${e.ci2} Uhr</p>`}
@@ -2419,8 +2419,8 @@ setInterval(()=>{if(!(todayView||tripView||sel!=null)||!$('#ov').hidden||sortLif
 function nowNextHTML(p){const N=DP.nowNext(p);if(!N)return '';const {now,cur,nx}=N;if(!cur&&!nx)return `<div class="nown done"><small>Heute</small><b>Alles geplante ist erledigt.</b></div>`;
   const nm=r=>(r.tour?OP+'-Ausflug ':'')+r.q.n,inn=m=>m<60?m+' Min':Math.floor(m/60)+' Std. '+(m%60?m%60+' Min':'');
   return `<div class="nown">${cur?`<div><small>Jetzt · bis ${hm(cur.b)}</small><b>${esc(nm(cur))}</b></div>`:''}${nx?`<div class="nx"><small>Als Nächstes · ${hm(nx.a)} Uhr · in ${inn(nx.a-now)}</small><b>${esc(nm(nx))}</b></div>`:''}</div>`}
-function aabHTML(p){const a=aabInfo(p);return a?`<div class="aab ${a.cls}" id="aab" data-day="${p.day}"><div class="aabt"><b>${a.big}</b><span>${a.txt}</span></div><i class="aabbar"><i style="width:${a.pc}%"></i></i><small>${a.sub}</small></div>`:''}
-setInterval(()=>{const e=document.getElementById('aab');if(!e)return;const p=byDay(+e.dataset.day);const a=aabInfo(p);if(!a){e.remove();return}e.className='aab '+a.cls;e.innerHTML=`<div class="aabt"><b>${a.big}</b><span>${a.txt}</span></div><i class="aabbar"><i style="width:${a.pc}%"></i></i><small>${a.sub}</small>`},20000);
+function aabHTML(p){const a=aabInfo(p);return a?`<div class="aab ${a.cls}" id="aab" data-day="${p.day}"><div class="aabt"><b>${esc(a.big)}</b><span>${esc(a.txt)}</span></div><i class="aabbar"><i style="width:${a.pc}%"></i></i><small>${esc(a.sub)}</small></div>`:''}
+setInterval(()=>{const e=document.getElementById('aab');if(!e)return;const p=byDay(+e.dataset.day);const a=aabInfo(p);if(!a){e.remove();return}e.className='aab '+a.cls;e.innerHTML=`<div class="aabt"><b>${esc(a.big)}</b><span>${esc(a.txt)}</span></div><i class="aabbar"><i style="width:${a.pc}%"></i></i><small>${esc(a.sub)}</small>`},20000);
 function infoHTML(p){if(!p||p.kind==='sea'&&!WX.d[p.day])return timesHTML(p)+tzHTML(p)+(wxChip(p,1)||wxHint(p));
   const m=/^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/.exec(p.times||''),o=tzOf(p),de=deOff(p.date)-o,i=D.ports.indexOf(p),prev=D.ports.slice(0,i).reverse().find(q=>q.kind!=='sea'),diff=prev&&p.kind!=='sea'?o-tzOf(prev):0;
   const ob=m?hm(tm(m[2])-30):'',w=WX.d[p.day],wc=w?WXC(w.c):null,wd=new Date(p.date+'T12:00:00').getTime()-15*864e5;
