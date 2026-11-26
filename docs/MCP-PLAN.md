@@ -396,6 +396,14 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 | **W5** ✅ | Unabhängige Sicherheitsprüfung (Agents), Doku `docs/MCP.md` (2b: nur niedrige Befunde, behoben: fremder Entwurf nicht ersetzbar, nur dokumentierte `trip`-Felder, `maskRe` ≤ 300 Zeichen, Übernehmen als Transaktion, Land & Leute robust, Entwurfs-Werkzeuge ohne Laden der Reise) | – |
 | **W6** | Hochladen (Nutzer, Cloud Shell), neu verbinden, Ende-zu-Ende-Test | Checkliste |
 
+### 9.8 Alle Reisen (gebaut 26.11.2026, Nutzerwunsch)
+- Statt nur `config/app.activeTrip`: Werkzeug `reisen` + optionales Feld `reise` (Kennung/Titel) an allen Werkzeugen mit Reisedaten
+  (nicht an den Entwurfs-Werkzeugen, dort ist `reise` die Reise-Datei).
+- Ohne Angabe: läuft gerade (bei mehreren die eingestellte) → nächste → eingestellte → zuletzt. Jede Antwort nennt die Reise.
+- Zugang je Aufruf: Mitglied der gewählten **oder** der eingestellten Reise. Reiseliste nur mit Kopfdaten (`select`), 60 s Zwischenspeicher,
+  mit Angabe bzw. für `reisen` immer frisch.
+- Neue Reise ohne alten Tagesplan gilt als `planV2`; das erste Eintragen setzt `plandays/meta.planV2` wie die App.
+
 ### 9.7 Offene Entscheidungen (vor W1 klären)
 | Nr | Frage | Vorschlag |
 |---|---|---|

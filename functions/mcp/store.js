@@ -10,6 +10,8 @@ function firestoreStore(db, admin) {
     async set(p, data, merge) { await ref(p).set(data, merge ? { merge: true } : {}); },
     async del(p) { await ref(p).delete(); },
     async list(col) { const s = await db.collection(col).get(); return s.docs.map(d => ({ id: d.id, data: d.data() })); },
+    // nur bestimmte Felder (z. B. Kopfdaten aller Reisen ohne das große json-Feld)
+    async listFields(col, f) { const s = await db.collection(col).select(...f).get(); return s.docs.map(d => ({ id: d.id, data: d.data() })); },
     async where(col, field, value) { const s = await db.collection(col).where(field, '==', value).get(); return s.docs.map(d => ({ id: d.id, data: d.data() })); },
     async incr(p, field, by) { await ref(p).set({ [field]: admin.firestore.FieldValue.increment(by), ttl: new Date(Date.now() + 2 * 864e5) }, { merge: true }); },
     // Transaktion: fn bekommt {get(p), set(p,data,merge)}; alles oder nichts
@@ -37,6 +39,7 @@ function memoryStore(seed = {}) {
     async set(p, data, merge) { put(p, data, merge); },
     async del(p) { D.delete(p); },
     async list(col) { return children(col).map(k => ({ id: k.slice(col.length + 1), data: clone(D.get(k)) })); },
+    async listFields(col, f) { return (await this.list(col)).map(x => ({ id: x.id, data: Object.fromEntries(f.filter(k => x.data && k in x.data).map(k => [k, x.data[k]])) })); },
     async where(col, f, v) { return (await this.list(col)).filter(x => x.data && x.data[f] === v); },
     async incr(p, f, by) { const o = D.get(p) || {}; o[f] = (o[f] || 0) + by; D.set(p, o); },
     async txn(fn) {

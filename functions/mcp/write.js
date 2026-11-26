@@ -94,7 +94,8 @@ function writer(W) {
         ops.push([base + 'planitems/' + id, doc], logDoc('eintrag_anlegen', 'planitems', id, null, doc, `Eintrag „${it.n}“ an Tag ${d} angelegt`));
         (v.plan[d] = v.plan[d] || []).push({ ...doc, id }); out.push(`${line(d, doc)} [${id}]`);
       }
-      await S.txn(async T => { ops.forEach(([k, x]) => T.set(k, x)); });   // alles oder nichts
+      if (!v.metaV2) ops.push([base + 'plandays/meta', { planV2: true }, true]);   // neue Reise: Format vermerken wie die App
+      await S.txn(async T => { ops.forEach(([k, x, m]) => T.set(k, x, m)); });   // alles oder nichts
       return `Gespeichert (${out.length} ${out.length === 1 ? 'Eintrag' : 'Einträge'}):\n` + out.join('\n') + (pl ? '\n' + pl.txt : '') + (skip.size ? `\nAusgelassen wegen Überschneidung: ${confTxt(conf)}` : '');
     },
 

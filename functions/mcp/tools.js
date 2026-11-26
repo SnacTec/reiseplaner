@@ -152,9 +152,20 @@ const TOOLS = [
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
+  { name: 'reisen', title: 'Alle Reisen', noload: true, description: 'Liste aller Reisen (vergangen, laufend, geplant) mit Kennung. Die anderen Werkzeuge nehmen ohne Angabe die laufende bzw. nächste Reise; eine andere mit reise = Kennung oder Titel.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X, a, w) => reisenList(w) },
   ...DRAFT_TOOLS(),
   ...WRITE_TOOLS(),
 ];
+// Feld „reise“ für alle Werkzeuge, die Reisedaten lesen oder schreiben
+const REISE = { type: 'string', minLength: 1, maxLength: 80, description: 'Welche Reise: Kennung oder Titel (siehe reisen). Ohne Angabe: die laufende, sonst die nächste Reise.' };
+TOOLS.filter(t => !t.noload).forEach(t => { t.inputSchema = { ...t.inputSchema, properties: { ...t.inputSchema.properties, reise: REISE } }; });
+function reisenList(w) {
+  const L = w.trips || [], d = w.def, today = w.today || '';
+  if (!L.length) return 'Es gibt noch keine Reisen.';
+  const st = x => x.end && x.end < today ? 'vorbei' : x.start && x.start > today ? 'geplant' : 'läuft gerade';
+  return HEAD + 'Reisen (älteste zuerst):\n' + L.map(x => `- „${clean(x.title, 80)}“ [${clean(x.id, 80)}] · ${x.start ? fmtDate(x.start) + ' bis ' + fmtDate(x.end) + ' ' + x.end.slice(0, 4) : 'ohne Datum'} · ${st(x)}${d && d.id === x.id ? ' · Standard ohne Angabe' : ''}`).join('\n');
+}
 /* Stufe 2b: neue Reise als Entwurf (draft.js). Format und Prüfung lesend für alle, Speichern nur mit reise.schreiben.
  * big: Anfrage darf bis ~900 kB groß sein (sonst 64 kB); max: längere Antwort (Beschreibung + Beispiel ca. 26 kB). */
 function DRAFT_TOOLS() {

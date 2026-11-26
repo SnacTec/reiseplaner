@@ -1,5 +1,5 @@
 /* Einziger Lesebaustein für Reisedaten (das Admin SDK umgeht die Firestore-Regeln – deshalb feste Positivliste):
- *   config/app · trips/<id> · ships/<id> (nur Deckplan) · trips/<id>/{planitems, picks, plandays/meta, plandays/d<N> (alt),
+ *   config/app · trips (alle Reisen, Kopfdaten für die Auswahl) · trips/<id> · ships/<id> (nur Deckplan) · trips/<id>/{planitems, picks, plandays/meta, plandays/d<N> (alt),
  *   travel, stays, files, lists + tasks (nur gemeinsame), members/<uid> (nur Existenz)}
  * NIE: users/…, config/user_*, plandays/quiz_*, backups, photos, lists, tasks.
  * Bereinigt wird beim Lesen (keine Sitzplätze, Buchungsnummern, Kabine, Namen). Aufbereitung wie in der App (index.html/app.js). */
@@ -23,13 +23,13 @@ function reader(S) {
     const base = 'trips/' + trip + '/';
     const [items, pk, m, tv, st, fl, ls, tk] = await Promise.all([S.list(base + 'planitems'), S.list(base + 'picks'), S.get(base + 'plandays/meta'), S.list(base + 'travel'), S.list(base + 'stays'), S.list(base + 'files'), S.list(base + 'lists'), S.list(base + 'tasks')]);
     // Tagesplan: je Tag nach o, dann Kennung sortieren (wie planMigrate in app.js)
-    const plan = {};
+    const plan = {}; let legacy = false;
     if (items.length || (m && m.planV2)) {
       items.forEach(({ id, data }) => { const { d, o, ...r } = data || {}; if (!(+d >= 1)) return; (plan[+d] = plan[+d] || []).push({ ...r, id, _o: typeof o === 'number' ? o : 0 }); });
       // _o bleibt erhalten (Reihenfolge für neue Einträge), wird bei der Ausgabe nicht gezeigt
       Object.values(plan).forEach(a => a.sort((p, q) => p._o - q._o || String(p.id).localeCompare(q.id)));
     } else {  // Altbestand vor planV2
-      for (const p of ports) { const d = await S.get(base + 'plandays/d' + p.day); if (d && Array.isArray(d.items)) plan[p.day] = d.items; }
+      for (const p of ports) { const d = await S.get(base + 'plandays/d' + p.day); if (d && Array.isArray(d.items)) { plan[p.day] = d.items; legacy = true; } }
     }
     // Tipp-Einträge: Position i aus der festen Kennung ti (planTipFix)
     Object.entries(plan).forEach(([d, a]) => { const L = ((ports.find(p => p.day === +d) || {}).pois) || []; a.forEach(s => { if (!s || s.x) return; if (s.ti) { const k = L.findIndex(q => q.id === s.ti); if (k >= 0) s.i = k; } }); });
@@ -44,10 +44,18 @@ function reader(S) {
     // ToDos: nur gemeinsame Listen (private liegen unter users/<uid>/ und werden nie gelesen)
     const lists = ls.filter(x => x.data && !x.data.priv).map(({ id, data }) => ({ id, name: data.name || 'Liste', ord: data.ord || 0 }));
     const tasks = tk.filter(x => x.data && lists.some(l => l.id === x.data.list)).map(({ id, data }) => ({ id, text: data.text || '', done: !!data.done, due: data.due || '', list: data.list, note: data.note || '', ts: data.ts || 0, ki: data.ki || null }));
-    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files, lists, tasks, planV2: !!(m && m.planV2) };
+    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files, lists, tasks, planV2: !!(m && m.planV2) || items.length > 0 || !legacy, metaV2: !!(m && m.planV2) };   // neue Reise ohne alten Tagesplan: gleich im neuen Format
     cache.set(trip, { at: Date.now(), v }); if (cache.size > 10) cache.delete(cache.keys().next().value);
     return v;
   }
-  return { load, drop: trip => cache.delete(trip) };
+  // Alle Reisen (nur Kopfdaten), 60 s zwischengespeichert – für das Werkzeug „reisen“ und die Auswahl ohne Angabe
+  let tl = null;
+  async function trips(fresh) {
+    if (!fresh && tl && Date.now() - tl.at < 60e3) return tl.L;
+    const L = (await S.listFields('trips', ['title', 'kind', 'start', 'end'])).filter(x => TRIP_RE.test(x.id) && x.data).map(({ id, data }) => ({ id, title: String(data.title || id), kind: String(data.kind || ''), start: String(data.start || ''), end: String(data.end || '') }))
+      .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+    tl = { at: Date.now(), L }; return L;
+  }
+  return { load, trips, drop: trip => { cache.delete(trip); tl = null; } };
 }
 module.exports = { reader, TRIP_RE };

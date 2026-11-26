@@ -82,6 +82,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   - Stufe 2b Reise-Entwurf (`draft.js`): `reise_format`, `reise_pruefen`, `reise_entwurf_speichern` → `config/kientwurf_<id>`;
     App: Einstellungen → Reisen „Entwurf von Claude“ (`kdRender`, `kdPreview`, `kdAccept` → `__checkTrip` + `__importTrip(o,true)`).
     Kopien von IMPORT-FORMAT.md, Beispielen und tripcheck.js in `functions/format/` über `node tools/dayplan-sync.js` (Test prüft).
+  - Alle Reisen: Werkzeug `reisen`, Feld `reise` (Kennung/Titel); ohne Angabe laufende → nächste → `config/app` (`pickTrip` in `functions/mcp/app.js`).
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.

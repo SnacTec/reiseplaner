@@ -150,6 +150,9 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 - Rückgängig in der App (`kiUndo`, Einstellungen → Konto → Änderungen durch KI). Schreibt über die normalen Speicherwege
   und setzt `undone:true`.
 
+**Welche Reise der Konnektor nimmt:** Angabe `reise`, sonst laufende → nächste → `config/app.activeTrip` (docs/MCP.md, „Welche Reise?“).
+`config/app` bleibt die Standard-Reise für den Start der App und das Verbinden.
+
 **Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos, nur dokumentierte `trip`-Felder, `kul.maskRe` ≤ 300 Zeichen, Entwurf eines anderen Mitreisenden nicht ersetzbar,
 höchstens 900 kB, höchstens 3, nach 30 Tagen weg (`ttl` kann zusätzlich als Firestore-TTL-Feld eingerichtet werden).
 „Übernehmen“ in der App: `__checkTrip` → `__importTrip(o, true)` (bricht ab, wenn die Reise schon existiert; vorhandenes Schiff

@@ -109,7 +109,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
     const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
-    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'suchen', 'tag_plan', 'tipps']);
+    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'reisen', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
     const r = await client.callTool({ name: 'tag_plan', arguments: { wann: 'heute' } }); const txt = r.content[0].text;
     assert.match(txt, /Tag 2/); assert.match(txt, /Café am Hafen/); assert.match(txt, /Abendessen/); assert.match(txt, /Zurück an Bord ca\./);
@@ -371,9 +371,10 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     // Tipp-Eintrag (aus dem Reiseführer) ist nicht änderbar
     assert.match((await W(WT.access_token, 'eintrag_aendern', { id: 'etip', name: 'X' })).t, /Tipp aus dem Reiseführer/);
     // Reise im alten Format: kein Eintragen (sonst Datenverlust bei der Übernahme in der App)
-    const meta = S.D.get('trips/' + id + '/plandays/meta'); S.D.set('trips/' + id + '/plandays/meta', { ...meta, planV2: false });
+    const meta = S.D.get('trips/' + id + '/plandays/meta'), pi = [...S.D.entries()].filter(([k]) => k.startsWith('trips/' + id + '/planitems/'));
+    S.D.set('trips/' + id + '/plandays/meta', { ...meta, planV2: false }); pi.forEach(([k]) => S.D.delete(k)); S.D.set('trips/' + id + '/plandays/d4', { d: 4, items: [{ x: 1, n: 'Altbestand' }] });
     try { const o = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'Alt' }); assert.equal(o.err, true); assert.match(o.t, /alte Speicherformat/); }
-    finally { S.D.set('trips/' + id + '/plandays/meta', meta); }
+    finally { S.D.set('trips/' + id + '/plandays/meta', meta); pi.forEach(([k, x]) => S.D.set(k, x)); S.D.delete('trips/' + id + '/plandays/d4'); }
     // Lese-Verbindung bleibt nach Refresh lesend; unbekannte Wahl = lesen
     const rt = await tokens(); clock += 5e3; const rn = await (await tokenReq({ grant_type: 'refresh_token', refresh_token: rt.refresh_token })).json(); assert.ok(!rn.scope.includes('reise.schreiben'));
     assert.ok(!(await tokens({ access: 'admin' })).scope.includes('reise.schreiben'));
@@ -472,6 +473,40 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     try { const x = road(); x.id = 'notaus-1'; const r = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x }); assert.ok(r.err); assert.ok(!S.D.get('config/kientwurf_notaus-1'));
       assert.ok(!(await W(WT.access_token, 'reise_format', {})).err, 'Format geht weiter'); }
     finally { S.D.set('mcp_ctl/state', {}); clock += 31e3; }
+  });
+  /* ---------- Alle Reisen: Auswahl per Angabe oder nach Datum ---------- */
+  const rt = tripCheck(fs.readFileSync(path.join(ROOT, 'docs/beispiel/BEISPIEL-roadtrip.json'), 'utf8')).trip, rid = rt.id;
+  S.D.set('trips/' + rid, { ...rt.trip, json: JSON.stringify({ ports: rt.data.ports }) });   // ohne Mitglieder (neu angelegt)
+  clock = T0 + 3600e3; RT = await tokens(); WT = await tokens({ access: 'write' });   // Tag 2 der Kreuzfahrt
+  await test('reisen: Liste aller Reisen, Standard nach Datum, Antwort nennt die Reise', async () => {
+    const r = await W(RT.access_token, 'reisen', {}); assert.match(r.t, new RegExp(id + '\\].*läuft gerade · Standard ohne Angabe')); assert.match(r.t, new RegExp(rid + '\\].*geplant'));
+    const a = await W(RT.access_token, 'tag_plan', { tag: 2 }); assert.match(a.t.split('\n')[1], new RegExp('^Reise: .*\\[' + id + '\\] – ohne Angabe gewählt: läuft gerade'));
+    const b = await W(RT.access_token, 'reise_info', { reise: rid }); assert.ok(!b.err, b.t); assert.match(b.t, new RegExp('\\[' + rid + '\\]')); assert.ok(!/ohne Angabe/.test(b.t)); assert.match(b.t, new RegExp(rt.data.ports[0].name));
+    const c = await W(RT.access_token, 'reise_info', { reise: rt.trip.title.toUpperCase() }); assert.match(c.t, new RegExp('\\[' + rid + '\\]'), 'Titel ohne Groß/klein');
+    const d = await W(RT.access_token, 'tag_plan', { reise: 'gibtsnicht', tag: 1 }); assert.ok(d.err); assert.match(d.t, /gibt es nicht. Reisen:/);
+    const e = await W(RT.access_token, 'reise_info', { reise: 'beispiel' }); assert.ok(e.err); assert.match(e.t, /Mehrere Reisen passen/);
+    // vor der Kreuzfahrt-Zeit: nächste Reise; zwischen beiden: Roadtrip ist die nächste; danach: eingestellte Reise
+    const c0 = clock; try {
+      clock = Date.parse('2099-06-01T10:00:00Z'); RT = await tokens(); assert.match((await W(RT.access_token, 'reise_info', {})).t, new RegExp('\\[' + rid + '\\] – ohne Angabe gewählt: nächste Reise'));
+      clock = Date.parse('2100-01-01T10:00:00Z'); RT = await tokens(); assert.match((await W(RT.access_token, 'reise_info', {})).t, new RegExp('\\[' + id + '\\] – ohne Angabe gewählt: in der App eingestellt'));
+    } finally { clock = c0 + 10e3; RT = await tokens(); WT = await tokens({ access: 'write' }); }
+  });
+  await test('reisen: Eintragen in eine andere Reise, Protokoll dort; ohne Zugang zur eingestellten Reise kein Zugriff', async () => {
+    const r = await W(WT.access_token, 'eintrag_anlegen', { reise: rid, tag: 2, name: 'Wanderung', uhrzeit: '09:00' }); assert.ok(!r.err, r.t); assert.match(r.t, new RegExp('Reise: .*\\[' + rid + '\\]'));
+    assert.equal(S.D.get('trips/' + rid + '/plandays/meta').planV2, true, 'neue Reise: Format vermerkt');
+    const it = [...S.D.keys()].filter(k => k.startsWith('trips/' + rid + '/planitems/')); assert.equal(it.length, 1); assert.equal(S.D.get(it[0]).n, 'Wanderung');
+    assert.ok([...S.D.keys()].some(k => k.startsWith('trips/' + rid + '/kilog/')), 'Protokoll in der anderen Reise');
+    assert.match((await W(WT.access_token, 'tag_plan', { reise: rid, tag: 2 })).t, /Wanderung/);
+    assert.ok(!(await W(WT.access_token, 'tag_plan', { tag: 2 })).t.includes('Wanderung'), 'nicht in der laufenden Reise');
+    const m = S.D.get('trips/' + id + '/members/uidA'); S.D.delete('trips/' + id + '/members/uidA');
+    try { assert.match((await W(RT.access_token, 'reise_info', { reise: rid })).t, /Kein Zugriff/); } finally { S.D.set('trips/' + id + '/members/uidA', m); }
+    S.D.set('trips/' + rid + '/members/uidA', { n: 'Anna' });   // Mitglied der anderen Reise reicht für diese
+    try { S.D.delete('trips/' + id + '/members/uidA'); assert.ok(!(await W(RT.access_token, 'reise_info', { reise: rid })).err); } finally { S.D.set('trips/' + id + '/members/uidA', m); S.D.delete('trips/' + rid + '/members/uidA'); }
+    assert.ok((await W(RT.access_token, 'reise_info', { reise: '../config/app' })).err, 'Pfad in reise');
+  });
+  await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
+    const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;
+    for (const t of tl) { const has = !!t.inputSchema.properties.reise; if (['reisen', 'reise_format'].includes(t.name)) assert.ok(!has, t.name); else if (['reise_pruefen', 'reise_entwurf_speichern'].includes(t.name)) assert.equal(t.inputSchema.properties.reise.type, 'object', t.name); else assert.ok(has && t.inputSchema.properties.reise.type === 'string', t.name); }
   });
   await test('host: fremder Host wird abgelehnt (ohne Testmodus)', async () => {
     deps.testHost = false; const app2 = createApp(deps); const s2 = http.createServer(app2); await new Promise(r => s2.listen(0, r));

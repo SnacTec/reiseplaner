@@ -1,6 +1,6 @@
 # Claude-Konnektor (MCP) – Einrichtung und Nutzung
 
-Mit dem Konnektor kann Claude (claude.ai, App am Handy/PC) den Reiseplan der **aktuellen Reise lesen**,
+Mit dem Konnektor kann Claude (claude.ai, App am Handy/PC) den Reiseplan **aller Reisen lesen** (ohne Angabe die laufende bzw. nächste),
 z. B. „Was steht morgen an?“ oder „Wann müssen wir zurück an Bord?“. In Stufe 1 kann Claude **nichts ändern**.
 Technik und Sicherheitskonzept: `docs/MCP-PLAN.md`. Code: `functions/mcp/`, Tests: `node functions/test/mcp.test.js`.
 
@@ -62,7 +62,7 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
   und speichert es mit `reise_entwurf_speichern` als **Entwurf** (nur mit „Lesen und eintragen“).
 - **In der App:** Einstellungen → 🧳 Reisen → „🤖 Entwurf von Claude“: **Vorschau ›** · **Übernehmen** · **Verwerfen**.
   Erst „Übernehmen“ legt die Reise an – über den normalen Import mit erneuter Prüfung. Sie öffnet sich auf diesem Gerät;
-  die aktuelle Reise der anderen bleibt eingestellt.
+  die eingestellte Reise der anderen bleibt gleich. Claude erreicht die neue Reise trotzdem (siehe „Welche Reise?“).
 - Bestehende Reisen werden nie überschrieben (Kennung schon vergeben → Fehler). Gibt es das Schiff schon, bleibt dessen
   Deckplan unverändert. Fotos werden bei Entwürfen nicht übernommen.
 - Höchstens 3 offene Entwürfe, nach 30 Tagen gelöscht (beim nächsten Speichern; App blendet ältere aus).
@@ -74,7 +74,18 @@ Einfach fragen, z. B. „Was machen wir heute?“, „Plan für Tag 3“, „Wan
 „Welche Tipps gibt es für den nächsten Hafen?“, mit Eintragen auch „Trag an Tag 5 Schnorcheln von 10 bis 12 ein“.
 Lesende Werkzeuge: `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `tipps`, `aufgaben`, `reise_format`, `reise_pruefen`.
 Eintragende: `eintrag_anlegen`, `eintrag_aendern`, `eintrag_loeschen`, `aufgabe_anlegen`, `aufgabe_erledigt`,
-`abendessen`, `ausflug_waehlen`, `letzte_aenderungen`, `reise_entwurf_speichern`. Gelesen wird immer die in der App als aktuell eingestellte Reise.
+`abendessen`, `ausflug_waehlen`, `letzte_aenderungen`, `reise_entwurf_speichern`.
+
+## Welche Reise?
+- `reisen` listet alle Reisen (vergangen, laufend, geplant) mit Kennung.
+- Alle Werkzeuge mit Reisedaten haben ein Feld `reise` (Kennung oder Titel). Ohne Angabe nimmt der Server die Reise,
+  die **gerade läuft**, sonst die **nächste**, sonst die in der App eingestellte (`config/app`).
+- Jede Antwort nennt in der zweiten Zeile die Reise („Reise: … [kennung] – ohne Angabe gewählt: läuft gerade“).
+- Einfach sagen: „Was steht in der Florida-Reise an Tag 2?“ oder „Trag in der Karibik-Reise … ein“.
+- Zugang: Mitglied der gewählten oder der in der App eingestellten Reise (neue Reisen haben noch keine Mitglieder).
+  Anmelden/Verbinden setzt weiterhin die Mitgliedschaft in der eingestellten Reise voraus.
+- In eine ganz neue Reise (noch nie in der App geöffnet) kann Claude direkt eintragen; nur Reisen mit altem Tagesplan
+  (vor dem Speicherformat `planV2`) müssen erst einmal in der App geöffnet werden.
 
 ## Trennen und Notfall
 - **Eine Verbindung trennen:** in Claude den Konnektor entfernen (später auch in der App unter Einstellungen → Konto).
