@@ -219,7 +219,8 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 - **Ein einziger Lesebaustein** mit fester Positivliste (im Code, nicht nur hier); Reise-Kennung per Regex prüfen und
   Mitgliedschaft prüfen; ein Test belegt, dass `users/…`, `config/user_*` und `plandays/quiz_*` nicht erreichbar sind.
 - Server liest **nur** freigegebene Pfade: `config/app`, `trips/<id>`, `ships/<id>`, `trips/<id>/{planitems, picks,
-  plandays/meta (nur dieses Dokument), travel, stays, files (nur Titel/Tage), members (nur Name/Buchstabe)}`.
+  plandays/meta (nur dieses Dokument), travel (ohne `seat`, `ref`), stays (ohne `ref`), files (nur Titel/Tage), members (nur zur Prüfung der Mitgliedschaft, keine Ausgabe)}`.
+- Training: Hinweis in der Anleitung, in Claude unter Datenschutz die Nutzung der Chats fürs Training auszuschalten.
 - **Gegen Prompt-Injection:** Texte aus den Daten (Notizen, Tipps, OSM-Namen) werden gekürzt, Steuerzeichen entfernt und
   im Antworttext klar als Daten gekennzeichnet; Werkzeugbeschreibungen enthalten **keine** Anweisungen an Claude.
   In Stufe 1 gibt es nichts zu schreiben. **Aber:** Hat jemand in Claude weitere Konnektoren oder die Websuche aktiv,
@@ -275,9 +276,9 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 
 | Nr | Frage | Vorschlag |
 |---|---|---|
-| E1 | Kaltstart: Function „schläft“ → erste Anfrage evtl. 2–5 s (Grenze 10 s). Warme Instanz (`minInstances: 1`) kostet einige €/Monat. | Erst ohne, messen; nur bei Problemen einschalten. |
+| E1 | Kaltstart: Function „schläft“ → erste Anfrage evtl. 2–5 s (Grenze 10 s). Warme Instanz (`minInstances: 1`) kostet einige €/Monat. | **Entschieden (26.11.):** erst ohne; nur wenn es hakt, nach Rücksprache einschalten. |
 | E2 | Anmeldeseite in der Function (2 einmalige Konsolen-Freigaben) oder auf GitHub Pages? | **Function** (Sicherheitsprüfung: Clickjacking- und Link-Schutz nur so sauber möglich; GitHub Pages bleibt unverändert). |
-| E3 | Dürfen Sitzplätze, Buchungsnummern, Kabinennummer an Claude gehen? | Sitzplätze ja, Buchungsnummern/Kabine nein. |
+| E3 | Was darf an Claude gehen? | **Entschieden (26.11.):** Orte, Tage, Zeiten, Einträge, Ausflüge, Abendessen, Tipps. **Nicht:** Sitzplätze, Buchungsnummern, Kabinennummer, Heimatadresse, Namen/E-Mails der Mitreisenden. |
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | Ja, wenn E3 sparsam bleibt (kein Buchungs-/Kabinen-Detail). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
