@@ -83,22 +83,20 @@ ob die Option „eigene Client-ID“ für Privatkonten sichtbar ist (sonst DCR, 
 - Kanonische MCP-URL = `https://mcp-<hash>-ey.a.run.app/mcp` (genau so in Claude eintragen; Kleinbuchstaben, kein `/` am Ende).
 - Die vorhandene Function `mapLink` bleibt unverändert.
 
-### 3.2 Anmelde- und Zustimmungsseite direkt aus der Function (empfohlen, nach Sicherheitsprüfung)
-- Die Seite wird von der Function selbst ausgeliefert (gleiche Herkunft wie der Autorisierungsserver).
-  **GitHub Pages bleibt komplett unverändert.**
-- Gründe (Ergebnis der Prüfung):
-  - **Schutz vor Einbetten (Clickjacking):** Nur eigene Antworten können `X-Frame-Options: DENY` und
-    `Content-Security-Policy: frame-ancestors 'none'` setzen – GitHub Pages kann das nicht.
-  - **Bindung an den Browser:** Ein Cookie der eigenen Herkunft verhindert, dass ein Fremder einen präparierten
-    Anmelde-Link verschickt und so an einen Code für **seinen** Claude-Zugang kommt (siehe 4.2).
-  - Strenge CSP (nur eigene Skripte + Firebase/Google-Anmeldung), `Referrer-Policy: no-referrer`, `Cache-Control: no-store`.
-- Einmalige Freigaben in der Konsole (durch den Nutzer, Klick-Anleitung folgt):
-  1. Firebase Authentication → Einstellungen → **Autorisierte Domains**: die run.app-Domain hinzufügen.
-  2. Google Cloud → APIs → Anmeldedaten → Browser-API-Schlüssel → **Website-Beschränkungen**: die run.app-Domain ergänzen.
-- Inhalt der Seite: „Mit Google anmelden“ → Zustimmung: „**claude.ai** möchte deinen Reiseplan **lesen** ·
-  angemeldet als <E-Mail> · Reise: <Titel>“ (angezeigt wird der **Host der Redirect-URL**, kein selbst angegebener Name),
-  Hinweis „Nur fortfahren, wenn du gerade selbst in Claude auf ‚Verbinden‘ getippt hast“, Datenschutz-Hinweis (Abschnitt 10),
-  Knöpfe **Erlauben** / **Ablehnen**.
+### 3.2 Google-Anmeldung serverseitig, Zustimmungsseite aus der Function (umgesetzt)
+- **Keine Firebase-Skripte im Browser:** Die Function leitet zur normalen Google-Anmeldeseite weiter
+  (OAuth Authorization Code + PKCE + nonce) und prüft das Ergebnis selbst (Client-Secret im Secret Manager).
+  Grund: Die Firebase-Anmeldung im Browser (Popup/Weiterleitung) scheitert oft in den eingebetteten Browsern,
+  die Claude am Handy für die Anmeldung öffnet. **GitHub Pages bleibt unverändert**, Firebase-Auth-Domains und
+  API-Schlüssel müssen **nicht** geändert werden.
+- Danach Zuordnung zum Firebase-Konto der App (`getUserByProviderUid('google.com', …)`) und Prüfungen aus 3.4.
+- Zustimmungsseite von der Function ausgeliefert (keine Skripte): `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'`,
+  `form-action 'self' https://claude.ai`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`.
+- Inhalt: „**claude.ai** möchte deinen Reiseplan **lesen** · angemeldet als <E-Mail> · Reise: <Titel>“, was gelesen wird und was
+  nicht, Hinweis „Nur fortfahren, wenn du gerade selbst in Claude auf ‚Verbinden‘ getippt hast“, Datenschutz-Hinweis,
+  **Erlauben** / **Ablehnen**.
+- Einmalig in der Google-Cloud-Konsole (durch den Nutzer, Anleitung `docs/MCP.md`): OAuth-Client „Webanwendung“ mit der
+  Weiterleitungs-URI `<Basis>/google/callback` anlegen.
 
 ### 3.3 Client-Registrierung: feste Client-ID statt offener Registrierung
 - Empfehlung: in Claude „**Use your own OAuth client**“ mit einer festen, öffentlichen Client-ID (z. B. `reiseplaner-claude`),
@@ -166,12 +164,12 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
    Bei Fehlern **keine** Weiterleitung an unbekannte Adressen, sondern eine Fehlerseite.
 4. Server legt `mcp_pending/<id>` an (10 Min, einmalig) und setzt das Cookie
    `__Host-mcp_req=<Zufallswert>` (`Secure; HttpOnly; SameSite=Lax; Path=/`); im pending steht nur dessen Hash.
-   Antwort: Anmelde-/Zustimmungsseite (3.2) mit versteckter pending-Kennung.
-5. Seite → Google-Login (Firebase Auth) → Person tippt **Erlauben** → **Formular-POST als normale Seitennavigation**
-   (kein `fetch`) an `/authorize/complete` mit ID-Token, App-Check-Token (falls verfügbar) und pending-Kennung.
-6. Server prüft: Cookie passt zum pending · pending nicht abgelaufen/verbraucht · ID-Token gültig, `auth_time` höchstens
-   **5 Min** alt (kein altes Token aus der App wiederverwendbar) · Prüfungen aus 3.4. Dann pending verbrauchen, Code
-   erzeugen und **direkt `302`** zu `https://claude.ai/api/mcp/auth_callback?code=…&state=…&iss=<Issuer>` (RFC 9207 gegen
+   Antwort: Weiterleitung zu Google (state = pending-Kennung, nonce, PKCE).
+5. Google → `GET /google/callback`: Cookie passt zum pending · Google-Code serverseitig eintauschen · ID-Token prüfen
+   (Signatur, Zielgruppe, nonce, `email_verified`) · Prüfungen aus 3.4 → Zustimmungsseite mit CSRF-Wert.
+6. Person tippt **Erlauben** → Formular-POST an `/authorize/complete`. Server prüft Cookie, CSRF, pending (nicht abgelaufen,
+   nicht verbraucht) und dass die Google-Anmeldung höchstens **5 Min** her ist. Dann pending in einer Transaktion
+   verbrauchen, Code erzeugen und **direkt `302`** zu `https://claude.ai/api/mcp/auth_callback?code=…&state=…&iss=<Issuer>` (RFC 9207 gegen
    Verwechslung). „Ablehnen“ → `error=access_denied`.
 7. Claude → `POST /token` (form-urlencoded: code, code_verifier, redirect_uri, client_id, resource) → Server prüft PKCE und
    dass `redirect_uri`, `client_id`, `resource` **exakt** zum Code passen → Access- + Refresh-Token,
@@ -245,9 +243,9 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 | Schritt | Inhalt | Prüfung |
 |---|---|---|
 | **S1** ✅ | `dayplan.js` aus `app.js` herauslösen; App nutzt es; keine sichtbare Änderung | voller `node tests/run.js` + neuer Node-Test: gleiche Ergebnisse für die Beispielreisen in Browser und Node |
-| **S2** | Function `mcp`: Metadaten, `/authorize`, `/authorize/complete`, `/token`, `/revoke`, Token-Speicher, Prüfungen | Node-Tests mit nachgebildetem Firestore/Auth. Fehlerfälle: falsche Redirect-URL, PKCE fehlt/falsch/`plain`, Code doppelt, abgelaufen, fremde E-Mail, Nicht-Mitglied, fehlendes/falsches `resource`, Refresh-Wiederverwendung (außer Kulanzfenster), parallele Refreshs, Kette > 90 Tage, fremde `reise`, Logs ohne Geheimnisse, öffentlicher Client ohne Secret (`token_endpoint_auth_methods_supported: ["none"]`) |
-| **S3** | Anmelde-/Zustimmungsseite (aus der Function) | Playwright-Test: ohne/mit falschem Cookie, `auth_time` zu alt, Seite im Rahmen nicht bedienbar |
-| **S4** | MCP-Werkzeuge (6 Stück) mit `dayplan.js` | Node-Tests mit Beispielreisen; Antwortgrößen; MCP Inspector lokal |
+| **S2** ✅ | Function `mcp`: Metadaten, `/authorize`, `/authorize/complete`, `/token`, `/revoke`, Token-Speicher, Prüfungen | Node-Tests mit nachgebildetem Firestore/Auth. Fehlerfälle: falsche Redirect-URL, PKCE fehlt/falsch/`plain`, Code doppelt, abgelaufen, fremde E-Mail, Nicht-Mitglied, fehlendes/falsches `resource`, Refresh-Wiederverwendung (außer Kulanzfenster), parallele Refreshs, Kette > 90 Tage, fremde `reise`, Logs ohne Geheimnisse, öffentlicher Client ohne Secret (`token_endpoint_auth_methods_supported: ["none"]`) |
+| **S3** ✅ | Anmelde-/Zustimmungsseite (aus der Function, Google serverseitig) | Playwright-Test: ohne/mit falschem Cookie, `auth_time` zu alt, Seite im Rahmen nicht bedienbar |
+| **S4** ✅ | MCP-Werkzeuge (6 Stück) mit `dayplan.js` | Node-Tests mit Beispielreisen; Antwortgrößen; MCP Inspector lokal |
 | **S5** | Hochladen (Nutzer), Konnektor in Claude einrichten, Ende-zu-Ende-Test | Checkliste unten |
 | **S6** | App: „Verbundene KI“ (Trennen) | Test + Screenshots |
 | **S7** | Doku: `docs/MCP.md` (Bedienung), CLAUDE.md, DATEN.md | – |
@@ -255,12 +253,12 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
 Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 
 ### Was der Nutzer tun muss (S5)
-1. Secrets anlegen (einmalig, am PC):
-   `firebase functions:secrets:set MCP_PEPPER` (langer Zufallswert, wird angezeigt/erzeugt),
-   `firebase functions:secrets:set MCP_ALLOWED_EMAILS` (die beiden Adressen, kommagetrennt).
+1. In der Google-Cloud-Konsole einen OAuth-Client „Webanwendung“ anlegen (Weiterleitungs-URI `<Basis>/google/callback`).
+   Secrets anlegen (einmalig, am PC): `MCP_PEPPER` (langer Zufallswert), `MCP_ALLOWED_EMAILS` (die beiden Adressen,
+   kommagetrennt), `MCP_GOOGLE_SECRET` (Client-Secret). Die Client-ID fragt die Firebase-CLI beim Hochladen ab.
 2. Firestore-TTL-Richtlinie für `mcp_tokens.exp` und `mcp_pending.exp` aktivieren (Konsole, Klick-Anleitung folgt).
 3. `firebase deploy --only functions` (wie bei `mapLink`; Regeln nie per CLI).
-4. Die zwei Konsolen-Freigaben aus 3.2 (run.app-Domain) und den Budget-Alarm einrichten.
+4. Budget-Alarm einrichten.
 5. Konnektor in Claude einrichten (4.1); die zweite Person ebenso mit ihrem eigenen Konto.
 
 ### Ende-zu-Ende-Checkliste
@@ -278,7 +276,7 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | Nr | Frage | Vorschlag |
 |---|---|---|
 | E1 | Kaltstart: Function „schläft“ → erste Anfrage evtl. 2–5 s (Grenze 10 s). Warme Instanz (`minInstances: 1`) kostet einige €/Monat. | **Entschieden (26.11.):** erst ohne; nur wenn es hakt, nach Rücksprache einschalten. |
-| E2 | Anmeldeseite in der Function (2 einmalige Konsolen-Freigaben) oder auf GitHub Pages? | **Entschieden (26.11.): Function** (Clickjacking- und Link-Schutz nur so sauber möglich; GitHub Pages bleibt unverändert). |
+| E2 | Wo läuft die Anmeldung? | **Entschieden (26.11.): Function, Google-Anmeldung serverseitig** (Clickjacking-/Link-Schutz, funktioniert in eingebetteten Browsern; GitHub Pages bleibt unverändert). |
 | E3 | Was darf an Claude gehen? | **Entschieden (26.11.):** Orte, Tage, Zeiten, Einträge, Ausflüge, Abendessen, Tipps. **Nicht:** Sitzplätze, Buchungsnummern, Kabinennummer, Heimatadresse, Namen/E-Mails der Mitreisenden. |
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
@@ -299,4 +297,4 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
   3. Sammlung `mcp_tokens` leeren; bei Bedarf Google-Sitzungen der Konten widerrufen.
   4. Notfalls Function in der Konsole löschen bzw. den öffentlichen Aufruf („allUsers“) entziehen.
 - **Ganz abschalten:** Konnektor in Claude entfernen → Function `mcp` löschen → Sammlungen `mcp_*` löschen →
-  Konsolen-Freigaben der run.app-Domain wieder entfernen.
+  OAuth-Client „Reiseplaner Claude-Konnektor“ in der Google-Cloud-Konsole löschen, Secrets löschen.

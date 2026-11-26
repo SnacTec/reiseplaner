@@ -1,3 +1,3 @@
 {
-  "functions": [{ "source": "functions", "codebase": "default", "ignore": ["node_modules", "*.test.js"] }]
+  "functions": [{ "source": "functions", "codebase": "default", "ignore": ["node_modules", "*.test.js", "test/**"] }]
 }

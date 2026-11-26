@@ -110,6 +110,7 @@ test('anreise: Flug + Mietwagen, Zeitumstellung', async ({ browser, base }) => {
 /* ---------- Gemeinsame Tageslogik: Node (Server) rechnet wie die App ---------- */
 test('tageslogik: app.js enthält dayplan.js unverändert (sonst: node tools/dayplan-sync.js)', async () => {
   const S = require(path.join(H.ROOT, 'tools/dayplan-sync.js')), b = S.block(fs.readFileSync(path.join(H.ROOT, 'app.js'), 'utf8'));
+  ok(fs.readFileSync(path.join(H.ROOT, 'functions/dayplan.js'), 'utf8') === fs.readFileSync(path.join(H.ROOT, 'dayplan.js'), 'utf8'), 'functions/dayplan.js veraltet – node tools/dayplan-sync.js');
   ok(b !== null, 'Markierungen in app.js fehlen'); ok(b === fs.readFileSync(path.join(H.ROOT, 'dayplan.js'), 'utf8').replace(/\r\n/g, '\n').replace(/\s*$/, '\n'), 'app.js und dayplan.js weichen ab');
 });
 // Projektion der Ergebnisse (gleicher Code in Browser und Node)
@@ -130,6 +131,13 @@ for (const name of ['kreuzfahrt', 'roadtrip'])
     await c.close(); ok(!errs.length, errs.join(' | ')); ok(r.app.some(x => x.rows.length > 2) && r.app.some(x => x.din), 'zu wenig geprüft');
     ok(a === b, 'Unterschied App/Node: ' + (() => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a.slice(Math.max(0, i - 80), i + 80) + ' ≠ ' + b.slice(Math.max(0, i - 80), i + 80); })());
   });
+
+/* ---------- Server für den Claude-Konnektor (functions/test/mcp.test.js) ---------- */
+test('mcp-server: Anmeldung, Werkzeuge, Angriffsfälle (functions/test/mcp.test.js)', async () => {
+  if (!fs.existsSync(path.join(H.ROOT, 'functions/node_modules/@modelcontextprotocol/sdk'))) { console.log('      (übersprungen: erst „npm install“ im Ordner functions)'); return; }
+  const r = require('child_process').spawnSync(process.execPath, [path.join(H.ROOT, 'functions/test/mcp.test.js')], { encoding: 'utf8', timeout: 120000 });
+  ok(r.status === 0, (r.stdout || '').split('\n').filter(l => /FAIL|Fehler|Error/.test(l)).slice(0, 6).join(' | ') || (r.stderr || '').slice(0, 300));
+});
 
 /* ---------- Teilen aus Google Maps ---------- */
 test('teilen: Google-Maps-Link setzt den Pin', async ({ browser, base }) => {

@@ -2,7 +2,7 @@
  * Aufruf nach jeder Änderung an dayplan.js:  node tools/dayplan-sync.js
  * Warum eingebettet: app.js startet so auch offline während eines Updates garantiert mit passender Logik
  * (keine zweite Datei, die im Zwischenspeicher veraltet sein könnte). Der Server nutzt dayplan.js direkt.
- * tests/run.js prüft, dass beide Fassungen gleich sind. */
+ * Zusätzlich Kopie nach functions/dayplan.js (Server). tests/run.js prüft, dass alle drei Fassungen gleich sind. */
 'use strict';
 const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '..');
@@ -22,4 +22,7 @@ if (require.main === module) {
   const f = path.join(ROOT, 'app.js'), app = fs.readFileSync(f, 'utf8'), dp = fs.readFileSync(path.join(ROOT, 'dayplan.js'), 'utf8');
   const out = embed(app, dp);
   if (out === app) console.log('app.js ist schon aktuell.'); else { fs.writeFileSync(f, out); console.log('dayplan.js in app.js übernommen.'); }
+  // Kopie für den Server (Cloud Function „mcp“): Firebase lädt nur den Ordner functions/ hoch
+  const g = path.join(ROOT, 'functions', 'dayplan.js');
+  if (!fs.existsSync(g) || fs.readFileSync(g, 'utf8') !== dp) { fs.writeFileSync(g, dp); console.log('functions/dayplan.js aktualisiert.'); }
 }

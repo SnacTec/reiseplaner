@@ -33,3 +33,6 @@ exports.mapLink = onRequest({ region: 'europe-west3', memory: '256MiB', maxInsta
     res.status(e.status || 502).json({ error: String(e.message || e).slice(0, 200) });
   }
 });
+
+// Claude-Konnektor (MCP-Server), siehe docs/MCP-PLAN.md
+exports.mcp = require('./mcp').mcp;
