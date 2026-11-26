@@ -70,7 +70,9 @@
         const sched = order => { const rows = []; let cur = W.on, prev = null, lastT = 0, fee = 0, cost = 0, uu = u;
           (p.ex || []).filter(e => e.p && isPicked(p, e)).forEach(e => { const d = durMin(e.dur); rows.push({ tour: true, e, q: { n: e.c + ' ' + e.n, g: { o: '', n: '', f: null, u, v: 0, s: d } }, a: cur, b: cur + d, st: d }); cur += d });
           order.forEach(({ s, pi }) => {
-            if (s.x && s.dk) { const st = s.s || 60, a = s.at ? tm(s.at) : W.off + 30; rows.push({ s, pi, x: true, q: cq(s), lg: null, a, b: a + st, st, board: true }); return }
+            // Kreuzfahrt: Einträge mit fester Uhrzeit vor dem Von-Bord-Gehen oder nach dem Ablegen sind an Bord (zählen nicht zum Landgang)
+            const offShip = s.x && !s.dk && s.at && ctx.cruise && (tm(s.at) < W.on || tm(s.at) >= W.dep);
+            if (s.x && (s.dk || offShip)) { const st = s.s || 60, a = s.at ? tm(s.at) : W.off + 30; rows.push({ s, pi, x: true, q: cq(s), lg: null, a, b: a + st, st, board: true }); return }
             if (s.x) { const t = +s.t || 0, st = s.s || 60; cur += t; if (s.at) cur = tm(s.at); rows.push({ s, pi, x: true, q: cq(s), lg: { m: 'custom', t, c: 0, u }, a: cur, b: cur + st, st }); cur += st; prev = null; lastT = t; return }
             const q = p.pois[s.i]; if (!q || !q.g) return;
             const lg = leg(p, prev, q), st = s.s || q.g.s; cur += lg.t; if (s.at) cur = tm(s.at); rows.push({ s, pi, q, lg, a: cur, b: cur + st, st }); cur += st; fee += q.g.f || 0; cost += lg.c; uu = q.g.u; prev = q; lastT = 0;

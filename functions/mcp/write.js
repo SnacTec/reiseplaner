@@ -25,7 +25,8 @@ function writer(W) {
   const dayOf = n => { const p = v.ports.find(q => q.day === +n); if (!p) fail(`Einen Tag ${n} gibt es nicht – die Reise hat ${v.ports.length} Tage.`); return p; };
   const ki = neu => ({ uid, at: now, neu: neu ? 1 : 0 });
   // Protokoll-Eintrag; immer in derselben Transaktion wie die Änderung (T.set), damit es keine Änderung ohne Rückgängig gibt
-  const logDoc = (tool, col, doc, before, after, txt) => [base + 'kilog/' + nid('k'), { uid, at: now, tool, col, doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
+  let seq = 0;   // Reihenfolge innerhalb eines Aufrufs (gleiche Uhrzeit), z. B. Tag 10 vor Tag 11
+  const logDoc = (tool, col, doc, before, after, txt) => [base + 'kilog/' + nid('k'), { uid, at: now, n: seq++, tool, col, doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
   // Tagesplan nur im aktuellen Format (planitems); alte Reisen erst einmal in der App öffnen (sonst ginge der Altbestand verloren)
   const needV2 = () => { if (!v.planV2) fail('Diese Reise nutzt noch das alte Speicherformat. Bitte einmal in der Reise-App öffnen (mit Internet), dann geht das Eintragen.'); };
   const find = id => { if (!ID.test(String(id || ''))) fail('Unbekannte Kennung. Die Kennungen stehen in tag_plan in eckigen Klammern.');
@@ -34,9 +35,12 @@ function writer(W) {
   const nextO = d => 1000 + (v.plan[d] || []).length;
 
   /* Ort: an Bord aus dem Deckplan, sonst Ortssuche (Photon) nahe der Station; Claude liefert nie Koordinaten */
-  function shipFind(q) {   // wie shipFind in app.js: Name im Deckplan enthält den Suchtext
-    if (!X.cruise || !v.ship) return []; const t = nrm(q).replace(/^an bord\s*:?\s*/, ''); if (t.length < 3) return [];
-    const o = []; for (const [dk, , V] of v.ship.dk) (V || []).forEach((x, i) => { const n = nrm(x && x[0]); if (n.length >= 2 && n.includes(t)) o.push({ dk, dv: i, name: x[0] }); });
+  function shipFind(q) {   // wie shipFind in app.js: Name im Deckplan enthält den Suchtext; „Deck 9“ im Text wählt das Deck
+    if (!X.cruise || !v.ship) return []; let t = nrm(q).replace(/^an bord\s*:?\s*/, '');
+    const dm = /(?:^|[\s,(·-])deck\s*(\d{1,2})\b/.exec(t), dkw = dm ? +dm[1] : null;
+    if (dm) t = (t.slice(0, dm.index) + ' ' + t.slice(dm.index + dm[0].length)).replace(/[()·,]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[\s-]+$/, '');
+    if (t.length < 3) return [];
+    const o = []; for (const [dk, , V] of v.ship.dk) { if (dkw != null && +dk !== dkw) continue; (V || []).forEach((x, i) => { const n = nrm(x && x[0]); if (n.length >= 2 && n.includes(t)) o.push({ dk, dv: i, name: x[0] }); }); }
     const ex = o.filter(x => nrm(x.name) === t); return ex.length ? ex : o;
   }
   async function place(p, q) {
@@ -45,7 +49,7 @@ function writer(W) {
     if (onb || p.kind === 'sea') {   // Orte an Bord nur mit „an Bord: …“ bzw. auf See – sonst würde „Spanische Treppe“ zur „Spa“
       const L = shipFind(q);
       if (L.length === 1) return { loc: { dk: L[0].dk, dv: L[0].dv }, txt: `an Bord: ${clean(L[0].name, 60)}, Deck ${L[0].dk}` };
-      if (L.length > 1) fail(`Mehrere Orte an Bord passen: ${L.slice(0, 6).map(x => '„' + clean(x.name, 40) + '“ (Deck ' + x.dk + ')').join(', ')}. Bitte genauer angeben.`);
+      if (L.length > 1) fail(`Mehrere Orte an Bord passen: ${L.slice(0, 6).map(x => '„' + clean(x.name, 40) + '“ (Deck ' + x.dk + ')').join(', ')}. Bitte genauer angeben, z. B. ort = „an Bord: ${clean(L[0].name, 40)}, Deck ${L[0].dk}“.`);
       fail(`„${q}“ gibt es im Deckplan nicht.${p.kind === 'sea' ? ' Auf See gehen nur Orte an Bord.' : ''} Mit suchen findest du Orte an Bord.`);
     }
     if (p.lat == null) return { loc: {}, txt: 'Für diesen Tag ist keine Lage bekannt – ohne Ort gespeichert, in der App nachtragen' };
@@ -184,7 +188,7 @@ function writer(W) {
 }
 
 async function recent(S, trip, uid) {
-  const L = (await S.list('trips/' + trip + '/kilog')).filter(x => x.data && x.data.uid === uid).sort((a, b) => (b.data.at - a.data.at) || (b.id > a.id ? 1 : -1)).slice(0, 15).map(x => x.data);
+  const L = (await S.list('trips/' + trip + '/kilog')).filter(x => x.data && x.data.uid === uid).sort((a, b) => (b.data.at - a.data.at) || ((a.data.n || 0) - (b.data.n || 0))).slice(0, 15).map(x => x.data);
   if (!L.length) return 'Claude hat in dieser Reise noch nichts geändert.';
   const f = t => new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(t));
   return 'Letzte Änderungen durch Claude (neueste zuerst; Rückgängig in der App unter Einstellungen → Konto):\n' + L.map(x => `- ${f(x.at)} ${clean(x.txt, 160)}${x.undone ? ' (rückgängig gemacht)' : ''}`).join('\n');

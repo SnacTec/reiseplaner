@@ -44,7 +44,7 @@ function reiseInfo(v, X) {
 
 function rowLine(v, X, p, r) {
   const t = r.a == null ? 'ohne Uhrzeit' : RPDP.hm(r.a) + (r.b != null ? '–' + RPDP.hm(r.b) : '');
-  if (r.dinner) return `${t} Abendessen${X.dp.dinName() ? ' (' + clean(X.dp.dinName(), 60) + ', an Bord)' : ''}${r.skip ? ' – heute ausgelassen' : ''}${r.ov ? ' – abweichende Uhrzeit' : ''}`;
+  if (r.dinner) return `${t} Abendessen${X.dp.dinName() ? ' (' + clean(X.dp.dinName(), 60) + ', an Bord)' : ''}${r.skip ? ' – fällt an diesem Tag aus' : ''}${r.ov ? ' – abweichende Uhrzeit' : ''}`;
   if (r.tour) return `${t} ${X.op}-Ausflug ${clean(r.e.c, 12)} „${clean(r.e.n, 80)}“ (${clean(r.e.dur || '', 20)})`;
   const ex = [];
   if (r.x && r.s.dk != null) { const d = X.dp.deckOf(r.s.dk), vv = d && d[2][r.s.dv]; ex.push('an Bord, Deck ' + r.s.dk + (vv ? ' · ' + clean(vv[0], 60) : '')); }

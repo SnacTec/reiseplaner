@@ -72,7 +72,9 @@
         const sched = order => { const rows = []; let cur = W.on, prev = null, lastT = 0, fee = 0, cost = 0, uu = u;
           (p.ex || []).filter(e => e.p && isPicked(p, e)).forEach(e => { const d = durMin(e.dur); rows.push({ tour: true, e, q: { n: e.c + ' ' + e.n, g: { o: '', n: '', f: null, u, v: 0, s: d } }, a: cur, b: cur + d, st: d }); cur += d });
           order.forEach(({ s, pi }) => {
-            if (s.x && s.dk) { const st = s.s || 60, a = s.at ? tm(s.at) : W.off + 30; rows.push({ s, pi, x: true, q: cq(s), lg: null, a, b: a + st, st, board: true }); return }
+            // Kreuzfahrt: Einträge mit fester Uhrzeit vor dem Von-Bord-Gehen oder nach dem Ablegen sind an Bord (zählen nicht zum Landgang)
+            const offShip = s.x && !s.dk && s.at && ctx.cruise && (tm(s.at) < W.on || tm(s.at) >= W.dep);
+            if (s.x && (s.dk || offShip)) { const st = s.s || 60, a = s.at ? tm(s.at) : W.off + 30; rows.push({ s, pi, x: true, q: cq(s), lg: null, a, b: a + st, st, board: true }); return }
             if (s.x) { const t = +s.t || 0, st = s.s || 60; cur += t; if (s.at) cur = tm(s.at); rows.push({ s, pi, x: true, q: cq(s), lg: { m: 'custom', t, c: 0, u }, a: cur, b: cur + st, st }); cur += st; prev = null; lastT = t; return }
             const q = p.pois[s.i]; if (!q || !q.g) return;
             const lg = leg(p, prev, q), st = s.s || q.g.s; cur += lg.t; if (s.at) cur = tm(s.at); rows.push({ s, pi, q, lg, a: cur, b: cur + st, st }); cur += st; fee += q.g.f || 0; cost += lg.c; uu = q.g.u; prev = q; lastT = 0;
@@ -922,7 +924,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='26.11. · R106';
+const APP_VER='26.11. · R107';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -978,7 +980,7 @@ function kiUndo(L){
   L.undone=true;return true}
 function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen durch KI</h3></div><div id="kil"><p class="src">wird geladen …</p></div><p class="src" style="margin:10px 0 0">Was Claude über den Konnektor eingetragen oder geändert hat. Einträge im Plan sind mit 🤖 markiert.</p>',async d=>{
   const el=d.querySelector('#kil');let L=[];
-  try{L=(await kiLogLoad()).slice().sort((a,b)=>(b.at-a.at)||(b.id>a.id?1:-1)).slice(0,40)}catch(e){el.innerHTML='<p class="src">Gerade nicht abrufbar.</p>';return}
+  try{L=(await kiLogLoad()).slice().sort((a,b)=>(b.at-a.at)||((a.n||0)-(b.n||0))).slice(0,40)}catch(e){el.innerHTML='<p class="src">Gerade nicht abrufbar.</p>';return}
   const draw=()=>{el.innerHTML=L.length?L.map((x,i)=>`<div class="aic"><div><span>${esc(x.txt||'Änderung')}</span><small class="src" style="display:block">${esc(aiDt(x.at))}${kiWho(x.uid)?' · Claude von '+esc(kiWho(x.uid)):''}${x.undone?' · rückgängig gemacht':''}</small></div>${x.undone?'':`<button class="chip" data-kiu="${i}">Rückgängig</button>`}</div>`).join(''):'<p class="src">Claude hat in dieser Reise noch nichts geändert.</p>';
     el.querySelectorAll('[data-kiu]').forEach(b=>b.onclick=()=>{if(kiUndo(L[+b.dataset.kiu])){undoToast('Rückgängig gemacht',null,2500);draw()}})};
   draw()})}

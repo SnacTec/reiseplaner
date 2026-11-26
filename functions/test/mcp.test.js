@@ -361,6 +361,13 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const r = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'Markt', ort: 'Theater (erfunden) am Markt' }); assert.match(r.t, /Ort automatisch gesucht/, r.t);
     assert.equal(docs('planitems').find(x => x.n === 'Markt').dk, undefined);
     const m = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'X', ort: 'an Bord: (erfunden)' }); assert.equal(m.err, true); assert.match(m.t, /Mehrere Orte an Bord/);
+    // gleiche Namen auf mehreren Decks: mit „Deck N“ auswählbar
+    const m9 = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'X', ort: 'an Bord: (erfunden)' }); assert.match(m9.t, /z\. B\. ort = „an Bord: .*, Deck \d+“/);
+    for (const o of ['an Bord: Poolbar, Deck 9', 'an Bord: Poolbar (Deck 9)', 'an Bord: Deck 9 · Poolbar']) { const x = await W(WT.access_token, 'eintrag_anlegen', { tag: 3, name: 'Drink', ort: o }); assert.match(x.t, /an Bord: Poolbar \(erfunden\), Deck 9/, o + ': ' + x.t); }
+    assert.equal((await W(WT.access_token, 'eintrag_anlegen', { tag: 3, name: 'Drink', ort: 'an Bord: Poolbar, Deck 5' })).err, true, 'falsches Deck');
+    // früher Eintrag vor dem Von-Bord-Gehen zählt nicht als Landgang (Rückkehrzeit)
+    await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'Frühsport', uhrzeit: '06:00', dauer_min: 15 });
+    assert.doesNotMatch((await call(WT.access_token, 'tag_plan', { tag: 4 })).content[0].text, /Zurück an Bord ca\. 06:/);
     // Tipp-Eintrag (aus dem Reiseführer) ist nicht änderbar
     assert.match((await W(WT.access_token, 'eintrag_aendern', { id: 'etip', name: 'X' })).t, /Tipp aus dem Reiseführer/);
     // Reise im alten Format: kein Eintragen (sonst Datenverlust bei der Übernahme in der App)
