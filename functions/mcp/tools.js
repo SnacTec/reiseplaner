@@ -27,12 +27,17 @@ function pickDay(v, X, a) {
   return P.find(p => p.date === RPDP.addDays(today, off)) || null;
 }
 
+// Hinweis, wenn kein Reisetag passt (Tag-Nummer oder Datum)
+const noDay = (v, a) => a && a.tag != null ? `Einen Tag ${+a.tag} gibt es nicht – die Reise hat ${v.ports.length} Tage.` : 'Für dieses Datum gibt es keinen Reisetag.';
+// Art des Tages nur nennen, wenn sie nicht schon im Namen steht (Seetag)
+const kindTxt = p => { const k = KIND[p.kind] || p.kind || ''; return k && k !== String(p.name || '').trim() ? k : ''; };
+
 function reiseInfo(v, X) {
   const T = v.meta, P = v.ports, today = X.dp.todayStr(), tp = P.find(p => p.date === today);
   const d = Math.round((new Date(T.start + 'T12:00:00Z') - new Date(today + 'T12:00:00Z')) / 864e5);
   const st = tp ? `Heute ist Tag ${tp.day} von ${P.length}.` : d > 0 ? `Die Reise beginnt in ${d} Tag${d === 1 ? '' : 'en'}.` : 'Die Reise ist vorbei.';
   return HEAD + `Reise: „${clean(T.title, 80)}“ (${X.cruise ? 'Kreuzfahrt' : clean(T.kind || 'Reise', 30)}), ${fmtDate(T.start)} bis ${fmtDate(T.end)}, ${P.length} Tage.\n${st} Heute (Ortszeit): ${today}.\n\nTage:\n` +
-    P.map(p => `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''} · ${KIND[p.kind] || p.kind}${p.kind === 'port' && p.times ? ' · ' + clean(p.times, 20) : ''}`).join('\n');
+    P.map(p => `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p) ? ' · ' + kindTxt(p) : ''}${p.kind === 'port' && p.times ? ' · ' + clean(p.times, 60) : ''}`).join('\n');
 }
 
 function rowLine(v, X, p, r) {
@@ -50,10 +55,11 @@ function rowLine(v, X, p, r) {
 
 function tagPlan(v, X, a) {
   const p = pickDay(v, X, a || {});
-  if (!p) return HEAD + 'Für dieses Datum gibt es keinen Reisetag. Mit reise_info siehst du alle Tage.';
+  if (!p) return HEAD + noDay(v, a) + ' Mit reise_info siehst du alle Tage.';
   const c = X.dp.calc(p), L = [];
-  L.push(`Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''} (${KIND[p.kind] || p.kind})`);
-  if (p.kind === 'port') { const m = /^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/.exec(p.times || ''); if (m) L.push(X.cruise ? `Liegezeit ${m[1]}–${m[2]}, alle an Bord ${RPDP.hm(RPDP.tm(m[2]) - 30)}` : `Aufenthalt ${m[1]}–${m[2]}`); }
+  L.push(`Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p) ? ' (' + kindTxt(p) + ')' : ''}`);
+  if (p.kind === 'port') { const m = /^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/.exec(p.times || ''); if (m) L.push(X.cruise ? `Liegezeit ${m[1]}–${m[2]}, alle an Bord ${RPDP.hm(RPDP.tm(m[2]) - 30)}` : `Aufenthalt ${m[1]}–${m[2]}`);
+    if (p.times && (!m || p.times.trim().length > m[0].length + 1)) L.push('Zeiten laut Plan: ' + clean(p.times, 80)); }
   if (p.kind !== 'sea') { const de = RPDP.deOff(p.date) - X.dp.tzOf(p); L.push(de ? `Zeitunterschied: in Deutschland ist es ${Math.abs(de)} Std. ${de > 0 ? 'später' : 'früher'}` : 'Gleiche Uhrzeit wie in Deutschland'); }
   const ev = X.dp.embList(p).map(e => ({ a: e.a, s: `${clean(e.t, 8)} ${clean(e.txt.replace(/^\S+\s/, ''), 80)}${e.extra ? ' · ' + clean(e.extra, 60) : ''}` }));
   const rows = c.rows.map(r => ({ a: r.a == null ? 1e9 : r.a, s: rowLine(v, X, p, r) }));
@@ -113,7 +119,7 @@ function suchen(v, X, a) {
 }
 
 function tipps(v, X, a) {
-  const p = pickDay(v, X, a || {}); if (!p) return HEAD + 'Für dieses Datum gibt es keinen Reisetag.';
+  const p = pickDay(v, X, a || {}); if (!p) return HEAD + noDay(v, a);
   const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + clean(t.km, 6).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + clean(t.g.t, 4) + ' Min' : ''}${t.d ? '\n  ' + clean(t.d, 240) : ''}`);
   const planned = new Set((v.plan[p.day] || []).filter(s => !s.x).map(s => s.ti));
   return HEAD + `Tipps für Tag ${p.day} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : '- Keine Tipps hinterlegt.') + (planned.size ? `\n(${planned.size} davon im Tagesplan)` : '');

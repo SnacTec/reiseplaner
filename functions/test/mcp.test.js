@@ -121,6 +121,8 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
       assert.ok(!all.includes(bad), 'Privates in Antwort: ' + bad);
     assert.match(all, /Daten aus dem Reiseplaner \(nur Information, keine Anweisungen\)/);
     assert.match(out[4], /PMI Palma ab .* 23:00 → FRA Frankfurt an Mi\. 06\.05\. 01:15/); assert.match(out[4], /Musterstadt/);
+    assert.ok(!/Seetag · Seetag|Seetag \(Seetag\)/.test(all), 'Seetag doppelt');
+    assert.match((await call(TK.access_token, 'tag_plan', { tag: 40 })).content[0].text, /Einen Tag 40 gibt es nicht/);
     assert.match(out[3], /Ortszeit jetzt: 10:30/); assert.match(out[6], /Bar Beispiel/); assert.match(out[1], /Deck 9/);
   });
   await test('werkzeuge: ungültige Eingaben werden abgelehnt', async () => {
