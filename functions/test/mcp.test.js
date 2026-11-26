@@ -450,6 +450,15 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const d = await rpc(WT.access_token, 'tools/call', { name: 'reise_pruefen', arguments: { reise: { pad: 'x'.repeat(1100 * 1024) } } }); assert.equal(d.status, 413);
     const n = await rpc(null, 'tools/call', { name: 'reise_pruefen', arguments: { reise: { pad: 'x'.repeat(200 * 1024) } } }); assert.equal(n.status, 401, 'ohne Token wird der Inhalt gar nicht gelesen');
   });
+  await test('entwurf: fremder Entwurf nicht ersetzt, unbekannte trip-Felder entfernt, maskRe begrenzt', async () => {
+    S.D.set('config/kientwurf_fremd-1', { id: 'fremd-1', by: 'uidB' }); S.D.set('config/kientwuerfe', { list: [{ k: 'kientwurf_fremd-1', id: 'fremd-1', title: 'Von B', by: 'uidB', at: clock }] });
+    const f = road(); f.id = 'fremd-1'; const a = await W(WT.access_token, 'reise_entwurf_speichern', { reise: f }); assert.ok(a.err); assert.match(a.t, /anderen Mitreisenden/); assert.equal(S.D.get('config/kientwurf_fremd-1').by, 'uidB');
+    S.D.delete('config/kientwurf_fremd-1'); S.D.set('config/kientwuerfe', { list: [] });
+    const x = road(); x.id = 'felder-1'; x.trip.boese = '<script>'; x.trip.people = ['X']; const b = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x }); assert.ok(!b.err, b.t); assert.match(b.t, /Unbekannte Felder/);
+    const st = JSON.parse(S.D.get('config/kientwurf_felder-1').json).trip; assert.ok(!('boese' in st) && !('people' in st) && st.title, 'Felder nicht entfernt');
+    const m = road(); m.id = 'mask-1'; m.data.kul = { L: {}, P: {}, maskRe: '(a+)+'.repeat(80) }; const c = await W(RT.access_token, 'reise_pruefen', { reise: m }); assert.match(c.t, /maskRe ist zu lang/);
+    S.D.delete('config/kientwurf_felder-1'); S.D.set('config/kientwuerfe', { list: [] });
+  });
   await test('entwurf: Not-Aus Schreiben sperrt auch das Speichern', async () => {
     S.D.set('mcp_ctl/state', { write: false }); clock += 31e3;
     try { const x = road(); x.id = 'notaus-1'; const r = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x }); assert.ok(r.err); assert.ok(!S.D.get('config/kientwurf_notaus-1'));

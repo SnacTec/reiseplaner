@@ -15,6 +15,8 @@ const tripCheck = require(path.join(DIR, 'tripcheck.js'));
 const read = f => fs.readFileSync(path.join(DIR, f), 'utf8');
 const FMT = { doc: read('IMPORT-FORMAT.md'), cruise: read('BEISPIEL-kreuzfahrt.json'), road: read('BEISPIEL-roadtrip.json') };
 const MAX = 900 * 1024, OPEN = 3, KEEP = 30 * 864e5, IDX = 'config/kientwuerfe';
+// dokumentierte Felder von "trip" (docs/IMPORT-FORMAT.md, Abschnitt 4); alles andere wird bei Entwürfen entfernt
+const TRIP_KEYS = ['title', 'kind', 'start', 'end', 'tz', 'region', 'ship', 'operator', 'arrival', 'vehicle', 'look', 'special', 'seasons'];
 const fail = msg => { const e = new Error(msg); e.user = true; throw e; };
 
 function reiseFormat(a) {
@@ -34,6 +36,11 @@ async function check(S, reise) {
   if (o && typeof o === 'object' && o.photos && Object.keys(o.photos).length) { o = { ...o }; delete o.photos; notes.push('Fotos (photos) werden bei Entwürfen nicht übernommen und wurden entfernt.'); }
   const r = tripCheck(o);
   if (!r.ok) return { r, notes };
+  const extra = Object.keys(r.trip.trip).filter(k => !TRIP_KEYS.includes(k));
+  if (extra.length) { extra.forEach(k => delete r.trip.trip[k]); notes.push('Unbekannte Felder in "trip" entfernt: ' + extra.slice(0, 8).map(k => clean(k, 30)).join(', ') + '.'); }
+  // eigenes Suchmuster fürs Quiz nur kurz (sonst könnte ein ungünstiges Muster die App blockieren); Wortliste "mask" geht immer
+  const mr = r.trip.data.kul && r.trip.data.kul.maskRe;
+  if (mr != null && (typeof mr !== 'string' || mr.length > 300)) { r.ok = false; r.errors.push('data.kul.maskRe ist zu lang (höchstens 300 Zeichen) – besser data.kul.mask (Wortliste) verwenden.'); return { r, notes }; }
   const json = JSON.stringify(r.trip), size = Buffer.byteLength(json);
   if (size > MAX) { r.ok = false; r.errors.push(`Die Reise ist zu groß (${Math.round(size / 1024)} kB, höchstens ${MAX / 1024} kB). Bitte kürzen (z. B. weniger Tipps, kürzere Texte, weniger Quizfragen).`); return { r, notes }; }
   if (await S.get('trips/' + r.trip.id)) { r.ok = false; r.errors.push(`Eine Reise mit der Kennung "${r.trip.id}" gibt es schon. Bitte eine andere id wählen (bestehende Reisen werden nie überschrieben).`); return { r, notes }; }
@@ -65,7 +72,9 @@ async function entwurfSpeichern(S, uid, now, a) {
     const old = L0.filter(x => x && x.at && at - x.at > KEEP);   // nach 30 Tagen weg
     const L = L0.filter(x => x && !old.includes(x) && x.k !== k);
     if (L.length >= OPEN) return { e: `Es gibt schon ${L.length} offene Entwürfe (höchstens ${OPEN}). Bitte zuerst in der App einen übernehmen oder verwerfen: ${L.map(x => '„' + clean(x.title, 60) + '“').join(', ')}.` };
-    const rep = L0.some(x => x && x.k === k);
+    const mine = L0.find(x => x && x.k === k);
+    if (mine && !old.includes(mine) && mine.by !== uid) return { e: `Es gibt schon einen Entwurf „${clean(mine.title, 60)}“ mit der Kennung "${t.id}" von einem anderen Mitreisenden. Bitte eine andere id wählen.` };
+    const rep = !!mine;
     old.forEach(x => { if (/^kientwurf_[a-z0-9-]{3,60}$/.test(String(x.k))) T.del('config/' + x.k); });
     T.set('config/' + k, { ...meta, days: t.data.ports.length, json, size, warn: r.warnings.slice(0, 30).map(x => clean(x, 300)), ttl: new Date(at + KEEP) });
     T.set(IDX, { list: [...L, meta] });

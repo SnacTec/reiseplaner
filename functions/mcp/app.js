@@ -100,12 +100,12 @@ function createApp(deps) {
         if (!rate(who.uid)) return ok(id, { content: [{ type: 'text', text: 'Zu viele Anfragen – bitte etwas später erneut.' }], isError: true });
         const trip = await O.activeTrip();
         if (!await O.isMember(trip, who.uid)) return ok(id, { content: [{ type: 'text', text: 'Kein Zugriff auf die aktuelle Reise.' }], isError: true });
-        const v = await R.load(trip, !!t.write), X = ctxOf(v, now()), t0 = Date.now();
+        const v = t.noload ? null : await R.load(trip, !!t.write), X = v ? ctxOf(v, now()) : null, t0 = Date.now();   // noload: Entwurfs-Werkzeuge brauchen die aktuelle Reise nicht
         const W = t.write ? { S: deps.store, trip, uid: who.uid, now, geo: deps.geo || (async () => []), v, X } : { S: deps.store };
         let text; try { text = await t.run(v, X, p.arguments || {}, W); }
         catch (e) { if (e && e.user) return ok(id, { content: [{ type: 'text', text: e.message }], isError: true });
           log('werkzeug-fehler', t.name, e && e.message); return ok(id, { content: [{ type: 'text', text: t.write ? 'Interner Fehler – es wurde eventuell nichts gespeichert. Bitte mit tag_plan prüfen.' : 'Interner Fehler beim Lesen des Reiseplans.' }], isError: true }); }
-        finally { if (t.write) R.drop(trip); }
+        finally { if (t.write && !t.noload) R.drop(trip); }
         log('werkzeug', t.name, who.uid.slice(0, 6), Date.now() - t0 + 'ms');
         deps.store.incr('mcp_rate/' + who.uid + '_' + new Date(now()).toISOString().slice(0, 10), 'n', 1).catch(() => {});
         // Schreib-Antworten enthalten fremde Namen (Ortssuche, andere Einträge) → ebenfalls als Daten kennzeichnen

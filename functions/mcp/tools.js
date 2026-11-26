@@ -160,12 +160,12 @@ const TOOLS = [
 function DRAFT_TOOLS() {
   const REISE = { reise: { type: 'object', description: 'Die komplette Reise als JSON-Objekt im Format "reiseplaner-trip-1" (siehe reise_format)' } };
   return [
-    { name: 'reise_format', title: 'Format für neue Reise', max: 60000, description: 'Für eine NEUE Reise: liefert die vollständige Beschreibung des Reise-Formats und eine erfundene Beispielreise als Vorlage. Danach reise_pruefen, dann reise_entwurf_speichern.',
+    { name: 'reise_format', title: 'Format für neue Reise', max: 60000, noload: true, description: 'Für eine NEUE Reise: liefert die vollständige Beschreibung des Reise-Formats und eine erfundene Beispielreise als Vorlage. Danach reise_pruefen, dann reise_entwurf_speichern.',
       inputSchema: { type: 'object', additionalProperties: false, properties: { art: { type: 'string', enum: ['kreuzfahrt', 'rundreise', 'roadtrip', 'staedtereise'], description: 'kreuzfahrt = Beispiel mit Schiff, sonst Beispiel ohne Schiff; ohne Angabe beide' } } },
       run: (v, X, a) => DR.reiseFormat(a) },
-    { name: 'reise_pruefen', title: 'Neue Reise prüfen', big: true, description: 'Prüft eine neue Reise (wie der Import in der App) und meldet Fehler und Hinweise. Speichert nichts.',
+    { name: 'reise_pruefen', title: 'Neue Reise prüfen', big: true, noload: true, description: 'Prüft eine neue Reise (wie der Import in der App) und meldet Fehler und Hinweise. Speichert nichts.',
       inputSchema: { type: 'object', additionalProperties: false, properties: REISE, required: ['reise'] }, run: (v, X, a, w) => DR.reisePruefen(w.S, a) },
-    { name: 'reise_entwurf_speichern', title: 'Neue Reise als Entwurf speichern', big: true, write: true, description: 'Speichert eine geprüfte neue Reise als Entwurf. Sie wird erst angelegt, wenn ein Mitreisender sie in der App übernimmt. Gleiche Kennung ersetzt den eigenen Entwurf; bestehende Reisen werden nie überschrieben. Höchstens 3 offene Entwürfe.',
+    { name: 'reise_entwurf_speichern', title: 'Neue Reise als Entwurf speichern', big: true, noload: true, write: true, description: 'Speichert eine geprüfte neue Reise als Entwurf. Sie wird erst angelegt, wenn ein Mitreisender sie in der App übernimmt. Gleiche Kennung ersetzt den eigenen Entwurf (nicht den eines anderen Mitreisenden); bestehende Reisen werden nie überschrieben. Höchstens 3 offene Entwürfe.',
       inputSchema: { type: 'object', additionalProperties: false, properties: REISE, required: ['reise'] }, ann: { destructiveHint: false, idempotentHint: true },
       run: (v, X, a, w) => DR.entwurfSpeichern(w.S, w.uid, w.now, a) },
   ];

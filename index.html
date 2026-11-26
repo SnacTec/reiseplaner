@@ -1201,10 +1201,12 @@ html[data-xmas] .hb.on{color:#14532d}
         m.textContent='Wird hochgeladen …';await importTrip(o);m.textContent='Fertig.';location.reload()}catch(e){m.textContent='Fehler: '+(e.message||e.code||e)}}}
   // neu=true (Entwurf von Claude): nur neue Reisen, vorhandenes Schiff bleibt unverändert, Standard-Reise der anderen bleibt
   async function importTrip(o,neu){
-    if(neu&&(await db.collection('trips').doc(o.id).get({source:'server'})).exists)throw new Error('Eine Reise mit der Kennung „'+o.id+'“ gibt es schon – nichts überschrieben.');
+    const tr=neu?Object.fromEntries(['title','kind','start','end','tz','region','ship','operator','arrival','vehicle','look','special','seasons'].filter(k=>k in o.trip).map(k=>[k,o.trip[k]])):o.trip;
+    const t=Object.assign({},tr,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()}),ref=db.collection('trips').doc(o.id);
+    // Entwurf: Prüfen und Anlegen in einer Transaktion (tippen beide gleichzeitig, gewinnt einer, nichts wird überschrieben)
+    if(neu)await db.runTransaction(async T=>{if((await T.get(ref)).exists)throw new Error('Eine Reise mit der Kennung „'+o.id+'“ gibt es schon – nichts überschrieben.');T.set(ref,t)});
+    else await ref.set(t);
     ls('rp-trip',o.id);
-    const t=Object.assign({},o.trip,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()});
-    await db.collection('trips').doc(o.id).set(t);
     if(!neu)for(const [k,v] of Object.entries(o.photos||{}))await db.collection('trips').doc(o.id).collection('photos').doc(k.replace(/\//g,'_')).set({c:k,d:v});
     if(o.ship&&!(neu&&(await db.collection('ships').doc(o.ship.id).get({source:'server'})).exists))await db.collection('ships').doc(o.ship.id).set({name:o.ship.name,short:o.ship.short||'',deckNote:o.ship.deckNote||'',json:JSON.stringify(o.ship.data),drinks:JSON.stringify(o.ship.drinks)});
     if(!neu)await db.collection('config').doc('app').set({activeTrip:o.id},{merge:true});

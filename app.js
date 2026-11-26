@@ -381,8 +381,8 @@ const nowMs=()=>Date.now()+SIM_OFF,nowD=()=>new Date(nowMs());
 const DP=RPDP.make({get trip(){return TRIP},get ports(){return D.ports},get plan(){return plan},get picks(){return picks},get din(){return DIN},get ship(){return SHIP},cruise:CRUISE,now:()=>nowMs()});
 const todayStr=()=>DP.todayStr();
 const KUL=window.__T.KUL;
-function kulHTML(p){const L=KUL.L[p.land],P=KUL.P[p.name];if(!L)return '';
-  const T=[['g','🏛 Geschichte',(P||[]).concat(L.g)],['p','⚖️ Politik & Alltag',L.p],['k','🎭 Kultur',L.k],['e','🍽 Essen & Trinken',L.e]];
+function kulHTML(p){const own=(o,k)=>o&&typeof o==='object'&&Object.hasOwn(o,k)?o[k]:null,A=x=>Array.isArray(x)?x:[],L=own(KUL.L,p.land),P=own(KUL.P,p.name);if(!L||typeof L!=='object')return '';
+  const T=[['g','🏛 Geschichte',A(P).concat(A(L.g))],['p','⚖️ Politik & Alltag',A(L.p)],['k','🎭 Kultur',A(L.k)],['e','🍽 Essen & Trinken',A(L.e)]];
   return '<h3>Land & Leute'+(p.land?' · '+esc(p.land.replace(/\s*\(.*\)$/,'').replace(/^[^,]*, /,'')):'')+'</h3>'+T.map(([k,h,a])=>'<details class="kul"><summary>'+h+'</summary><ul class="tips">'+a.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></details>').join('')+'<p class="src" style="margin:6px 0 0">Eigene Kurzzusammenfassung, Stand 2026, ohne Gewähr.</p>'}
 var bordView=false;
 let TODAY=todayStr();
@@ -924,7 +924,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='26.11. · R108';
+const APP_VER='26.11. · R109';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+

@@ -291,7 +291,7 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
 | E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
-## 9. Stufe 2: Schreiben (2a gebaut 26.11.2026: W1–W3 ✅, Sicherheitsprüfung eingearbeitet; 2b gebaut 26.11.2026: W4 ✅, Vorschau)
+## 9. Stufe 2: Schreiben (2a gebaut 26.11.2026: W1–W3 ✅, Sicherheitsprüfung eingearbeitet; 2b gebaut 26.11.2026: W4 ✅, W5 ✅)
 
 ### 9.1 Ziel und Abgrenzung
 - **Import (gibt es schon):** Eine KI baut eine komplette Reise-Datei nach `docs/IMPORT-FORMAT.md`, die App prüft sie
@@ -393,7 +393,7 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 | **W2** | Werkzeuge 2a; Schreibweg identisch zur App (gemeinsame Hilfsfunktionen in `dayplan.js` bzw. neuer gemeinsamer Datei) | Node-Tests je Werkzeug inkl. Angriffsfälle; App-Test: vom Server geschriebene Einträge erscheinen richtig (Reihenfolge, Ort, Abendessen) |
 | **W3** | App: 🤖-Kennzeichen, „Änderungen durch KI“ mit Rückgängig | voller Testlauf + Screenshots (Vorschau zeigen) |
 | **W4** ✅ | Stufe 2b: Format, Prüfung, Entwurf, App „Übernehmen“ (`functions/mcp/draft.js`, `functions/format/`, App `kdRender`/`kdPreview`/`kdAccept`) | Tests mit den erfundenen Beispielreisen, fehlerhafte Entwürfe |
-| **W5** | Unabhängige Sicherheitsprüfung (Agents), Doku `docs/MCP.md` | – |
+| **W5** ✅ | Unabhängige Sicherheitsprüfung (Agents), Doku `docs/MCP.md` (2b: nur niedrige Befunde, behoben: fremder Entwurf nicht ersetzbar, nur dokumentierte `trip`-Felder, `maskRe` ≤ 300 Zeichen, Übernehmen als Transaktion, Land & Leute robust, Entwurfs-Werkzeuge ohne Laden der Reise) | – |
 | **W6** | Hochladen (Nutzer, Cloud Shell), neu verbinden, Ende-zu-Ende-Test | Checkliste |
 
 ### 9.7 Offene Entscheidungen (vor W1 klären)

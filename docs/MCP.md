@@ -66,7 +66,7 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
 - Bestehende Reisen werden nie überschrieben (Kennung schon vergeben → Fehler). Gibt es das Schiff schon, bleibt dessen
   Deckplan unverändert. Fotos werden bei Entwürfen nicht übernommen.
 - Höchstens 3 offene Entwürfe, nach 30 Tagen gelöscht (beim nächsten Speichern; App blendet ältere aus).
-  Gleiche Kennung ersetzt den Entwurf.
+  Gleiche Kennung ersetzt den eigenen Entwurf (den eines anderen Mitreisenden nicht).
 - Ohne Konnektor geht es weiterhin über eine Import-Datei (`docs/KI-PROMPT.md`).
 
 ## Nutzen

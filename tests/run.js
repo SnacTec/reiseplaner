@@ -152,6 +152,7 @@ test('reisen: Entwurf von Claude – Vorschau, Übernehmen (wie Import, nie übe
   ok(pv.page && pv.rows === d.data.ports.length, 'Vorschau: ' + JSON.stringify({ page: pv.page, rows: pv.rows }));
   ok(/Tag 1/.test(pv.txt) && /noch nicht angelegt/.test(pv.txt) && /Hinweis/.test(pv.txt), 'Vorschau-Text: ' + pv.txt.slice(0, 300));
   ok(!(await p.evaluate(() => window.__xss)) && !(await p.$('#dlg img')), 'Vorschau nicht maskiert (XSS)');
+  ok(await p.evaluate(() => kulHTML({ land: 'constructor', name: '__proto__' }) === ''), 'Land & Leute: Sonderschlüssel führen zu Fehler');
   // Verwerfen aus der Vorschau → Rückgängig stellt wieder her
   await p.click('#kddel'); await p.waitForTimeout(500);
   ok(!(await p.evaluate(() => 'kientwurf_entwurf-test' in JSON.parse(localStorage.getItem('rp-test-kd')))), 'nicht verworfen');

@@ -150,7 +150,7 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 - Rückgängig in der App (`kiUndo`, Einstellungen → Konto → Änderungen durch KI). Schreibt über die normalen Speicherwege
   und setzt `undone:true`.
 
-**Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos,
+**Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos, nur dokumentierte `trip`-Felder, `kul.maskRe` ≤ 300 Zeichen, Entwurf eines anderen Mitreisenden nicht ersetzbar,
 höchstens 900 kB, höchstens 3, nach 30 Tagen weg (`ttl` kann zusätzlich als Firestore-TTL-Feld eingerichtet werden).
 „Übernehmen“ in der App: `__checkTrip` → `__importTrip(o, true)` (bricht ab, wenn die Reise schon existiert; vorhandenes Schiff
 bleibt; `config/app.activeTrip` bleibt) → Entwurf löschen (`__kiDrafts.drop`). Keine Regeländerung nötig (`config/*`).
