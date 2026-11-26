@@ -922,13 +922,34 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R104';
+const APP_VER='26.11. · R105';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
-   (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+
+   (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
+     '<div class="osmrow" style="margin:0 0 10px"><span>🤖 Verbundene KI</span><div data-aic><span class="src">wird geladen …</span></div></div>':'')+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-homeset]');if(!b)return;e.stopPropagation();closeDlg();setTimeout(()=>tvPick('Zuhause festlegen',false,null,x=>{homeSet({n:x.n,a:x.a,lat:x.lat,lon:x.lon,tz:x.tz});undoToast('Zuhause gespeichert: '+(x.n||''),null,2500)}),80)},true);
 function kontoDlg(){openSheet('<div class="hd"><h3 style="margin:0">Konto</h3></div>'+kontoHTML())}
+/* Verbundene KI (Claude-Konnektor, functions/mcp, docs/MCP.md): eigene Verbindungen anzeigen und trennen.
+   Server: GET/POST <MCP>/connections mit Firebase-Anmeldetoken; zeigt nur die Verbindungen des eigenen Kontos. */
+const MCPFN=window.__TEST_MCP||('https://mcp-'+((window.FIREBASE_CONFIG||{}).messagingSenderId||'')+'.europe-west3.run.app');
+async function aiReq(body){let tok='test';if(!window.__TEST_MCP){if(!FBX.user)throw new Error('nicht angemeldet');tok=await FBX.user.getIdToken()}
+  const r=await fetch(MCPFN+'/connections',{method:body?'POST':'GET',headers:{Authorization:'Bearer '+tok,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
+  if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+const aiDt=t=>t?new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'–';
+async function aiLoad(el){
+  if(navigator.onLine===false){el.innerHTML='<span class="src">Offline – wird angezeigt, sobald Netz da ist.</span>';return}
+  el.innerHTML='<span class="src">wird geladen …</span>';
+  let L;try{L=(await aiReq()).connections||[]}catch(e){el.innerHTML='<span class="src">Gerade nicht abrufbar.</span> <button class="lnk" data-aicr>Erneut ›</button>';return}
+  el.innerHTML=(L.length?L.sort((a,b)=>(b.lastUsed||0)-(a.lastUsed||0)).map(c=>'<div class="aic"><div><b>Claude</b><small class="src" style="display:block">verbunden '+esc(aiDt(c.created))+' · zuletzt genutzt '+esc(aiDt(c.lastUsed))+'</small></div><button class="chip del" data-aicx="'+esc(c.id)+'">Trennen</button></div>').join('')
+    +(L.length>1?'<button class="lnk" data-aicx="*">Alle trennen ›</button>':'')
+    :'<span class="src">Keine KI verbunden.</span>')
+    +'<small class="src" style="display:block">Claude kann deinen Reiseplan nur lesen. Verbinden in Claude: <a href="https://github.com/SnacTec/reiseplaner/blob/main/docs/MCP.md" target="_blank" rel="noopener" style="text-decoration:none">Anleitung ›</a></small>'}
+new MutationObserver(()=>{document.querySelectorAll('[data-aic]:not([data-done])').forEach(e=>{e.dataset.done=1;aiLoad(e)})}).observe(document.body,{childList:true,subtree:true});
+document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.closest('[data-aicr]');if(r){e.stopPropagation();aiLoad(r.closest('[data-aic]'));return}
+  const b=e.target.closest&&e.target.closest('[data-aicx]');if(!b)return;e.stopPropagation();const all=b.dataset.aicx==='*',el=b.closest('[data-aic]');
+  if(!confirm(all?'Alle KI-Verbindungen trennen? Claude kann danach nicht mehr auf den Reiseplan zugreifen.':'Diese Verbindung trennen? Claude kann danach nicht mehr auf den Reiseplan zugreifen (neu verbinden geht jederzeit in Claude).'))return;
+  b.disabled=true;try{await aiReq(all?{all:true}:{id:b.dataset.aicx});undoToast(all?'Alle Verbindungen getrennt':'Verbindung getrennt',null,2500)}catch(x){undoToast('Trennen fehlgeschlagen – bitte erneut versuchen',null,3000)}aiLoad(el)},true);
 /* App-Check-Status für die Anzeige (Konto/Einstellungen) */
 async function acToken(){const A=window.__AC;if(!A||!A.on)return null;try{return (await Promise.race([A.ac.getToken(false),new Promise((_,no)=>setTimeout(()=>no(new Error('Zeitüberschreitung')),8000))])).token}catch(e){A.err=String(e&&e.message||e);return null}}
 async function acStatus(){const A=window.__AC;if(!A)return '';if(!A.on)return A.err?'🛡 App Check: Fehler ('+A.err+')':'🛡 App Check: aus';

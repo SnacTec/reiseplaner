@@ -50,6 +50,29 @@ test('start: jede Seite als Startseite ohne Fehler', async ({ browser, base }) =
   ok(!bad.length, bad.join(' ; '));
 });
 
+test('konto: verbundene KI anzeigen und trennen', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), posts = [];
+  let L = [{ id: 'f_a', created: Date.UTC(2026, 10, 20, 9), lastUsed: Date.UTC(2026, 10, 25, 14) }, { id: 'f_b', created: Date.UTC(2026, 10, 21, 9), lastUsed: Date.UTC(2026, 10, 22, 9) }];
+  let fail = false;
+  await c.route(/fake-mcp\/connections/, r => { const q = r.request();
+    if (fail) return r.fulfill({ status: 500, body: '{}' });
+    if (q.method() === 'POST') { const b = JSON.parse(q.postData() || '{}'); posts.push(b); L = b.all ? [] : L.filter(x => x.id !== b.id); return r.fulfill({ contentType: 'application/json', body: '{"ok":true}' }); }
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ connections: L }) }); });
+  const p = await H.open(c, base, t, '#plan', `window.__TEST_MCP='${base}/fake-mcp';`);
+  await p.evaluate(() => { window.confirm = () => true; document.body.insertAdjacentHTML('beforeend', '<div id="aitest" data-aic></div>'); }); await p.waitForTimeout(600);
+  let txt = await p.innerText('#aitest');
+  ok(/Claude[\s\S]*25\.11\.26[\s\S]*Claude/.test(txt) && /Alle trennen/.test(txt), 'Liste falsch: ' + txt);
+  ok((await p.$$('#aitest [data-aicx]:not([data-aicx="*"])')).length === 2, 'zwei Trennen-Knöpfe erwartet');
+  await p.click('#aitest [data-aicx="f_b"]'); await p.waitForTimeout(600);
+  ok(posts.length === 1 && posts[0].id === 'f_b', 'POST falsch: ' + JSON.stringify(posts));
+  txt = await p.innerText('#aitest'); ok(!/Alle trennen/.test(txt) && (await p.$$('#aitest [data-aicx]')).length === 1, 'nach Trennen: ' + txt);
+  await p.click('#aitest [data-aicx="f_a"]'); await p.waitForTimeout(600);
+  ok(/Keine KI verbunden/.test(await p.innerText('#aitest')), 'leer erwartet');
+  fail = true; await p.evaluate(() => aiLoad(document.getElementById('aitest'))); await p.waitForTimeout(400);
+  ok(/Gerade nicht abrufbar/.test(await p.innerText('#aitest')), 'Fehleranzeige fehlt');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
