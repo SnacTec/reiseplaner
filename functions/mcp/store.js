@@ -16,6 +16,8 @@ function firestoreStore(db, admin) {
       return db.runTransaction(async t => fn({
         async get(p) { const s = await t.get(ref(p)); return s.exists ? s.data() : null; },
         set(p, data, merge) { t.set(ref(p), data, merge ? { merge: true } : {}); },
+        upd(p, data) { t.update(ref(p), data); },   // ersetzt die genannten Felder ganz (auch verschachtelte Objekte)
+        del(p) { t.delete(ref(p)); },
       }));
     },
   };
@@ -36,7 +38,7 @@ function memoryStore(seed = {}) {
     async where(col, f, v) { return (await this.list(col)).filter(x => x.data && x.data[f] === v); },
     async incr(p, f, by) { const o = D.get(p) || {}; o[f] = (o[f] || 0) + by; D.set(p, o); },
     async txn(fn) {
-      const run = lock.then(() => fn({ async get(p) { return clone(D.get(p)); }, set(p, d, m) { put(p, d, m); } }));
+      const run = lock.then(() => fn({ async get(p) { return clone(D.get(p)); }, set(p, d, m) { put(p, d, m); }, upd(p, d) { if (!D.has(p)) throw new Error('fehlt: ' + p); put(p, d, true); }, del(p) { D.delete(p); } }));
       lock = run.catch(() => {}); return run;
     },
   };

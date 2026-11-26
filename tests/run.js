@@ -73,6 +73,37 @@ test('konto: verbundene KI anzeigen und trennen', async ({ browser, base }) => {
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('konto: Änderungen durch KI – Kennzeichen 🤖 und Rückgängig (Plan, Abendessen, Ausflug, geändert)', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
+  const r = await p.evaluate(() => {
+    const now = Date.now(), out = {};
+    // vom Server angelegter und von Claude geänderter Eintrag (wie functions/mcp/write.js)
+    const neu = { x: 1, n: 'KI-Schnorcheln', s: 60, t: 0, at: '10:00', note: '', ki: { uid: 'u1', at: now, neu: 1 } };
+    (plan[2] = plan[2] || []).push({ ...neu, id: 'ek1' });
+    (plan[4] = plan[4] || []).push({ x: 1, n: 'Spaziergang', s: 30, t: 0, at: '15:00', note: '', id: 'eu1', ki: { uid: 'u1', at: now, neu: 0 } });
+    savePlan(); renderPanel();
+    out.mark = document.querySelectorAll('.kim').length;
+    DIN.at = '18:30'; DIN.skip = [2]; DIN.ov = {}; dinSave(false);
+    const pk = '2:' + D.ports[1].ex[1].c; picks[pk] = false; persistPicks();
+    window.confirm = () => true;
+    window.__TEST_KILOG = [
+      { id: 'k1', uid: 'u1', at: now - 4000, col: 'planitems', doc: 'ek1', before: null, after: { ...neu, d: 2, o: 1000 }, txt: 'Eintrag „KI-Schnorcheln“ an Tag 2 angelegt' },
+      { id: 'k2', uid: 'u1', at: now - 3000, col: 'planitems', doc: 'eu1', before: { x: 1, n: 'Spaziergang', s: 30, t: 0, at: '14:00', note: '', d: 4, o: 0 }, after: { x: 1, n: 'Spaziergang', s: 30, t: 0, at: '15:00', note: '', d: 4, o: 0, ki: { neu: 0 } }, txt: 'Eintrag „Spaziergang“ geändert (Tag 4)' },
+      { id: 'k3', uid: 'u1', at: now - 2000, col: 'dinner', doc: '2', before: { skip: [], ov: {} }, after: { skip: [2], ov: {} }, txt: 'Abendessen an Tag 2 fällt aus' },
+      { id: 'k4', uid: 'u1', at: now - 1000, col: 'picks', doc: 'p_x', before: null, after: { k: pk, v: false }, txt: 'Ausflug abgewählt' },
+    ];
+    out.pk = pk; return out;
+  });
+  ok(r.mark >= 1, 'Kennzeichen 🤖 fehlt im Tagesplan');
+  await p.evaluate(() => kiLogDlg()); await p.waitForTimeout(500);
+  const txt = await p.innerText('#kil'); ok(/KI-Schnorcheln[\s\S]*Rückgängig/.test(txt) && /fällt aus/.test(txt), 'Liste falsch: ' + txt);
+  for (const k of ['k1', 'k2', 'k3', 'k4']) { const i = await p.evaluate(k => window.__TEST_KILOG.slice().sort((a, b) => b.at - a.at).findIndex(x => x.id === k), k); await p.click(`#kil [data-kiu="${i}"]`); await p.waitForTimeout(150); }
+  const s = await p.evaluate(pk => ({ ek1: Object.values(plan).flat().some(x => x && x.id === 'ek1'), eu1: (plan[4] || []).find(x => x.id === 'eu1'), skip: DIN.skip.slice(), pk: pk in picks, undone: window.__TEST_KILOG.every(x => x.undone), txt: document.getElementById('kil').innerText }), r.pk);
+  ok(!s.ek1, 'angelegter Eintrag nicht entfernt'); ok(s.eu1 && s.eu1.at === '14:00' && !s.eu1.ki, 'Änderung nicht zurückgesetzt: ' + JSON.stringify(s.eu1));
+  ok(!s.skip.includes(2), 'Abendessen nicht zurückgesetzt'); ok(!s.pk, 'Ausflugswahl nicht zurückgesetzt'); ok(s.undone && /rückgängig gemacht/.test(s.txt), 'nicht als rückgängig markiert');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

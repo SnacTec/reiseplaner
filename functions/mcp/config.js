@@ -14,10 +14,10 @@ module.exports = {
   // Rücksprungadressen von Claude (claude.com ist von Anthropic angekündigt)
   CLAUDE_REDIRECTS: ['https://claude.ai/api/mcp/auth_callback', 'https://claude.com/api/mcp/auth_callback'],
   FIXED_CLIENT_ID: 'reiseplaner-claude',
-  SCOPES: ['reise.lesen', 'offline_access'],
+  SCOPES: ['reise.lesen', 'reise.schreiben', 'offline_access'],
   // Lebensdauern in Millisekunden
   TTL: { pending: 10 * 60e3, code: 60e3, access: 3600e3, refresh: 30 * 864e5, family: 90 * 864e5, authAge: 5 * 60e3, grace: 60e3, client: 90 * 864e5, clientUnused: 3600e3 },
-  LIMITS: { perHour: 120, perDay: 600, maxClients: 20, registerPerHour: 20, authPerHour: 60, badPerHour: 300 },
+  LIMITS: { perHour: 120, perDay: 600, maxClients: 20, registerPerHour: 20, authPerHour: 60, badPerHour: 300, writePerHour: 30, writePerDay: 150 },
   // Ausgehende Adressen von Anthropic (Stand 11/2026, vor Aktivierung prüfen); MCP_IP_ENFORCE=1 sperrt andere, sonst nur Protokoll
   ANTHROPIC_NETS: ['160.79.104.0/21', '153.61.208.0/20'],
   PROTOCOLS: ['2025-11-25', '2025-06-18', '2025-03-26'],

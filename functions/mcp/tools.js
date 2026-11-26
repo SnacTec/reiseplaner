@@ -1,9 +1,11 @@
-/* Die Werkzeuge für Claude (Stufe 1: nur lesen). Antworten als kurzer deutscher Text.
+/* Die Werkzeuge für Claude: lesend (Stufe 1) und eintragend (Stufe 2a, nur mit Bereich reise.schreiben; Umsetzung in write.js).
+ * Antworten als kurzer deutscher Text.
  * Rechenlogik aus ../dayplan.js (dieselbe Datei wie in der App, beim Hochladen hierher kopiert). */
 'use strict';
 const path = require('path');
 const RPDP = require(path.join(__dirname, '..', 'dayplan.js'));
 const { clean } = require('./util');
+const { writer, recent } = require('./write');
 
 const TYPE = { sight: 'Sehenswürdigkeit', beach: 'Strand', nature: 'Natur', factory: 'Manufaktur/Fabrik', town: 'Ort/Stadt' };
 const WALK = { walk: 'zu Fuß vom Hafen', taxi: 'Taxi nötig', tour: 'nur per Ausflug oder Tour' };
@@ -50,7 +52,8 @@ function rowLine(v, X, p, r) {
   if (!r.x && r.q) { ex.push('Tipp: ' + (TYPE[r.q.t] || 'Sehenswürdigkeit')); if (r.q.g && r.q.g.o) ex.push('Öffnung ' + clean(r.q.g.o, 40)); }
   if (r.lg) { const l = RPDP.legTxt(r.lg); if (l) ex.push(l); }
   if (r.x && r.s.note) ex.push('Notiz: „' + clean(r.s.note, 160) + '“');
-  return `${t} ${clean(r.q.n, 80)}${ex.length ? ' (' + ex.join('; ') + ')' : ''}`;
+  if (r.x && r.s.ki) ex.push(r.s.ki.neu ? 'von Claude eingetragen' : 'von Claude geändert');
+  return `${t} ${clean(r.q.n, 80)}${ex.length ? ' (' + ex.join('; ') + ')' : ''}${r.s && r.s.id ? ' [' + clean(r.s.id, 60) + ']' : ''}`;
 }
 
 function tagPlan(v, X, a) {
@@ -118,6 +121,17 @@ function suchen(v, X, a) {
   return HEAD + (H.length ? H.slice(0, 20).join('\n') + (H.length > 20 ? `\n… und ${H.length - 20} weitere` : '') : 'Nichts gefunden.');
 }
 
+function aufgaben(v, X, a) {
+  if (!v.lists.length) return HEAD + 'Es gibt keine gemeinsamen ToDo-Listen.';
+  const all = !!(a && a.alle), L = [];
+  v.lists.slice().sort((x, y) => (x.ord - y.ord) || x.name.localeCompare(y.name)).forEach(l => {
+    const T = v.tasks.filter(t => t.list === l.id && (all || !t.done)).sort((x, y) => (x.done - y.done) || String(x.due || '9').localeCompare(String(y.due || '9')) || x.ts - y.ts);
+    L.push(`Liste „${clean(l.name, 40)}“ (${v.tasks.filter(t => t.list === l.id && !t.done).length} offen):`);
+    L.push(T.length ? T.slice(0, 40).map(t => `- ${t.done ? '✓ ' : ''}${clean(t.text, 120)}${t.due ? ' · fällig ' + t.due : ''}${t.note ? ' · Notiz: „' + clean(t.note, 100) + '“' : ''} [${clean(t.id, 60)}]`).join('\n') : '- nichts offen');
+  });
+  return HEAD + L.join('\n');
+}
+
 function tipps(v, X, a) {
   const p = pickDay(v, X, a || {}); if (!p) return HEAD + noDay(v, a);
   const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + clean(t.km, 6).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + clean(t.g.t, 4) + ' Min' : ''}${t.d ? '\n  ' + clean(t.d, 240) : ''}`);
@@ -135,8 +149,41 @@ const TOOLS = [
   { name: 'jetzt', title: 'Was läuft gerade', description: 'Was gerade läuft und was als Nächstes kommt, mit Ortszeit und Zeit bis „alle an Bord“.', inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X) => jetzt(v, X) },
   { name: 'an_abreise', title: 'An- und Abreise', description: 'An- oder Abreise mit allen Teilstrecken in Ortszeit, Dauer, Umstiegen und Zeitumstellung.', inputSchema: { type: 'object', additionalProperties: false, properties: { richtung: { type: 'string', enum: ['hin', 'zurueck'] } }, required: ['richtung'] }, run: anAb },
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
+  { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
+  ...WRITE_TOOLS(),
 ];
+/* Stufe 2a: eintragende Werkzeuge (nur mit Bereich reise.schreiben sichtbar und nutzbar) */
+function WRITE_TOOLS() {
+  const S = (d, x) => ({ type: 'string', description: d, ...x }), I = (d, a, b) => ({ type: 'integer', minimum: a, maximum: b, description: d });
+  const ENTRY = { name: S('Was, z. B. „Schnorcheln“ (max. 80 Zeichen)', { minLength: 1, maxLength: 80 }), uhrzeit: S('Beginn HH:MM in Ortszeit; leer = ohne Uhrzeit', { maxLength: 5 }),
+    dauer_min: I('Dauer in Minuten (Standard 60)', 5, 720), weg_min: I('Weg dorthin in Minuten (nur an Land)', 0, 240),
+    ort: S('Ort als Suchtext (z. B. „Playa Dorada, Puerto Plata“) oder „an Bord: <Name aus dem Deckplan>“; der Server sucht selbst – nie Koordinaten erfinden. Leer = Ort entfernen', { maxLength: 100 }),
+    notiz: S('Notiz (max. 300 Zeichen)', { maxLength: 600 }) };
+  const W = (name, title, description, props, required, run, ann) => ({ name, title, description, write: true, inputSchema: { type: 'object', additionalProperties: false, properties: props, required }, ann, run });
+  return [
+    W('eintrag_anlegen', 'Eintrag anlegen', 'Legt einen eigenen Eintrag im Tagesplan an (optional täglich wiederholt bis bis_tag). Vorher tag_plan lesen. Bei Überschneidung wird nichts gespeichert, sondern gemeldet – dann nachfragen und mit ueberschneidung erneut aufrufen.',
+      { tag: I('Reisetag', 1, 400), ...ENTRY, bis_tag: I('Täglich wiederholen bis einschließlich diesem Tag', 1, 400), ueberschneidung: S('Nur nach Rückfrage: auslassen = Tage mit Überschneidung überspringen, trotzdem = überall eintragen', { enum: ['auslassen', 'trotzdem'] }) },
+      ['tag', 'name'], (v, X, a, w) => writer(w).eintrag_anlegen(a), { destructiveHint: false, idempotentHint: false }),
+    W('eintrag_aendern', 'Eintrag ändern', 'Ändert einen eigenen Eintrag im Tagesplan (Kennung aus tag_plan). Nur angegebene Felder werden geändert; tag verschiebt auf einen anderen Tag.',
+      { id: S('Kennung aus tag_plan (in eckigen Klammern)', { maxLength: 60 }), tag: I('Neuer Reisetag', 1, 400), ...ENTRY },
+      ['id'], (v, X, a, w) => writer(w).eintrag_aendern(a), { destructiveHint: true, idempotentHint: true }),
+    W('eintrag_loeschen', 'Eintrag löschen', 'Löscht einen Eintrag, den Claude selbst angelegt hat (andere Einträge bitte in der App löschen).',
+      { id: S('Kennung aus tag_plan', { maxLength: 60 }) }, ['id'], (v, X, a, w) => writer(w).eintrag_loeschen(a), { destructiveHint: true, idempotentHint: true }),
+    W('aufgabe_anlegen', 'Aufgabe anlegen', 'Legt eine Aufgabe in einer gemeinsamen ToDo-Liste an. Gibt es mehrere Listen und keine Angabe, wird nachgefragt.',
+      { text: S('Aufgabe (max. 120 Zeichen)', { minLength: 1, maxLength: 120 }), liste: S('Name der Liste', { maxLength: 60 }), faellig: S('Fällig am JJJJ-MM-TT', { maxLength: 10 }), notiz: S('Notiz', { maxLength: 600 }) },
+      ['text'], (v, X, a, w) => writer(w).aufgabe_anlegen(a), { destructiveHint: false, idempotentHint: false }),
+    W('aufgabe_erledigt', 'Aufgabe abhaken', 'Hakt eine Aufgabe ab (oder macht sie mit erledigt = false wieder offen). Kennung aus aufgaben.',
+      { id: S('Kennung aus aufgaben', { maxLength: 60 }), erledigt: { type: 'boolean', description: 'Standard true' } }, ['id'], (v, X, a, w) => writer(w).aufgabe_erledigt(a), { destructiveHint: false, idempotentHint: true }),
+    W('abendessen', 'Abendessen anpassen', 'Abendessen an einem Tag: fällt aus, andere Uhrzeit oder wieder normal.',
+      { tag: I('Reisetag', 1, 400), aktion: S('ausfallen | zeit | normal', { enum: ['ausfallen', 'zeit', 'normal'] }), uhrzeit: S('Neue Uhrzeit HH:MM (nur bei aktion = zeit)', { maxLength: 5 }) },
+      ['tag', 'aktion'], (v, X, a, w) => writer(w).abendessen(a), { destructiveHint: false, idempotentHint: true }),
+    W('ausflug_waehlen', 'Ausflug wählen', 'Markiert einen Veranstalter-Ausflug (Code aus tag_plan/suchen) als gewählt oder nicht gewählt.',
+      { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }), gewaehlt: { type: 'boolean' } }, ['tag', 'code', 'gewaehlt'], (v, X, a, w) => writer(w).ausflug_waehlen(a), { destructiveHint: false, idempotentHint: true }),
+    W('letzte_aenderungen', 'Letzte Änderungen', 'Zeigt, was Claude zuletzt in dieser Reise eingetragen oder geändert hat.',
+      {}, [], (v, X, a, w) => recent(w.S, w.trip, w.uid), { readOnlyHint: true }),
+  ];
+}
 /* Eingaben grob prüfen (Schema ist klein, daher von Hand) */
 function checkArgs(t, a) {
   if (a == null) a = {}; if (typeof a !== 'object' || Array.isArray(a)) return 'Ungültige Eingabe';
@@ -144,6 +191,7 @@ function checkArgs(t, a) {
   for (const k of Object.keys(a)) if (!pr[k]) return 'Unbekanntes Feld: ' + k;
   for (const k of t.inputSchema.required || []) if (a[k] == null) return 'Pflichtfeld fehlt: ' + k;
   for (const [k, s] of Object.entries(pr)) { const x = a[k]; if (x == null) continue;
+    if (s.type === 'boolean' && typeof x !== 'boolean') return 'Ungültig: ' + k;
     if (s.type === 'integer' && !(Number.isInteger(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;
     if (s.type === 'string' && (typeof x !== 'string' || (s.enum && !s.enum.includes(x)) || (s.pattern && !new RegExp(s.pattern).test(x)) || (s.maxLength && x.length > s.maxLength) || (s.minLength && x.length < s.minLength))) return 'Ungültig: ' + k; }
   return null;

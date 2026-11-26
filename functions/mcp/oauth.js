@@ -43,7 +43,7 @@ function oauth(deps) {
   }
 
   /* ---------- Metadaten ---------- */
-  const prm = { resource: C.RESOURCE, authorization_servers: [C.BASE], scopes_supported: ['reise.lesen'], bearer_methods_supported: ['header'], resource_name: 'Reiseplaner' };
+  const prm = { resource: C.RESOURCE, authorization_servers: [C.BASE], scopes_supported: ['reise.lesen', 'reise.schreiben'], bearer_methods_supported: ['header'], resource_name: 'Reiseplaner' };
   const asm = {
     issuer: C.BASE, authorization_endpoint: C.BASE + '/authorize', token_endpoint: C.BASE + '/token', registration_endpoint: C.BASE + '/register',
     revocation_endpoint: C.BASE + '/revoke', response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'],
@@ -124,17 +124,18 @@ function oauth(deps) {
     if (!p || !p.uid) return res.status(400).send(P.error('Die Anmeldung ist abgelaufen. Bitte in Claude erneut auf „Verbinden“ tippen.'));
     if (!b.csrf || !U.safeEq(p.csrf || '', H(String(b.csrf)))) return res.status(400).send(P.error('Ungültige Anfrage.'));
     if (now() - p.authAt > C.TTL.authAge) return res.status(400).send(P.error('Die Google-Anmeldung ist zu lange her. Bitte erneut verbinden.'));
-    // Anfrage genau einmal verbrauchen
     // Anfrage genau einmal verbrauchen; dabei prüfen, dass sie seit dem Lesen nicht verändert wurde (Konto/CSRF)
     const ok = await S.txn(async t => { const x = await t.get('mcp_pending/' + H(id)); if (!x || x.used || x.uid !== p.uid || x.csrf !== p.csrf || x.authAt !== p.authAt) return false; t.set('mcp_pending/' + H(id), { used: true }, true); return true; });
     if (!ok) return res.status(400).send(P.error('Diese Anmeldung wurde schon verwendet.'));
     U.setCookie(res, '', 0);
     const back = q => res.set('Cache-Control', 'no-store').redirect(302, `${p.redirect_uri}?${q}&state=${encodeURIComponent(p.state)}&iss=${encodeURIComponent(C.BASE)}`);
     if (b.decision !== 'allow') return back('error=access_denied');
+    // Bereich nach Wahl auf der Zustimmungsseite (nicht nach Wunsch des Clients): nur lesen oder lesen + eintragen
+    const sc = p.scope.split(' ').filter(x => x !== 'reise.schreiben'); if (b.access === 'write') sc.splice(1, 0, 'reise.schreiben');
     const code = U.rand(32), t = now();
     await S.set('mcp_codes/' + H(code), { uid: p.uid, email: p.email, client_id: p.client_id, redirect_uri: p.redirect_uri, code_challenge: p.code_challenge,
-      resource: p.resource, scope: p.scope, exp: t + C.TTL.code, ttl: ttl(C.TTL.code), used: false });
-    deps.log('verbunden', p.uid.slice(0, 6));
+      resource: p.resource, scope: sc.join(' '), exp: t + C.TTL.code, ttl: ttl(C.TTL.code), used: false });
+    deps.log('verbunden', p.uid.slice(0, 6), b.access === 'write' ? 'schreiben' : 'lesen');
     back('code=' + code);
   }
 

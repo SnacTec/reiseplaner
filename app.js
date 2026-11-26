@@ -624,7 +624,7 @@ function dayView(p,today){
     const meta=[r.b!=null?`bis ${hm(r.b)}`:`${r.st} Min`,r.tour?`${eur(r.e.p)} p. P.`:'',g.o,!r.tour&&!r.x?(g.f?`Eintritt ca. ${moneyU(g.f,g.u)} p. P.`:g.f===0?'Eintritt frei':''):''].filter(Boolean).join(' · ');
     const del=r.tour?`tcx|${p.day}|${esc(r.e.c)}`:`trm|${p.day}|${r.pi}`;
     const act=r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}"`:r.x?(r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}"`:`data-pedit="${p.day}|${r.pi}"`):`data-tipdlg="${p.day}|${r.s.i}"`;
-    h+=`<div class="blk${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="t">${r.a==null?'–':hm(r.a)}</div><div class="swr blkw"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="c" style="--c:${rowColor(r)}" data-swdel="${del}" ${act} tabindex="0" role="button">${lv==='live'?liveBadge(p,r):''}<h4>${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}</h4><div class="m">${esc(meta)}${r.x&&r.s.dk?` · <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${r.x&&g.n?`<div class="m">${esc(g.n)}</div>`:''}</div></div></div>`;
+    h+=`<div class="blk${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="t">${r.a==null?'–':hm(r.a)}</div><div class="swr blkw"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="c" style="--c:${rowColor(r)}" data-swdel="${del}" ${act} tabindex="0" role="button">${lv==='live'?liveBadge(p,r):''}<h4>${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}</h4><div class="m">${esc(meta)}${r.x&&r.s.dk?` · <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${r.x&&g.n?`<div class="m">${esc(g.n)}</div>`:''}</div></div></div>`;
   });
   exFlush(null);h+=back();
   if(!today)h+=`<div class="dyadd"><button class="lnk addpt" data-addmode="eigen">+ Eintrag</button></div>`;
@@ -922,7 +922,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='26.11. · R105';
+const APP_VER='26.11. · R106';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -944,12 +944,43 @@ async function aiLoad(el){
   el.innerHTML=(L.length?L.sort((a,b)=>(b.lastUsed||0)-(a.lastUsed||0)).map(c=>'<div class="aic"><div><b>Claude</b><small class="src" style="display:block">verbunden '+esc(aiDt(c.created))+' · zuletzt genutzt '+esc(aiDt(c.lastUsed))+'</small></div><button class="chip del" data-aicx="'+esc(c.id)+'">Trennen</button></div>').join('')
     +(L.length>1?'<button class="lnk" data-aicx="*">Alle trennen ›</button>':'')
     :'<span class="src">Keine KI verbunden.</span>')
+    +'<button class="lnk" data-kilog>Änderungen durch KI ›</button>'
     +'<small class="src" style="display:block">Claude kann deinen Reiseplan nur lesen. Verbinden in Claude: <a href="https://github.com/SnacTec/reiseplaner/blob/main/docs/MCP.md" target="_blank" rel="noopener" style="text-decoration:none">Anleitung ›</a></small>'}
 new MutationObserver(()=>{document.querySelectorAll('[data-aic]:not([data-done])').forEach(e=>{e.dataset.done=1;aiLoad(e)})}).observe(document.body,{childList:true,subtree:true});
 document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.closest('[data-aicr]');if(r){e.stopPropagation();aiLoad(r.closest('[data-aic]'));return}
   const b=e.target.closest&&e.target.closest('[data-aicx]');if(!b)return;e.stopPropagation();const all=b.dataset.aicx==='*',el=b.closest('[data-aic]');
   if(!confirm(all?'Alle KI-Verbindungen trennen? Claude kann danach nicht mehr auf den Reiseplan zugreifen.':'Diese Verbindung trennen? Claude kann danach nicht mehr auf den Reiseplan zugreifen (neu verbinden geht jederzeit in Claude).'))return;
   b.disabled=true;try{await aiReq(all?{all:true}:{id:b.dataset.aicx});undoToast(all?'Alle Verbindungen getrennt':'Verbindung getrennt',null,2500)}catch(x){undoToast('Trennen fehlgeschlagen – bitte erneut versuchen',null,3000)}aiLoad(el)},true);
+/* Änderungen durch KI (Claude-Konnektor Stufe 2a, functions/mcp/write.js): Protokoll trips/<id>/kilog {uid, at, tool, col, doc, before, after, txt, undone}.
+   Rückgängig setzt den Stand vor der Änderung über die normalen Speicherwege der App (Plan, Aufgaben, Ausflüge, Abendessen). */
+async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').get();return s.docs.map(d=>({id:d.id,...d.data()}))}
+const kiWho=u=>{const m=MEMBERS.find(x=>x.id===u);return m?m.n:''};
+const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v']};
+function kiProj(L,x){if(!x)return null;if(L.col==='dinner'){const d=+L.doc;return {s:(x.skip||[]).includes(d),o:(x.ov||{})[d]||null}}const o={};(KIK[L.col]||[]).forEach(k=>o[k]=x[k]??null);return o}
+function kiCur(L){
+  if(L.col==='planitems'){for(const [d,a] of Object.entries(plan)){const it=(a||[]).find(x=>x.id===L.doc);if(it)return {...it,d:+d}}return null}
+  if(L.col==='tasks')return TS.tasks.find(x=>x.id===L.doc)||null;
+  if(L.col==='picks'){const k=(L.after||L.before||{}).k;return k in picks?{k,v:picks[k]}:null}
+  if(L.col==='dinner')return DIN;return null}
+function kiUndo(L){
+  if(JSON.stringify(kiProj(L,kiCur(L)))!==JSON.stringify(kiProj(L,L.after))&&!confirm('Das wurde inzwischen in der App geändert. Trotzdem auf den Stand vor Claude zurücksetzen?'))return false;
+  const B=L.before;
+  if(L.col==='planitems'){Object.keys(plan).forEach(d=>{plan[d]=(plan[d]||[]).filter(x=>x.id!==L.doc)});
+    if(B){const {d,o,...r}=B,a=(plan[d]=plan[d]||[]);a.splice(typeof o==='number'&&o<a.length?o:a.length,0,{...r,id:L.doc})}
+    savePlan();renderPanel();renderDays();updatePills()}
+  else if(L.col==='tasks'){if(B)tsPutTask({...B,id:L.doc});else tsDelTask(L.doc);renderPanel()}
+  else if(L.col==='picks'){const k=(B||L.after).k;if(B)picks[k]=B.v;else delete picks[k];persistPicks();renderPanel();renderDays();updatePills()}
+  else if(L.col==='dinner'){const d=+L.doc;DIN.skip=(DIN.skip||[]).filter(x=>x!==d);if(B&&(B.skip||[]).includes(d))DIN.skip.push(d);DIN.ov={...(DIN.ov||{})};if(B&&B.ov&&B.ov[d])DIN.ov[d]=B.ov[d];else delete DIN.ov[d];dinSave(true);dinRefresh()}
+  else return false;
+  if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail);
+  L.undone=true;return true}
+function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen durch KI</h3></div><div id="kil"><p class="src">wird geladen …</p></div><p class="src" style="margin:10px 0 0">Was Claude über den Konnektor eingetragen oder geändert hat. Einträge im Plan sind mit 🤖 markiert.</p>',async d=>{
+  const el=d.querySelector('#kil');let L=[];
+  try{L=(await kiLogLoad()).slice().sort((a,b)=>(b.at-a.at)||(b.id>a.id?1:-1)).slice(0,40)}catch(e){el.innerHTML='<p class="src">Gerade nicht abrufbar.</p>';return}
+  const draw=()=>{el.innerHTML=L.length?L.map((x,i)=>`<div class="aic"><div><span>${esc(x.txt||'Änderung')}</span><small class="src" style="display:block">${esc(aiDt(x.at))}${kiWho(x.uid)?' · Claude von '+esc(kiWho(x.uid)):''}${x.undone?' · rückgängig gemacht':''}</small></div>${x.undone?'':`<button class="chip" data-kiu="${i}">Rückgängig</button>`}</div>`).join(''):'<p class="src">Claude hat in dieser Reise noch nichts geändert.</p>';
+    el.querySelectorAll('[data-kiu]').forEach(b=>b.onclick=()=>{if(kiUndo(L[+b.dataset.kiu])){undoToast('Rückgängig gemacht',null,2500);draw()}})};
+  draw()})}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-kilog]');if(!b)return;e.stopPropagation();closeDlg();setTimeout(kiLogDlg,80)},true);
 /* App-Check-Status für die Anzeige (Konto/Einstellungen) */
 async function acToken(){const A=window.__AC;if(!A||!A.on)return null;try{return (await Promise.race([A.ac.getToken(false),new Promise((_,no)=>setTimeout(()=>no(new Error('Zeitüberschreitung')),8000))])).token}catch(e){A.err=String(e&&e.message||e);return null}}
 async function acStatus(){const A=window.__AC;if(!A)return '';if(!A.on)return A.err?'🛡 App Check: Fehler ('+A.err+')':'🛡 App Check: aus';
@@ -1190,7 +1221,7 @@ function tripPanel(onlyP){
       const meta=[`${r.st} Min`,lt,r.q.g.o].filter(Boolean).join(' · ');
       const del=r.tour?`tcx|${p.day}|${esc(r.e.c)}`:`trm|${p.day}|${r.pi}`;
       const lv=rowLive(p,r);
-      return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb tpl" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:`data-tipdlg="${p.day}|${r.s.i}" role="button" tabindex="0"`}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
+      return `<div class="swr${lv?' '+lv:''}" ${r.tour?`data-sortfix="day${p.day}"`:`data-sortk="day${p.day}" data-sid="${r.pi}"`} data-a="${r.a??''}" data-b="${r.b??''}" data-st="${r.st||60}"><div class="swbg" aria-hidden="true">Löschen 🗑</div><div class="trw" data-tipday="${p.day}" data-swdel="${del}"><div class="tm">${r.a==null?'–':hm(r.a)}${r.b!=null?`<small>${hm(r.b)}</small>`:''}</div><div class="tb tpl" ${r.tour?`data-exinfo="${p.day}|${esc(r.e.c)}" role="button" tabindex="0"`:r.x&&r.s.lat!=null?`data-pinfo="${p.day}|${r.pi}" role="button" tabindex="0"`:r.x?`data-pedit="${p.day}|${r.pi}" role="button" tabindex="0" aria-label="Eintrag bearbeiten"`:`data-tipdlg="${p.day}|${r.s.i}" role="button" tabindex="0"`}><div class="tt">${r.tour?'<span class="tcos">'+esc(OP)+'</span> ':''}${r.x&&r.s.lat!=null?'<span class="tpin">★</span> ':''}${r.x&&r.s.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${r.x&&r.s.dk?'🛳 ':''}${esc(r.q.n)}${r.x&&r.s.lat!=null?' <span class="tmore">Infos ›</span>':''}${r.x&&r.s.dk?` <span class="tmore" data-dkgo="${r.s.dk}|${r.s.dv}" role="link" tabindex="0">Deckplan ›</span>`:''}</div>${lv==='live'?liveBadge(p,r):''}<div class="tmeta">${esc(meta)}</div>${r.x&&r.q.g.n?`<div class="tmeta">${esc(r.q.g.n)}</div>`:''}</div></div></div>`}).join('');
     const foot=c.port&&CRUISE&&onlyP?`<div class="tmeta" style="margin-top:6px">Liegezeit ${esc(p.times)} · zurück am Schiff ca. ${hm(c.back)}</div>`:'';
     return `<div class="tday${onlyP?' only':''}" style="--c:${col}">${hd}${tt}${rows}${addE}${tb}${fl}${addF}${foot}</div>`;
   }).join('');

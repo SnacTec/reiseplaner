@@ -32,6 +32,10 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     ['trips/' + id + '/files/f1']: { title: 'Hafenplan (erfunden)', days: [2], path: 'x/GEHEIMPFAD', ts: 1 },
     ['trips/' + id + '/users/uidA/tasks/t1']: { text: 'AUFGABEGEHEIM' },
     'config/user_uidA': { home: { n: 'Geheimstraße 7' } },
+    ['trips/' + id + '/lists/l1']: { name: 'Packliste', ord: 0 },
+    ['trips/' + id + '/tasks/t2']: { list: 'l1', text: 'Sonnencreme', done: false, ts: 1, who: 'A' },
+    ['trips/' + id + '/lists/lp']: { name: 'PRIVLISTE', priv: true },
+    ['trips/' + id + '/tasks/tp']: { list: 'lp', text: 'PRIVLISTE Aufgabe', done: false },
   };
   const S = memoryStore(seed), logs = [];
   let allowed = new Set(['anna@example.com']), gProfile = null, users = { uidA: { uid: 'uidA', disabled: false, validAfter: 0 } };
@@ -41,6 +45,8 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     google: { authUrl: ({ state, nonce }) => BASE + '/fake-google?' + new URLSearchParams({ state, nonce }), exchange: async () => gProfile },
     users: { byGoogle: async (sub) => sub === 'gA' ? users.uidA : null, get: async uid => users[uid] || null },
     verifyFirebase: async t => t === 'fb-ok' ? { uid: 'uidA' } : null,
+    // Ortssuche (Photon) nachgebildet: „Nirgends“ = kein Treffer, „Fernort“ = nur weit entfernt (> 200 km)
+    geo: async (q, near) => /Nirgends/.test(q) ? [] : /Fernort/.test(q) ? [{ name: 'Fernort', addr: 'weit weg', lat: near.lat + 5, lon: near.lon }] : [{ name: 'Teststrand', addr: 'Testort', lat: near.lat + 0.01, lon: near.lon + 0.01 }],
   };
   const app = createApp(deps); handler = app;
 
@@ -49,7 +55,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   const cookieOf = r => { const c = r.headers.get('set-cookie') || ''; const m = /__Host-mcp_req=([^;]*)/.exec(c); return m ? m[1] : null; };
   const pkce = () => { const v = U.rand(48); return { v, c: U.sha256b64u(v) }; };
   const authQ = (o = {}) => '/authorize?' + new URLSearchParams({ response_type: 'code', client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECTS[0], state: 'st-1', code_challenge_method: 'S256', resource: C.RESOURCE, scope: 'reise.lesen offline_access', ...o });
-  async function login({ q = {}, profile = { sub: 'gA', email: 'Anna@Example.com', email_verified: true }, cookie, decision = 'allow', clientId } = {}) {
+  async function login({ q = {}, profile = { sub: 'gA', email: 'Anna@Example.com', email_verified: true }, cookie, decision = 'allow', clientId, access } = {}) {
     const k = pkce(); const r1 = await go(authQ({ code_challenge: k.c, ...(clientId ? { client_id: clientId } : {}), ...q }));
     if (r1.status !== 302) return { step: 'authorize', status: r1.status, body: await r1.text() };
     const loc = new URL(r1.headers.get('location')); if (!loc.pathname.startsWith('/fake-google')) return { step: 'authorize', loc };
@@ -58,14 +64,14 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const r2 = await go('/google/callback?' + new URLSearchParams({ state, code: 'gcode' }), { headers: ck ? { cookie: '__Host-mcp_req=' + ck } : {} });
     const h2 = await r2.text(); if (r2.status !== 200) return { step: 'callback', status: r2.status, body: h2 };
     const req = /name="req" value="([^"]+)"/.exec(h2)[1], csrf = /name="csrf" value="([^"]+)"/.exec(h2)[1];
-    const send = (c2 = csrf) => go('/authorize/complete', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: '__Host-mcp_req=' + ck }, body: new URLSearchParams({ req, csrf: c2, decision }) });
+    const send = (c2 = csrf) => go('/authorize/complete', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: '__Host-mcp_req=' + ck }, body: new URLSearchParams({ req, csrf: c2, decision, ...(access ? { access } : {}) }) });
     return { step: 'consent', html: h2, send, k };
   }
   async function fullCode(o) { const L = await login(o); const r = await L.send(); const u = new URL(r.headers.get('location')); return { code: u.searchParams.get('code'), u, k: L.k }; }
   const tokenReq = b => go('/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: C.FIXED_CLIENT_ID, redirect_uri: C.CLAUDE_REDIRECTS[0], resource: C.RESOURCE, ...b }) });
-  async function tokens() { const { code, k } = await fullCode(); const r = await tokenReq({ grant_type: 'authorization_code', code, code_verifier: k.v }); return r.json(); }
+  async function tokens(o) { const { code, k } = await fullCode(o); const r = await tokenReq({ grant_type: 'authorization_code', code, code_verifier: k.v }); return r.json(); }
   const rpc = (tok, method, params, id = 1) => go('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...(tok ? { authorization: 'Bearer ' + tok } : {}) }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
-  const call = async (tok, name, args) => (await (await rpc(tok, 'tools/call', { name, arguments: args })).json()).result;
+  const call = async (tok, name, args) => { const r = await rpc(tok, 'tools/call', { name, arguments: args }), j = await r.json().catch(() => null); if (!j || !j.result) throw new Error('HTTP ' + r.status + ' ' + JSON.stringify(j)); return j.result; };
 
   /* ---------- Metadaten ---------- */
   await test('metadaten: Ressource und Autorisierungsserver korrekt', async () => {
@@ -102,7 +108,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
     const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
-    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'jetzt', 'reise_info', 'suchen', 'tag_plan', 'tipps']);
+    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_info', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
     const r = await client.callTool({ name: 'tag_plan', arguments: { wann: 'heute' } }); const txt = r.content[0].text;
     assert.match(txt, /Tag 2/); assert.match(txt, /Café am Hafen/); assert.match(txt, /Abendessen/); assert.match(txt, /Zurück an Bord ca\./);
@@ -151,7 +157,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.equal(await err({ code_challenge: pkce().c, code_challenge_method: 'plain' }), 'invalid_request');
     assert.equal(await err({ code_challenge: 'kurz' }), 'invalid_request');
     assert.equal(await err({ code_challenge: pkce().c, resource: 'https://andere.example/mcp' }), 'invalid_target');
-    assert.equal(await err({ code_challenge: pkce().c, scope: 'reise.schreiben' }), 'invalid_scope');
+    assert.equal(await err({ code_challenge: pkce().c, scope: 'reise.admin' }), 'invalid_scope');
     assert.equal(await err({ code_challenge: pkce().c, response_type: 'token' }), 'unsupported_response_type');
     assert.equal(await err({ code_challenge: pkce().c, state: '' }), 'invalid_request');
   });
@@ -239,6 +245,113 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const dump = JSON.stringify([...S.D.entries()]);
     assert.ok(!dump.includes(TK.access_token) && !dump.includes(TK.refresh_token), 'Token im Klartext gespeichert');
     const lg = logs.join('\n'); assert.ok(!lg.includes(TK.access_token) && !lg.includes('anna@example.com'), 'Geheimnis im Protokoll');
+  });
+  /* ---------- Stufe 2a: Eintragen ---------- */
+  const W = async (tok, name, args) => { const r = await call(tok, name, args); return { err: r.isError, t: r.content[0].text }; };
+  const docs = col => [...S.D.keys()].filter(k => k.startsWith('trips/' + id + '/' + col + '/')).map(k => ({ id: k.split('/').pop(), ...S.D.get(k) }));
+  let RT = null, WT = null;
+  await test('schreiben: Zustimmungsseite bietet die Wahl, Lese-Verbindung sieht keine Schreib-Werkzeuge', async () => {
+    const L = await login(); assert.match(L.html, /Nur lesen/); assert.match(L.html, /Lesen und eintragen/); assert.match(L.html, /name="access" value="read" checked/);
+    RT = await tokens(); assert.ok(!RT.scope.includes('reise.schreiben'));
+    const tl = (await (await rpc(RT.access_token, 'tools/list')).json()).result.tools.map(t => t.name);
+    assert.ok(!tl.includes('eintrag_anlegen') && tl.includes('tag_plan'));
+    const r = await (await rpc(RT.access_token, 'tools/call', { name: 'eintrag_anlegen', arguments: { tag: 2, name: 'X' } })).json();
+    assert.ok(r.error && r.error.code === -32602, 'Lese-Token darf nicht schreiben');
+    assert.equal(docs('planitems').length, 2);
+  });
+  await test('schreiben: Verbindung mit Eintragen – Werkzeuge, Hinweise, Refresh behält den Bereich', async () => {
+    WT = await tokens({ access: 'write' }); assert.ok(WT.scope.split(' ').includes('reise.schreiben'));
+    const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;
+    for (const n of ['eintrag_anlegen', 'eintrag_aendern', 'eintrag_loeschen', 'aufgabe_anlegen', 'aufgabe_erledigt', 'abendessen', 'ausflug_waehlen', 'letzte_aenderungen']) assert.ok(tl.some(t => t.name === n), n);
+    assert.equal(tl.find(t => t.name === 'eintrag_anlegen').annotations.readOnlyHint, false);
+    assert.equal(tl.find(t => t.name === 'eintrag_loeschen').annotations.destructiveHint, true);
+    const ini = (await (await rpc(WT.access_token, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } })).json()).result;
+    assert.match(ini.instructions, /nie Koordinaten erfinden/);
+    clock += 5e3; const n = await (await tokenReq({ grant_type: 'refresh_token', refresh_token: WT.refresh_token })).json(); assert.ok(n.scope.includes('reise.schreiben')); WT = n;
+  });
+  await test('eintrag_anlegen: Ort per Suche nahe der Station, Kennzeichen, Protokoll, sichtbar in tag_plan', async () => {
+    const r = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'Schnorcheln\u0007\u{E0041}', uhrzeit: '10:00', dauer_min: 90, ort: 'Teststrand Beta', notiz: 'Maske mitnehmen' });
+    assert.equal(r.err, false, r.t); assert.match(r.t, /Gespeichert \(1 Eintrag\)/); assert.match(r.t, /Ort automatisch gesucht: Teststrand/, r.t);
+    const d = docs('planitems').find(x => x.n === 'Schnorcheln'); assert.ok(d, 'Dokument fehlt');
+    assert.equal(d.d, 4); assert.equal(d.x, 1); assert.equal(d.at, '10:00'); assert.equal(d.s, 90); assert.ok(d.lat > 39 && d.lon); assert.equal(d.ki.neu, 1); assert.equal(d.ki.uid, 'uidA'); assert.equal(d.note, 'Maske mitnehmen');
+    const lg = docs('kilog'); assert.ok(lg.some(x => x.doc === d.id && x.before === null && x.after.n === 'Schnorcheln' && x.uid === 'uidA'));
+    const tp = (await call(WT.access_token, 'tag_plan', { tag: 4 })).content[0].text; assert.match(tp, new RegExp('Schnorcheln.*von Claude eingetragen.*\\[' + d.id + '\\]'));
+    const r2 = await W(WT.access_token, 'eintrag_anlegen', { tag: 2, name: 'Irgendwo', ort: 'Nirgends' }); assert.match(r2.t, /nicht gefunden – ohne Ort gespeichert/);
+    assert.equal(docs('planitems').find(x => x.n === 'Irgendwo').lat, undefined);
+    const r3 = await W(WT.access_token, 'eintrag_anlegen', { tag: 2, name: 'Weit weg', ort: 'Fernort' }); assert.match(r3.t, /nicht gefunden/, 'Treffer > 200 km dürfen nicht genommen werden');
+  });
+  await test('eintrag_anlegen: Überschneidung wird gemeldet, erst nach Rückfrage gespeichert; Wiederholen über Tage', async () => {
+    const n0 = docs('planitems').length;
+    const r = await W(WT.access_token, 'eintrag_anlegen', { tag: 2, name: 'Eis essen', uhrzeit: '13:15', dauer_min: 30 });
+    assert.match(r.t, /Nicht gespeichert – Überschneidung: Tag 2: Café am Hafen um 13:00/); assert.equal(docs('planitems').length, n0);
+    const r2 = await W(WT.access_token, 'eintrag_anlegen', { tag: 2, name: 'Eis essen', uhrzeit: '13:15', dauer_min: 30, ueberschneidung: 'trotzdem' }); assert.match(r2.t, /Gespeichert/);
+    const r3 = await W(WT.access_token, 'eintrag_anlegen', { tag: 1, bis_tag: 4, name: 'Frühsport', uhrzeit: '07:00', dauer_min: 30, ort: 'Teststrand' });
+    assert.match(r3.t, /Gespeichert \(4 Einträge\)/, r3.t);
+    const F = docs('planitems').filter(x => x.n === 'Frühsport'); assert.equal(F.length, 4); assert.ok(F.every(x => x.rep && x.rep === F[0].rep));
+    assert.equal(F.find(x => x.d === 3).lat, undefined, 'Seetag ohne Ort an Land');
+    assert.equal((await W(WT.access_token, 'eintrag_anlegen', { tag: 1, bis_tag: 40, name: 'X' })).err, true);
+  });
+  await test('eintrag_anlegen: Ort an Bord aus dem Deckplan, auf See nur an Bord', async () => {
+    const r = await W(WT.access_token, 'eintrag_anlegen', { tag: 3, name: 'Show', uhrzeit: '20:00', ort: 'an Bord: Theater' });
+    assert.match(r.t, /an Bord: Theater \(erfunden\), Deck 5/, r.t);
+    const d = docs('planitems').find(x => x.n === 'Show'); assert.equal(d.dk, 5); assert.equal(d.dv, 0); assert.equal(d.lat, undefined);
+    const r2 = await W(WT.access_token, 'eintrag_anlegen', { tag: 3, name: 'Strand', ort: 'Playa Irgendwo' }); assert.equal(r2.err, true); assert.match(r2.t, /Auf See gehen nur Orte an Bord/);
+  });
+  await test('eintrag_aendern / eintrag_loeschen: eigene Einträge ändern, löschen nur KI-Einträge', async () => {
+    const r = await W(WT.access_token, 'eintrag_aendern', { id: 'e1', uhrzeit: '14:00', notiz: '' }); assert.equal(r.err, false, r.t); assert.match(r.t, /Geändert: Tag 2 · 14:00–14:45 „Café am Hafen“/);
+    const e1 = S.D.get('trips/' + id + '/planitems/e1'); assert.equal(e1.at, '14:00'); assert.equal(e1.note, ''); assert.equal(e1.ki.neu, 0); assert.equal(e1.d, 2);
+    assert.ok(docs('kilog').some(x => x.doc === 'e1' && x.before.at === '13:00' && x.after.at === '14:00'));
+    const m = await W(WT.access_token, 'eintrag_aendern', { id: 'e1', tag: 4 }); assert.match(m.t, /Tag 4/); assert.equal(S.D.get('trips/' + id + '/planitems/e1').d, 4);
+    const x = await W(WT.access_token, 'eintrag_loeschen', { id: 'e1' }); assert.equal(x.err, true); assert.match(x.t, /nur bei Einträgen, die Claude selbst angelegt hat/); assert.ok(S.D.has('trips/' + id + '/planitems/e1'));
+    const k = docs('planitems').find(y => y.n === 'Show'); const y = await W(WT.access_token, 'eintrag_loeschen', { id: k.id }); assert.equal(y.err, false, y.t); assert.ok(!S.D.has('trips/' + id + '/planitems/' + k.id));
+    assert.ok(docs('kilog').some(z => z.doc === k.id && z.after === null && z.before.n === 'Show'));
+    for (const bad of [{ id: '../../config/app' }, { id: 'gibtsnicht' }]) assert.equal((await W(WT.access_token, 'eintrag_aendern', { ...bad, name: 'X' })).err, true);
+    assert.equal((await W(WT.access_token, 'eintrag_aendern', { id: 'e2', uhrzeit: '25:00' })).err, true);
+    assert.equal((await W(WT.access_token, 'eintrag_aendern', { id: 'e2', name: '   ' })).err, true);
+    const tip = docs('planitems').find(z => !z.x); if (tip) assert.equal((await W(WT.access_token, 'eintrag_aendern', { id: tip.id, name: 'X' })).err, true);
+  });
+  await test('aufgaben: nur gemeinsame Listen; anlegen, abhaken; private bleiben unsichtbar', async () => {
+    const a = (await call(WT.access_token, 'aufgaben', {})).content[0].text; assert.match(a, /Packliste/); assert.match(a, /Sonnencreme \[t2\]/); assert.ok(!/AUFGABEGEHEIM|PRIVLISTE/.test(a));
+    const r = await W(WT.access_token, 'aufgabe_anlegen', { text: 'Reisepass prüfen', faellig: '2099-04-20' }); assert.equal(r.err, false, r.t); assert.match(r.t, /Packliste/);
+    const t = docs('tasks').find(x => x.text === 'Reisepass prüfen'); assert.equal(t.list, 'l1'); assert.equal(t.done, false); assert.equal(t.due, '2099-04-20'); assert.equal(t.ki.neu, 1);
+    assert.equal((await W(WT.access_token, 'aufgabe_anlegen', { text: 'X', liste: 'Gibtsnicht' })).err, true);
+    assert.equal((await W(WT.access_token, 'aufgabe_anlegen', { text: 'X', faellig: 'morgen' })).err, true);
+    const d = await W(WT.access_token, 'aufgabe_erledigt', { id: 't2' }); assert.match(d.t, /Erledigt: Sonnencreme/); assert.equal(S.D.get('trips/' + id + '/tasks/t2').done, true);
+    assert.equal((await W(WT.access_token, 'aufgabe_erledigt', { id: 't1' })).err, true, 'private Aufgabe');
+    assert.equal((await W(WT.access_token, 'aufgabe_erledigt', { id: 'tp' })).err, true, 'Aufgabe einer privaten Liste');
+  });
+  await test('abendessen und ausflug_waehlen: feldgenau, Tischnummer bleibt, nur vorhandene Codes', async () => {
+    const M = () => S.D.get('trips/' + id + '/plandays/meta').dinner;
+    assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /fällt aus/); assert.deepEqual(M().skip, [2]); assert.equal(M().table, '41');
+    await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'zeit', uhrzeit: '19:30' }); assert.deepEqual(M().skip, []); assert.deepEqual(M().ov, { 2: '19:30' });
+    await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'normal' }); assert.deepEqual(M().ov, {}); assert.equal(M().at, '18:30');
+    assert.equal((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'zeit' })).err, true);
+    assert.equal((await W(WT.access_token, 'abendessen', { tag: 5, aktion: 'ausfallen' })).err, true);
+    const r = await W(WT.access_token, 'ausflug_waehlen', { tag: 2, code: 'B20', gewaehlt: false }); assert.match(r.t, /Abgewählt: Tag 2/);
+    assert.deepEqual(S.D.get('trips/' + id + '/picks/p_2_B20'), { k: '2:B20', v: false });
+    assert.equal((await W(WT.access_token, 'ausflug_waehlen', { tag: 2, code: 'ZZ9', gewaehlt: true })).err, true);
+    const l = (await call(WT.access_token, 'letzte_aenderungen', {})).content[0].text; assert.match(l, /Ausflug B20 an Tag 2 abgewählt/);
+  });
+  await test('schreiben: Not-Aus nur fürs Eintragen, Grenzen pro Stunde', async () => {
+    S.D.set('mcp_ctl/state', { write: false }); clock += 31e3;
+    assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /Eintragen ist gerade abgeschaltet/);
+    assert.equal((await call(WT.access_token, 'tag_plan', { tag: 2 })).isError, false, 'Lesen geht weiter');
+    S.D.delete('mcp_ctl/state'); clock += 31e3 + 7200e3; WT = await tokens({ access: 'write' });
+    const old = C.LIMITS.writePerHour; C.LIMITS.writePerHour = 2;
+    try {
+      assert.equal((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).err, false);
+      assert.equal((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'normal' })).err, false);
+      assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /Zu viele Änderungen/);
+      assert.equal((await call(WT.access_token, 'letzte_aenderungen', {})).isError, false, 'Lesen der Änderungen zählt nicht');
+    } finally { C.LIMITS.writePerHour = old; }
+    clock = T0;
+  });
+  await test('schreiben: nichts Privates in Antworten, Notizen gekürzt, Protokoll ohne Fremdes', async () => {
+    WT = await tokens({ access: 'write' });
+    const r = await W(WT.access_token, 'eintrag_anlegen', { tag: 4, name: 'Lang', notiz: 'x'.repeat(600) }); assert.equal(r.err, false, r.t);
+    assert.equal(docs('planitems').find(x => x.n === 'Lang').note.length, 300);
+    const all = docs('kilog').map(x => JSON.stringify(x)).join(' ') + r.t;
+    for (const bad of ['23A', 'BUCH123', 'AUFGABEGEHEIM', 'anna@example.com', '8346']) assert.ok(!all.includes(bad), bad);
   });
   await test('host: fremder Host wird abgelehnt (ohne Testmodus)', async () => {
     deps.testHost = false; const app2 = createApp(deps); const s2 = http.createServer(app2); await new Promise(r => s2.listen(0, r));

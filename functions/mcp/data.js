@@ -1,6 +1,6 @@
 /* Einziger Lesebaustein für Reisedaten (das Admin SDK umgeht die Firestore-Regeln – deshalb feste Positivliste):
  *   config/app · trips/<id> · ships/<id> (nur Deckplan) · trips/<id>/{planitems, picks, plandays/meta, plandays/d<N> (alt),
- *   travel, stays, files, members/<uid> (nur Existenz)}
+ *   travel, stays, files, lists + tasks (nur gemeinsame), members/<uid> (nur Existenz)}
  * NIE: users/…, config/user_*, plandays/quiz_*, backups, photos, lists, tasks.
  * Bereinigt wird beim Lesen (keine Sitzplätze, Buchungsnummern, Kabine, Namen). Aufbereitung wie in der App (index.html/app.js). */
 'use strict';
@@ -9,9 +9,9 @@ const TYPES = ['sight', 'beach', 'nature', 'factory', 'town'];
 
 function reader(S) {
   const cache = new Map();   // je Reise 30 s, spart Lesezugriffe bei mehreren Werkzeug-Aufrufen hintereinander
-  async function load(trip) {
+  async function load(trip, fresh) {
     if (!TRIP_RE.test(String(trip || ''))) throw new Error('Reise ungültig');
-    const c = cache.get(trip); if (c && Date.now() - c.at < 30e3) return c.v;
+    const c = cache.get(trip); if (!fresh && c && Date.now() - c.at < 30e3) return c.v;
     const t = await S.get('trips/' + trip); if (!t) throw new Error('Reise nicht gefunden');
     let j = {}; try { j = JSON.parse(t.json || '{}'); } catch (e) { j = {}; }
     const meta = { title: t.title || '', kind: t.kind || '', start: t.start, end: t.end, tz: t.tz, operator: t.operator || '', ship: t.ship || null };
@@ -21,12 +21,13 @@ function reader(S) {
     let ship = null;
     if (meta.ship && TRIP_RE.test(meta.ship)) { const s = await S.get('ships/' + meta.ship); if (s) { try { const d = JSON.parse(s.json || '{}'); ship = { dk: Array.isArray(d.dk) ? d.dk : [] }; } catch (e) { ship = { dk: [] }; } } }
     const base = 'trips/' + trip + '/';
-    const [items, pk, m, tv, st, fl] = await Promise.all([S.list(base + 'planitems'), S.list(base + 'picks'), S.get(base + 'plandays/meta'), S.list(base + 'travel'), S.list(base + 'stays'), S.list(base + 'files')]);
+    const [items, pk, m, tv, st, fl, ls, tk] = await Promise.all([S.list(base + 'planitems'), S.list(base + 'picks'), S.get(base + 'plandays/meta'), S.list(base + 'travel'), S.list(base + 'stays'), S.list(base + 'files'), S.list(base + 'lists'), S.list(base + 'tasks')]);
     // Tagesplan: je Tag nach o, dann Kennung sortieren (wie planMigrate in app.js)
     const plan = {};
     if (items.length || (m && m.planV2)) {
       items.forEach(({ id, data }) => { const { d, o, ...r } = data || {}; if (!(+d >= 1)) return; (plan[+d] = plan[+d] || []).push({ ...r, id, _o: typeof o === 'number' ? o : 0 }); });
-      Object.values(plan).forEach(a => { a.sort((p, q) => p._o - q._o || String(p.id).localeCompare(q.id)); a.forEach(x => delete x._o); });
+      // _o bleibt erhalten (Reihenfolge für neue Einträge), wird bei der Ausgabe nicht gezeigt
+      Object.values(plan).forEach(a => a.sort((p, q) => p._o - q._o || String(p.id).localeCompare(q.id)));
     } else {  // Altbestand vor planV2
       for (const p of ports) { const d = await S.get(base + 'plandays/d' + p.day); if (d && Array.isArray(d.items)) plan[p.day] = d.items; }
     }
@@ -40,10 +41,13 @@ function reader(S) {
     const travel = {}; tv.forEach(({ id, data }) => { if (id === 'out' || id === 'back') travel[id] = { mode: data.mode, segs: (data.segs || []).map(s => ({ m: s.m, f: place(s.f), t: place(s.t), dd: s.dd, dt: s.dt, ad: s.ad, at: s.at, no: s.no, km: s.km, min: s.min, calc: s.calc })) }; });
     const stays = st.map(({ id, data }) => ({ id, n: data.n, d1: data.d1, d2: data.d2, ci: data.ci, co: data.co }));   // ohne Adresse, Buchungsnummer
     const files = fl.map(({ data }) => ({ title: data.title, days: data.days || [], tv: data.tv || [], ts: data.ts || 0 }));
-    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files };
+    // ToDos: nur gemeinsame Listen (private liegen unter users/<uid>/ und werden nie gelesen)
+    const lists = ls.filter(x => x.data && !x.data.priv).map(({ id, data }) => ({ id, name: data.name || 'Liste', ord: data.ord || 0 }));
+    const tasks = tk.filter(x => x.data && lists.some(l => l.id === x.data.list)).map(({ id, data }) => ({ id, text: data.text || '', done: !!data.done, due: data.due || '', list: data.list, note: data.note || '', ts: data.ts || 0, ki: data.ki || null }));
+    const v = { trip, meta, ports, ship, plan, picks, din, travel, stays, files, lists, tasks };
     cache.set(trip, { at: Date.now(), v }); if (cache.size > 10) cache.delete(cache.keys().next().value);
     return v;
   }
-  return { load };
+  return { load, drop: trip => cache.delete(trip) };
 }
 module.exports = { reader, TRIP_RE };

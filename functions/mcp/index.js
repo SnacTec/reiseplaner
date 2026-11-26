@@ -35,6 +35,14 @@ function build() {
       async byGoogle(sub, email) { const u = await admin.auth().getUserByProviderUid('google.com', sub).catch(() => null) || await admin.auth().getUserByEmail(email).catch(() => null); return u && { uid: u.uid, disabled: u.disabled, validAfter: u.tokensValidAfterTime ? Date.parse(u.tokensValidAfterTime) : 0 }; },
       async get(uid) { const u = await admin.auth().getUser(uid).catch(() => null); return u && { uid: u.uid, disabled: u.disabled, validAfter: u.tokensValidAfterTime ? Date.parse(u.tokensValidAfterTime) : 0 }; },
     },
+    // Ortssuche wie in der App (Photon/OpenStreetMap, kostenlos, ohne Schlüssel), nahe der Station
+    async geo(q, near) {
+      const u = 'https://photon.komoot.io/api/?' + new URLSearchParams({ q, limit: '5', lang: 'de', ...(near ? { lat: String(near.lat), lon: String(near.lon), location_bias_scale: '0.5' } : {}) });
+      const r = await fetch(u, { headers: { 'user-agent': 'Reiseplaner-Konnektor' }, signal: AbortSignal.timeout(6000) }); if (!r.ok) throw new Error('Ortssuche ' + r.status);
+      const j = await r.json();
+      return (j.features || []).map(f => { const p = f.properties || {}, [lon, lat] = f.geometry.coordinates, street = [p.street, p.housenumber].filter(Boolean).join(' ');
+        return { name: p.name || street || p.city || q, addr: [p.name && street ? street : '', p.postcode && p.city ? p.postcode + ' ' + p.city : (p.city || p.town || p.village || ''), p.country].filter(Boolean).join(', '), lat, lon }; });
+    },
     verifyFirebase: async t => { const d = await admin.auth().verifyIdToken(t, true); return { uid: d.uid }; },
   });
 }
