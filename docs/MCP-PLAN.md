@@ -277,10 +277,10 @@ Geschätzter Aufwand: S1 mittel, S2–S4 groß (Hauptteil), S5–S7 klein.
 | Nr | Frage | Vorschlag |
 |---|---|---|
 | E1 | Kaltstart: Function „schläft“ → erste Anfrage evtl. 2–5 s (Grenze 10 s). Warme Instanz (`minInstances: 1`) kostet einige €/Monat. | **Entschieden (26.11.):** erst ohne; nur wenn es hakt, nach Rücksprache einschalten. |
-| E2 | Anmeldeseite in der Function (2 einmalige Konsolen-Freigaben) oder auf GitHub Pages? | **Function** (Sicherheitsprüfung: Clickjacking- und Link-Schutz nur so sauber möglich; GitHub Pages bleibt unverändert). |
+| E2 | Anmeldeseite in der Function (2 einmalige Konsolen-Freigaben) oder auf GitHub Pages? | **Entschieden (26.11.): Function** (Clickjacking- und Link-Schutz nur so sauber möglich; GitHub Pages bleibt unverändert). |
 | E3 | Was darf an Claude gehen? | **Entschieden (26.11.):** Orte, Tage, Zeiten, Einträge, Ausflüge, Abendessen, Tipps. **Nicht:** Sitzplätze, Buchungsnummern, Kabinennummer, Heimatadresse, Namen/E-Mails der Mitreisenden. |
-| E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | Ja, wenn E3 sparsam bleibt (kein Buchungs-/Kabinen-Detail). |
-| E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
+| E4 | Werkzeug-Freigabe in Claude: Lesen „Immer erlauben“? | **Entschieden (26.11.):** Ja (E3 ist sparsam). |
+| E5 | IP-Beschränkung auf Anthropic-Bereiche für `/mcp` + `/token`? | **Entschieden (26.11.):** Ja (Zusatzschutz), mit Not-Schalter, falls Anthropic die Bereiche ändert. |
 
 ## 9. Ausblick Stufe 2 (Schreiben) – nur Stichpunkte
 - Ein **einziges** neues Werkzeug `eintrag_anlegen` (`destructiveHint: false`, aber „Nachfragen“ in Claude),
