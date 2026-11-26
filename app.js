@@ -835,7 +835,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R100';
+const APP_VER='25.11. · R101';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+
@@ -1815,16 +1815,17 @@ function tvBlock(k,mode){const o=TRV[k],lbl=k==='out'?'Anreise':'Abreise';
     if(!merged)h+=R2(x.dt,ico,x.f,legSub(x));merged=false;
     const nx=s.S[j+1],tA=x.at?(x.calc?'<i class="ap">~</i>':'')+x.at+plus(x):'?';
     const nv=m==='car'?navL(x):'';
-    if(!nx){h+=R2(tA,m==='plane'?'🛬':'🏁',x.t,nv,'end');return}
+    const dl=x.ad&&x.ad!==s.a.dd?'<b class="tvdt">'+fmtDate(x.ad)+'</b>':'';
+    if(!nx){h+=R2(tA,m==='plane'?'🛬':'🏁',x.t,[dl,nv].filter(Boolean).join('<br>'),'end');return}
     const wait=x.ad&&x.at?(utcOf(nx.dd,nx.dt,nx.f.tz)-utcOf(x.ad,x.at,x.t.tz))/6e4:null,w=wait!=null&&wait>=0?durTxt(wait):'';
     if(tvShort(nx.f)===tvShort(x.t)){ // gleicher Ort: Umstieg in einer Zeile, weiter mit der nächsten Strecke
-      h+=R2(tA,'🔁',x.t,[nv,w?'Umstieg '+w:'','weiter '+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
-    else h+=R2(tA,'📍',x.t,[nv,w?'⏱ '+w+' bis zur Weiterreise':''].filter(Boolean).join('<br>'),'mid')});
+      h+=R2(tA,'🔁',x.t,[dl,nv,w?'Umstieg '+w:'','weiter '+(nx.dd&&nx.dd!==x.ad?fmtDate(nx.dd)+' ':'')+nx.dt+' '+(TVM[sm(nx)]||TVM.plane)[0],legSub(nx)].filter(Boolean).join(' · '),'mid');merged=true}
+    else h+=R2(tA,'📍',x.t,[dl,nv,w?'⏱ '+w+' bis zur Weiterreise':''].filter(Boolean).join('<br>'),'mid')});
   const sh=Math.abs(s.shift),shT=sh+' Std.',cp=(c,t,hint)=>`<button type="button" class="tvq${c?' '+c:''}" data-hint="${esc(hint)}">${t}</button>`;
   const chips=[s.dur!=null?cp('',`⏱ ${durTxt(s.dur)}`,`Reisedauer: ${durTxt(s.dur)} von der Abfahrt in ${tvShort(s.a.f,1)} bis zur Ankunft in ${tvShort(s.z.t,1)} – mit allen Umstiegen und Wartezeiten, unabhängig von der Zeitumstellung.`):'',
     s.shift?cp('w',`🕒 Uhr ${s.shift>0?'+':'−'}${shT}`,`Zeitumstellung: In ${tvShort(s.z.t,1)} ist es ${shT} ${s.shift>0?'später':'früher'} als in ${tvShort(s.a.f,1)}. Die Uhr bei der Ankunft ${s.shift>0?'vorstellen':'zurückstellen'}. Alle Zeiten hier sind Ortszeit.`):'',
     s.shift&&s.home&&k==='out'?cp('',`🏠 ${s.home.t}${s.home.d!==s.z.ad?' ('+fmtDate(s.home.d)+')':''}`,`Zuhause-Zeit: Bei der Ankunft um ${s.z.at} Ortszeit ist es in ${tvShort(s.a.f,1)} ${s.home.t} Uhr${s.home.d!==s.z.ad?' am '+fmtDate(s.home.d):''}. Hilft beim Einschätzen von Müdigkeit und Jetlag.`):''].filter(Boolean).join('');
-  const head=`${lbl} · ${fmtDate(s.a.dd)}`,sumTxt=`${s.a.dt} → ${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
+  const multi=s.z.ad&&s.z.ad!==s.a.dd,head=`${lbl} · ${fmtDate(s.a.dd)}${multi?' – '+fmtDate(s.z.ad):''}`,sumTxt=`${s.a.dt} → ${multi?'<b>'+fmtDate(s.z.ad)+'</b> ':''}${s.z.at||'?'} ${esc(tvShort(s.z.t))}${s.dur!=null?' · '+durTxt(s.dur):''}`;
   const body=`<div class="tvtl">${h}</div>${chips?`<div class="tvc">${chips}</div>`:''}${embWarn(k,s)}${o.ref||o.note?`<small>${esc([o.ref?'Buchung '+o.ref:'',o.note].filter(Boolean).join(' · '))}</small>`:''}${fChipsHTML(fOfKey(k),k)}<div class="acts tvacts"><button class="lnk" data-fadd="${k}">+ Datei</button><button class="lnk" data-tv="${k}" style="margin-left:auto">Bearbeiten ›</button></div>`;
   const now=TODAY>=s.a.dd&&TODAY<=(s.z.ad||s.a.dd),open=mode==='open'||(mode!=='sum'&&now);
   return `<details class="tvb"${open?' open':''}><summary><b>${head}</b><small class="tvs">${sumTxt}</small><i aria-hidden="true">›</i></summary>${body}</details>`}
