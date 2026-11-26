@@ -39,6 +39,17 @@ test('karte: Tipps und eigene Orte als Pins', async ({ browser, base }) => {
   await c.close(); ok(n.star === 1 && n.tip >= 3, JSON.stringify(n)); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+/* ---------- Start auf jeder Seite (die App öffnet die zuletzt besuchte Seite) ---------- */
+test('start: jede Seite als Startseite ohne Fehler', async ({ browser, base }) => {
+  const t = H.trip('kreuzfahrt'), bad = [];
+  for (const h of ['#plan', '#heute', '#mappe', '#todos', '#bord', '#tag-2', '']) {
+    const c = await H.context(browser), p = await H.open(c, base, t, h);
+    if (p.errs.length) bad.push((h || 'ohne') + ': ' + p.errs.join(' | '));
+    await c.close();
+  }
+  ok(!bad.length, bad.join(' ; '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
