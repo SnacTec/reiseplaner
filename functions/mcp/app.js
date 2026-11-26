@@ -75,7 +75,10 @@ function createApp(deps) {
       const who = req.who;
       const msgs = Array.isArray(req.body) ? req.body : [req.body], out = [];
       if (!msgs.length || !msgs.every(m => m && typeof m === 'object' && m.jsonrpc === '2.0' && typeof m.method === 'string')) return res.status(400).json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Ungültige Anfrage' } });
-      if ((req.rawLen || 0) > SMALL && !(msgs.length === 1 && msgs[0].method === 'tools/call' && TOOLS.some(t => t.big && msgs[0].params && t.name === msgs[0].params.name))) return res.status(413).json({ error: 'zu_gross' });
+      // Firebase/Cloud Functions liest den Inhalt schon vorher (req.rawBody) – express.json überspringt ihn dann, deshalb Größe von dort
+      const len = req.rawLen != null ? req.rawLen : (req.rawBody && req.rawBody.length) || 0;
+      if (len > BIG) return res.status(413).json({ error: 'zu_gross' });
+      if (len > SMALL && !(msgs.length === 1 && msgs[0].method === 'tools/call' && TOOLS.some(t => t.big && msgs[0].params && t.name === msgs[0].params.name))) return res.status(413).json({ error: 'zu_gross' });
       for (const m of msgs) { const r = await handle(m, who); if (r) out.push(r); }
       if (!out.length) return res.status(202).end();
       res.set('Cache-Control', 'no-store').json(Array.isArray(req.body) ? out : out[0]);

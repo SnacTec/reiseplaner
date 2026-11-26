@@ -459,6 +459,14 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const m = road(); m.id = 'mask-1'; m.data.kul = { L: {}, P: {}, maskRe: '(a+)+'.repeat(80) }; const c = await W(RT.access_token, 'reise_pruefen', { reise: m }); assert.match(c.t, /maskRe ist zu lang/);
     S.D.delete('config/kientwurf_felder-1'); S.D.set('config/kientwuerfe', { list: [] });
   });
+  await test('entwurf: Größe auch geprüft, wenn Firebase den Inhalt schon gelesen hat (rawBody)', async () => {
+    const run = (body) => new Promise(res => { const req = Object.assign(require('stream').Readable.from([]), { method: 'POST', url: '/mcp', headers: { host: 'x', authorization: 'Bearer ' + WT.access_token, 'content-type': 'application/json' }, body, _body: true, rawBody: Buffer.from(JSON.stringify(body)), socket: { remoteAddress: '1.2.3.4' } });
+      const res2 = { statusCode: 200, headers: {}, set(h, v) { if (typeof h === 'object') Object.assign(this.headers, h); else this.headers[h] = v; return this; }, setHeader(h, v) { this.headers[h] = v; }, getHeader(h) { return this.headers[h]; }, append() { return this; }, status(c) { this.statusCode = c; return this; }, json(o) { res({ code: this.statusCode, o }); return this; }, end() { res({ code: this.statusCode }); }, removeHeader() {} };
+      app.handle(req, res2, e => res({ code: 'next', e })); });
+    const a = await run({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'suchen', arguments: { text: 'ab' } }, pad: 'x'.repeat(100 * 1024) }); assert.equal(a.code, 413, JSON.stringify(a).slice(0, 200));
+    const b = await run({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'reise_pruefen', arguments: { reise: { pad: 'x'.repeat(1100 * 1024) } } } }); assert.equal(b.code, 413);
+    const c = await run({ jsonrpc: '2.0', id: 1, method: 'ping' }); assert.equal(c.code, 200, JSON.stringify(c).slice(0, 200));
+  });
   await test('entwurf: Not-Aus Schreiben sperrt auch das Speichern', async () => {
     S.D.set('mcp_ctl/state', { write: false }); clock += 31e3;
     try { const x = road(); x.id = 'notaus-1'; const r = await W(WT.access_token, 'reise_entwurf_speichern', { reise: x }); assert.ok(r.err); assert.ok(!S.D.get('config/kientwurf_notaus-1'));
