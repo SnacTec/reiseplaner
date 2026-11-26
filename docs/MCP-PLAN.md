@@ -356,11 +356,21 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   - Uhrzeiten in Ortszeit;
   - bei fehlenden Angaben nachfragen statt raten;
   - nach dem Eintragen kurz zusammenfassen.
-- Für 2b liefert `reise_format` die Import-Beschreibung, eine gekürzte Fassung von `docs/IMPORT-FORMAT.md`. Sie wird beim
-  Hochladen wie `dayplan.js` in `functions/` kopiert, damit sie immer zur App passt.
+- Für 2b liefert `reise_format` die Import-Beschreibung **und eine passende erfundene Beispielreise** (siehe 9.5).
+  Beides wird wie `dayplan.js` per Sync-Werkzeug nach `functions/` kopiert, damit es immer zur App passt.
 
 ### 9.5 Stufe 2b: neue Reise als Entwurf
-- `reise_format()` liefert die Format-Beschreibung.
+- `reise_format(art)` liefert die Format-Beschreibung **plus eine vollständige, gültige Beispielreise** als Vorlage
+  (Entscheidung 26.11.: mit Beispiel baut Claude deutlich zuverlässiger als nur nach Beschreibung):
+  - `art = kreuzfahrt` → `docs/beispiel/BEISPIEL-kreuzfahrt.json`, `art = rundreise` → `docs/beispiel/BEISPIEL-roadtrip.json`,
+    ohne Angabe beide.
+  - Quelle: `docs/IMPORT-FORMAT.md` + `docs/beispiel/*.json`, erfunden und öffentlich. Kopie nach `functions/format/`
+    über `tools/dayplan-sync.js` (bzw. ein eigenes Sync-Werkzeug). Ein Test prüft, dass die Kopien gleich sind und die
+    Beispiele `tripcheck.js` bestehen.
+  - Größe zusammen ca. 25 kB, passt gut in eine Werkzeug-Antwort.
+  - Die Antwort sagt ausdrücklich: Das Beispiel ist erfunden, nur Aufbau und Feldnamen übernehmen, keine Inhalte.
+- Ohne Konnektor geht es weiterhin: Beschreibung und Beispiele als Dateien in ein Claude-Projekt legen, die Reise-Datei
+  erzeugen lassen und in der App importieren (`docs/KI-PROMPT.md`).
 - `reise_pruefen(reise)` prüft mit `tripcheck.js`, das wie `dayplan.js` nach `functions/` kopiert wird. Fehler kommen als
   Liste zurück, Claude bessert nach.
 - `reise_entwurf_speichern(reise)` speichert nur nach bestandener Prüfung, in `config/kientwurf_<id>`
