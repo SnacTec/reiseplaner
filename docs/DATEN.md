@@ -137,3 +137,8 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
   (`gurl` ohne `lat`) bekommen ihren Pin automatisch, sobald Netz da ist (`gResolveAll()`).
 - Plan-Eintrag mit Ort: `{lat, lon, addr?, gurl?}` → Pin auf der Karte; „Google Maps ›“ nutzt `gurl`.
 - Bewusst **keine** Google-Places-API (Kosten, Nutzungsbedingungen: keine Speicherung/fremde Karte).
+
+## Persönliche Daten je Google-Konto
+`config/user_<uid>`: `{ home:{n,a,lat,lon,tz} (Zuhause, Einstellungen → Konto), spider:{g:"<Spielstand als Text, ohne Rückgängig-Verlauf>",ts}, spst:{s:"<Statistik als Text>",ts} }`.
+Neuerer Stand (`ts`) gewinnt; auf dem Gerät zusätzlich `rp-home`, `rp-spider`, `rp-spider-stats` (+ `-ts`).
+Quiz-Duell: `plandays/quiz_<uid>.daily.<Datum> = {ok, t, done, res:[1|0 je Frage], ans:[gewählte Antwort je Frage]}`.

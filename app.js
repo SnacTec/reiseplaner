@@ -714,6 +714,20 @@ function updatePeople(){const M=MEMBERS.length?MEMBERS:(TRIP.people||[]).map((x,
   PEOPLE=M.map(x=>x.n);PN=Object.fromEntries(M.map(x=>[x.l,x.n]));if(typeof applyLook==='function'&&document.querySelector('.tl-ship'))try{applyLook()}catch(e){}PNAMES=PEOPLE.length>1?PEOPLE.slice(0,-1).join(', ')+' und '+PEOPLE[PEOPLE.length-1]:(PEOPLE[0]||'euch')}
 updatePeople();applyLook();
 function pColor(w){const m=MEMBERS.find(x=>x.n===w);const i=m?(+m.c||0):Math.max(0,PEOPLE.indexOf(w));return MCOL[i%MCOL.length]}
+/* Persönliche Daten je Google-Konto in Firebase (config/user_<uid>): Zuhause, Spider-Spielstand und -Statistik.
+   Spielstand als Text (Firestore erlaubt keine verschachtelten Listen), ohne Rückgängig-Verlauf. */
+const lsG=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lsS=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+const UPK=()=>FBX.user&&FBX.real?FBX.real.collection('config').doc('user_'+FBX.user.uid):null;
+function upPush(o){const r=UPK();if(r)r.set(o,{merge:true}).catch(()=>{})}
+function homeGet(){try{return JSON.parse(lsG('rp-home')||'null')}catch(e){return null}}
+function homeSet(x){x=x?JSON.parse(JSON.stringify(x)):null;lsS('rp-home',x?JSON.stringify(x):null);upPush({home:x})}
+const spLite=t=>{if(!t||t==='null')return 'null';try{const g=JSON.parse(t);if(g)g.hist=[];return JSON.stringify(g)}catch(e){return 'null'}};
+function spPushSoon(){clearTimeout(spPushSoon.t);spPushSoon.t=setTimeout(()=>upPush({spider:{g:spLite(lsG('rp-spider')),ts:+lsG('rp-spider-ts')||Date.now()},spst:{s:lsG('rp-spider-stats')||'{}',ts:+lsG('rp-spider-stats-ts')||0}}),2500)}
+function upInit(){const r=UPK();if(!r)return;r.onSnapshot(d=>{const v=(d.exists&&d.data())||{};let push=false;
+  if(v.home)lsS('rp-home',JSON.stringify(v.home));else if(homeGet())upPush({home:homeGet()});
+  const lt=+lsG('rp-spider-ts')||0,rt=v.spider?+v.spider.ts||0:0;if(rt>lt){lsS('rp-spider',v.spider.g||'null');lsS('rp-spider-ts',String(rt))}else if(lt>rt)push=true;
+  const ls=+lsG('rp-spider-stats-ts')||0,rs=v.spst?+v.spst.ts||0:0;if(rs>ls){lsS('rp-spider-stats',v.spst.s||'{}');lsS('rp-spider-stats-ts',String(rs))}else if(ls>rs||(!v.spst&&lsG('rp-spider-stats')))push=true;
+  if(push){if(!lsG('rp-spider-stats-ts')&&lsG('rp-spider-stats'))lsS('rp-spider-stats-ts',String(Date.now()));spPushSoon()}},()=>{})}
 function memInit(db,uid){
   let first=true;
   db.collection('members').onSnapshot({includeMetadataChanges:true},s=>{
@@ -809,10 +823,12 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='25.11. · R97';
+const APP_VER='25.11. · R98';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
+   (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>':'')+
    '<p class="src" style="margin:0 0 6px">App-Version '+APP_VER+' · <span data-acst>🛡 App Check: wird geprüft …</span></p><div style="margin-bottom:14px">'+(FBX.user?'<button class="chip" data-fbout style="padding:7px 12px">Abmelden</button>':'<button class="chip btn" data-fbin style="padding:7px 12px">Mit Google anmelden</button>')+'</div>'}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-homeset]');if(!b)return;e.stopPropagation();closeDlg();setTimeout(()=>tvPick('Zuhause festlegen',false,null,x=>{homeSet({n:x.n,a:x.a,lat:x.lat,lon:x.lon,tz:x.tz});undoToast('Zuhause gespeichert: '+(x.n||''),null,2500)}),80)},true);
 function kontoDlg(){openSheet('<div class="hd"><h3 style="margin:0">Konto</h3></div>'+kontoHTML())}
 /* App-Check-Status für die Anzeige (Konto/Einstellungen) */
 async function acToken(){const A=window.__AC;if(!A||!A.on)return null;try{return (await Promise.race([A.ac.getToken(false),new Promise((_,no)=>setTimeout(()=>no(new Error('Zeitüberschreitung')),8000))])).token}catch(e){A.err=String(e&&e.message||e);return null}}
@@ -859,7 +875,7 @@ async function tdInit(){
       SRC[key][pv?1:0]=s.docs.map(d=>{if(pv)PRIV.add(col+':'+d.id);const x={id:d.id,...d.data()};if(pv&&col==='lists')x.priv=true;return x});
       TS[key]=SRC[key][0].concat(SRC[key][1]);
       if(!s.metadata.fromCache&&!pv){if(!TS.ready)setTimeout(bkAuto,4000);TS.ready=true;TS.err='';fbFix=null;clearTimeout(t)}tdChanged()},e=>{if(!pv)fbReadErr(e)});
-    sub('lists','lists');sub('tasks','tasks');sub('lists','lists',1);sub('tasks','tasks',1);favInit(db,fu.uid);memInit(db,fu.uid);fInit(db);sInit(db);tvInit(db);
+    sub('lists','lists');sub('tasks','tasks');sub('lists','lists',1);sub('tasks','tasks',1);favInit(db,fu.uid);memInit(db,fu.uid);upInit();fInit(db);sInit(db);tvInit(db);
     const mig=k=>{try{return localStorage.getItem('rp-'+TRIP_ID+'-mig-'+k)}catch(e){return '1'}},setMig=k=>{try{localStorage.setItem('rp-'+TRIP_ID+'-mig-'+k,'1')}catch(e){}};
     const rerender=()=>{planTipFix();renderTotals();renderDays();updatePills();mapSoon();const a=document.activeElement;if(!(a&&a.closest&&a.closest('#panel input,#panel textarea,#panel select')))renderPanel()};
     db.collection('picks').onSnapshot({includeMetadataChanges:true},s=>{if(s.metadata.fromCache)return;
@@ -1863,7 +1879,7 @@ function tvDlg(k,draft){const lbl=k==='out'?'Anreise':'Abreise',D0=k==='out'?TRI
     const f=d.querySelector('#tvf'),keep=()=>{f.querySelectorAll('[data-s]').forEach(e=>{const [i,key]=e.dataset.s.split('|');o.segs[+i][key]=e.value.trim()});f.querySelectorAll('[data-seat]').forEach(e=>{const [i,u]=e.dataset.seat.split('|'),sg=o.segs[+i];if(!sg)return;const v=e.value.trim().toUpperCase();sg.seat=Object.assign({},sg.seat);if(v)sg.seat[u]=v;else delete sg.seat[u];if(!Object.keys(sg.seat).length)delete sg.seat});o.ref=f.ref.value.trim();o.note=f.note.value.trim()};
     d.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{keep();const [i,m]=b.dataset.sm.split('|');o.segs[+i].m=m;o.mode=o.segs[0].m;tvDlg(k,o)});
     d.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{keep();const [i,w]=b.dataset.pl.split('|');subOpen(()=>tvDlg(k,o),()=>tvPick(w==='f'?'Von':'Nach',o.segs[+i].m==='plane',near,x=>{o.segs[+i][w]=x;
-      if(w==='f'&&+i===0&&k==='out'&&!x.c)try{localStorage.setItem('rp-home',JSON.stringify(x))}catch(e){}}))});
+      if(w==='f'&&+i===0&&k==='out'&&!x.c&&!homeGet())homeSet(x)}))});
     d.querySelectorAll('[data-segdel]').forEach(b=>b.onclick=()=>{keep();o.segs.splice(+b.dataset.segdel,1);tvDlg(k,o)});
     d.querySelector('#tvadd').onclick=()=>{keep();const l=o.segs[o.segs.length-1];o.segs.push({m:l.m,f:l.t||null,dd:l.ad||l.dd,dt:'',ad:'',at:''});tvDlg(k,o)};
     const rv=d.querySelector('#tvrev');if(rv)rv.onclick=()=>{const O=TRV.out;const R=O.segs.slice().reverse().map(x=>({m:x.m||O.mode,f:x.t,t:x.f,dd:D0,dt:'',ad:'',at:'',no:'',al:x.al||''}));tvDlg(k,{mode:R[0].m,segs:R,ref:'',note:''})};
@@ -3069,7 +3085,7 @@ function quizDlg(mode){
     const lobby=()=>{const P=qzPeople(),W=qzWins(P),me=P.find(p=>p.me),i=P.indexOf(me),s=qzDuelHTML(),B=qzBadgesOf(me,W[me.id]);
       const ord=P.length>1?[P[1],P[0],...P.slice(2,5)]:[P[0]];
       const pod=ord.map(p=>{const lead=p===P[0]&&p.pts>0&&P.length>1;return '<div class="qpp'+(lead?' lead':'')+'"><span class="qpc">'+(lead?'👑':'')+'</span><span class="qpa" style="background:'+pColor(p.name)+'">'+esc(p.l||p.name[0]||'?')+'</span><small>'+esc(p.me?'Du':p.name)+'</small><b>'+p.pts+'</b></div>'}).join('');
-      const duel=s.done?'<div class="qlc duel done"><span class="qli">🏆</span><div><b>Tages-Duell</b><small>'+s.res+'</small>'+(s.wins?'<small>'+s.wins+'</small>':'')+'</div></div>'
+      const duel=s.done?'<div class="qlc duel done"><span class="qli">🏆</span><div><b>Tages-Duell</b><small>'+s.res+'</small>'+(s.wins?'<small>'+s.wins+'</small>':'')+'<button class="lnk" data-v="duel" style="padding:6px 0 0">Ergebnisse ansehen ›</button></div></div>'
         :'<div class="qlc duel"><span class="qli">🏆</span><div><b>Tages-Duell <i class="qdot"></i></b><small>'+(s.res.indexOf('Noch niemand')<0?s.res+' · du bist noch offen':'5 Fragen, heute für alle gleich')+'</small></div><button class="chip btn" id="qzdgo">'+(s.run?'Weiter':'Spielen')+'</button></div>';
       root.innerHTML='<div class="qlh"><div class="qlht"><b>Quiz</b><button class="x" data-x aria-label="Schließen">✕</button></div><div class="qpod">'+pod+'</div></div>'+
         '<div class="qlw">'+duel+'<h4 class="qh">Freies Spiel</h4><div class="qgcats">'+Object.entries(QZ_CAT).map(([k,v])=>{const [ic,...t]=v.split(' ');return '<button class="qgc" data-c="'+k+'"><span>'+ic+'</span><small>'+t.join(' ')+'</small></button>'}).join('')+'</div>'+
@@ -3091,13 +3107,18 @@ function quizDlg(mode){
        (q.done!=null?'<div class="qzx '+(q.o[q.done]===q.a?'ok':'bad')+'"><b>'+(q.o[q.done]===q.a?'✓ Richtig! +10':'✗ Leider falsch. Richtig ist: '+esc(q.a))+'</b>'+(q.x?'<p>'+esc(q.x)+'</p>':'')+(q.live?'<p><b>'+esc(q.live)+'</b></p>':'')+(q.dk?'<span class="lnk" data-dkgo="'+q.dk+'" role="link" tabindex="0">Im Deckplan zeigen ›</span>':'')+'</div><div class="qznw"><button class="chip btn qzn" id="qzn">'+(q.daily?(last?'Ergebnis ansehen ›':'Nächste Duell-Frage ›'):'Nächste Frage ›')+'</button></div>':'')};
     const game=()=>{root.innerHTML=sub(qzMode==='daily'?'🏆 Tages-Duell':QZ_CAT[qzCat])+'<div id="qzb" class="qgw"></div>';b=root.querySelector('#qzb');
       b.addEventListener('click',e=>{const o=e.target.closest('[data-o]');if(o&&qzCur&&qzCur.done==null){const r=qzAnswer(qzCur,+o.dataset.o);
-          if(qzCur.daily){const st=qzDay();st.res=st.res||[];st.res[qzCur.idx]=r;if(r)st.ok++;st.i++;if(st.i>=qzDQ.length){st.done=1;st.t=Date.now()-st.t0;QZ.daily=QZ.daily||{};QZ.daily[TODAY]={ok:st.ok,t:st.t,done:1}}}
+          if(qzCur.daily){const st=qzDay();st.res=st.res||[];st.res[qzCur.idx]=r;st.ans=st.ans||[];st.ans[qzCur.idx]=qzCur.o[qzCur.done];if(r)st.ok++;st.i++;if(st.i>=qzDQ.length){st.done=1;st.t=Date.now()-st.t0;QZ.daily=QZ.daily||{};QZ.daily[TODAY]={ok:st.ok,t:st.t,done:1,res:st.res.map(x=>x?1:0),ans:st.ans.slice()}}}
           qzSave(true);drawQ();const x=b.querySelector('.qzx');if(x)requestAnimationFrame(()=>x.scrollIntoView({block:'nearest',behavior:'smooth'}));return}
         if(e.target.closest('#qzn')){const wasDaily=qzCur&&qzCur.daily;qzCur=null;
           if(wasDaily&&qzDay()&&qzDay().done){qzMode='free';const s=qzDay();undoToast('Tages-Duell beendet: '+s.ok+' von 5 richtig in '+Math.round(s.t/1000)+' s.',null,3500);go('lobby')}else{drawQ();d.scrollTop=0}}});
       drawQ()};
     const render=()=>{
       if(qzView==='game')game();
+      else if(qzView==='duel'){const P=qzPeople().filter(p=>p.daily[TODAY]&&p.daily[TODAY].done).sort((a,b)=>b.daily[TODAY].ok-a.daily[TODAY].ok||a.daily[TODAY].t-b.daily[TODAY].t),Q=qzDQ||(qzDQ=qzDailyQs());
+        const me=P.find(p=>p.me),mine=me?me.daily[TODAY]:null;
+        const head='<div class="qdr">'+P.map((p,i)=>'<div class="qdp"><span class="qpa" style="background:'+pColor(p.name)+'">'+esc(p.l||p.name[0]||'?')+'</span><b>'+(i===0&&P.length>1?'🏆 ':'')+esc(p.me?'Du':p.name)+'</b><small>'+p.daily[TODAY].ok+'/5 · '+Math.round(p.daily[TODAY].t/1000)+' s</small></div>').join('')+'</div>';
+        const qs=!me?'<p class="src">Spiel zuerst selbst, dann siehst du die Antworten der anderen.</p>':Q.map((q,i)=>'<div class="qdq"><small>Frage '+(i+1)+' · '+esc(q.t)+'</small><b>'+esc(q.q)+'</b><p class="src" style="margin:2px 0 6px">Richtig: <b>'+esc(q.a)+'</b></p>'+P.map(p=>{const d=p.daily[TODAY],r=d.res?d.res[i]:null,a=d.ans?d.ans[i]:null;return '<div class="qda'+(r===1?' ok':r===0?' bad':'')+'"><span>'+(r===1?'✓':r===0?'✗':'·')+'</span>'+esc(p.me?'Du':p.name)+(a&&r===0?' <small>– '+esc(a)+'</small>':'')+(r==null?' <small>(alte Version, keine Einzelergebnisse)</small>':'')+'</div>'}).join('')+'</div>').join('');
+        root.innerHTML=sub('🏆 Tages-Duell heute')+'<div class="qgw">'+(P.length?head+qs:'<p class="src">Heute hat noch niemand gespielt.</p>')+'</div>'}
       else if(qzView==='rank'){const s=qzDuelHTML();root.innerHTML=sub('📊 Rangliste')+'<div class="qgw">'+qzBoard()+(s.wins?'<p class="src" style="margin:4px 0 0">🏆 '+s.wins+'</p>':'')+'</div>'}
       else if(qzView==='badge'){const P=qzPeople(),W=qzWins(P),me=P.find(p=>p.me),B=qzBadgesOf(me,W[me.id]);
         root.innerHTML=sub('🏅 Abzeichen')+'<div class="qgw"><p class="src" style="margin:0 0 8px">'+B.filter(x=>x.ok).length+' von '+B.length+' erreicht</p><div class="qbg" style="padding:0">'+B.map(x=>'<div class="qbd'+(x.ok?' ok':'')+'"><span class="qbi">'+x.i+'</span><b>'+esc(x.n)+'</b><small>'+esc(x.d)+'</small><small class="qbp">'+(x.ok?'✓ erreicht':esc(x.pr))+'</small></div>').join('')+'</div></div>'}
@@ -3121,9 +3142,9 @@ function gamesDlg(){
 /* ---------- Spider Solitaire (eigene Umsetzung) ---------- */
 const SP_SUIT=['♠','♥','♦','♣'],SP_RED=[0,1,1,0],SP_RANK=['','A','2','3','4','5','6','7','8','9','10','B','D','K'];
 function spLoad(){try{return JSON.parse(localStorage.getItem('rp-spider')||'null')}catch(e){return null}}
-function spSave(g){try{localStorage.setItem('rp-spider',JSON.stringify(g))}catch(e){}}
+function spSave(g){try{localStorage.setItem('rp-spider',JSON.stringify(g));localStorage.setItem('rp-spider-ts',String(Date.now()))}catch(e){}spPushSoon()}
 function spStats(){try{return JSON.parse(localStorage.getItem('rp-spider-stats')||'{}')}catch(e){return {}}}
-function spStatSet(f){const s=spStats();f(s);try{localStorage.setItem('rp-spider-stats',JSON.stringify(s))}catch(e){}}
+function spStatSet(f){const s=spStats();f(s);try{localStorage.setItem('rp-spider-stats',JSON.stringify(s));localStorage.setItem('rp-spider-stats-ts',String(Date.now()))}catch(e){}spPushSoon()}
 function spNew(n){const suits=n===1?[0]:n===2?[0,1]:[0,1,2,3],deck=[];for(let k=0;k<8;k++){const su=suits[k%suits.length];for(let r=1;r<=13;r++)deck.push({s:su,r,u:0})}
   for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
   const cols=[];for(let c=0;c<10;c++){const k=c<4?6:5,col=deck.splice(0,k);col[col.length-1].u=1;cols.push(col)}
