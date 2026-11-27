@@ -36,6 +36,9 @@ html.pwa #fsb{display:none!important}
 #gate .gbox{max-width:340px;width:100%;text-align:center;background:var(--panel,#fff);border:1px solid var(--line,#e6dcc3);border-radius:16px;padding:24px 20px}
 #gate h1{font-family:var(--head,system-ui,sans-serif);font-size:22px;margin:0 0 6px}
 #gate p{margin:0 0 16px;color:var(--muted,#566874);font-size:14px;line-height:1.45}
+#gate .gpick{display:flex;flex-direction:column;gap:8px;text-align:left;max-height:60vh;overflow:auto}
+#gate .gpick button{display:block;width:100%;margin:0;text-align:left;background:none;color:var(--ink,#13222c);border:1px solid var(--line,#e6dcc3);border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer}
+#gate .gpick b{display:block;font-size:15px}#gate .gpick small{display:block;color:var(--muted,#566874);font-size:13px;margin-top:2px}
 #gate p.bad{color:#c0392b}
 #gate button{font:inherit;font-weight:600;padding:10px 18px;border-radius:999px;border:0;background:var(--accent,#0b7d96);color:var(--accent-ink,#fff);cursor:pointer}
 #gate button.sec{background:transparent;color:var(--accent,#0b7d96);border:1px solid var(--line,#e6dcc3);margin-top:8px}
@@ -1142,7 +1145,6 @@ html[data-xmas] .hb.on{color:#14532d}
 <script>
 /* ---------- Lader: Anmeldung, Reisedaten aus Firestore holen, dann app.js starten ----------
    Aufbau in Firestore (siehe docs/DATEN.md):
-     config/app                  { activeTrip }
      trips/<id>                  { title, kind, start, end, people, ship, tz, region, json: "<ports, maps, src, kul, quiz>" }
      trips/<id>/photos/<code>    { d: "data:image/..." }
      ships/<id>                  { name, short, deckNote, json: "<deckplan>", drinks: "<getränkekarte>" }
@@ -1179,6 +1181,7 @@ html[data-xmas] .hb.on{color:#14532d}
     if(!r.ok){m.style.whiteSpace='pre-line';m.textContent='Die Datei kann so nicht importiert werden:\n'+list(r.errors,12);return null}
     if(!confirm('Reise „'+(r.trip.trip.title||r.trip.id)+'“ importieren?'+(r.warnings.length?'\n\nHinweise:\n'+list(r.warnings,8):'')+(r.fixes.length?'\n\n'+r.fixes.length+' Kleinigkeiten werden automatisch ergänzt.':'')))return null;
     return r.trip};
+  window.__showPick=showPick;   // für tests/run.js
   if(window.__TEST_TRIP){start(fromFile(window.__TEST_TRIP));return}
   const cfg=window.FIREBASE_CONFIG;
   if(!window.firebase||!cfg||!cfg.apiKey)return fail('Keine Verbindung zu Firebase. Bitte mit Internet neu laden.');
@@ -1194,12 +1197,18 @@ html[data-xmas] .hb.on{color:#14532d}
       if(e&&!/popup-closed|cancelled-popup/.test(e.code||''))showLogin('Anmeldung fehlgeschlagen: '+(e.code||''))}}
   function showLogin(msg){const g=gate('<p>Bitte mit Google anmelden.</p><button data-in>Mit Google anmelden</button>'+(navigator.onLine===false?'<p class="bad" style="margin:14px 0 0">Keine Internetverbindung. Die erste Anmeldung geht nur online.</p>':'')+(msg?'<p class="bad" style="margin:14px 0 0">'+msg+'</p>':''));g.querySelector('[data-in]').onclick=signIn}
   function showDeny(){const g=gate('<p class="bad">Kein Zugriff für '+((auth.currentUser&&auth.currentUser.email)||'dieses Konto')+'.</p><p>Bitte mit einem freigegebenen Google-Konto anmelden.</p><button data-sw>Anderes Konto wählen</button>');g.querySelector('[data-sw]').onclick=async()=>{await auth.signOut();signIn()}}
+  // Erster Start auf einem Gerät (bzw. gemerkte Reise gelöscht): alle Reisen zur Auswahl, laufende/nächste zuerst markiert
+  function showPick(L,msg){const td=new Date().toISOString().slice(0,10),D=x=>x?x.split('-').reverse().join('.'):'',e=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const st=x=>x.start&&x.end&&x.start<=td&&td<=x.end?'läuft gerade':x.end&&x.end<td?'vorbei':'geplant',rk=x=>({'läuft gerade':0,geplant:1,vorbei:2})[st(x)];
+    const S=L.slice().sort((a,b)=>rk(a)-rk(b)||(rk(a)===2?(b.start||'').localeCompare(a.start||''):(a.start||'').localeCompare(b.start||'')));
+    const g=gate((msg?'<p class="bad">'+e(msg)+'</p>':'')+'<p>Welche Reise möchtest du öffnen? Wechseln geht später jederzeit unter Einstellungen → Reisen.</p><div class="gpick">'+S.map(x=>'<button data-tid="'+e(x.id)+'"><b>'+e(x.title)+'</b><small>'+e(D(x.start))+' – '+e(D(x.end))+' · '+st(x)+'</small></button>').join('')+'</div>');
+    g.querySelectorAll('[data-tid]').forEach(b=>b.onclick=()=>{ls('rp-trip',b.dataset.tid);location.reload()})}
   function showImport(msg){
     const g=gate('<p>Noch keine Reise angelegt. Wähle die Import-Datei der Reise (<b>….trip.json</b>).</p><input type="file" accept=".json,application/json" data-f style="margin:6px 0 10px;max-width:100%"><p class="src" data-m>'+(msg||'')+'</p>');
     g.querySelector('[data-f]').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const m=g.querySelector('[data-m]');
       try{m.textContent='Wird geprüft …';const o=await window.__checkTrip(await f.text(),m);if(!o)return;
         m.textContent='Wird hochgeladen …';await importTrip(o);m.textContent='Fertig.';location.reload()}catch(e){m.textContent='Fehler: '+(e.message||e.code||e)}}}
-  // neu=true (Entwurf von Claude): nur neue Reisen, vorhandenes Schiff bleibt unverändert, Standard-Reise der anderen bleibt
+  // neu=true (Entwurf von Claude): nur neue Reisen, vorhandenes Schiff bleibt unverändert
   async function importTrip(o,neu){
     const tr=neu?Object.fromEntries(['title','kind','start','end','tz','region','ship','operator','arrival','vehicle','look','special','seasons'].filter(k=>k in o.trip).map(k=>[k,o.trip[k]])):o.trip;
     const t=Object.assign({},tr,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()}),ref=db.collection('trips').doc(o.id);
@@ -1209,7 +1218,6 @@ html[data-xmas] .hb.on{color:#14532d}
     ls('rp-trip',o.id);
     if(!neu)for(const [k,v] of Object.entries(o.photos||{}))await db.collection('trips').doc(o.id).collection('photos').doc(k.replace(/\//g,'_')).set({c:k,d:v});
     if(o.ship&&!(neu&&(await db.collection('ships').doc(o.ship.id).get({source:'server'})).exists))await db.collection('ships').doc(o.ship.id).set({name:o.ship.name,short:o.ship.short||'',deckNote:o.ship.deckNote||'',json:JSON.stringify(o.ship.data),drinks:JSON.stringify(o.ship.drinks)});
-    if(!neu)await db.collection('config').doc('app').set({activeTrip:o.id},{merge:true});
     try{localStorage.setItem('rp-trip',o.id)}catch(e){}
   }
   window.__importTrip=importTrip;
@@ -1235,11 +1243,12 @@ html[data-xmas] .hb.on{color:#14532d}
     // Läuft die App schon (Start aus der Kopie), wird im Hintergrund vom Server geholt
     const G=ref=>started?ref.get({source:'server'}).catch(()=>get(ref)):get(ref);
     try{
-      // gewählte Reise: auf diesem Gerät gemerkt, sonst die zuletzt importierte (config/app)
+      // gewählte Reise: auf diesem Gerät gemerkt (rp-trip); sonst Auswahl aller Reisen (eine einzige öffnet direkt, keine → Import)
       let mine=null;try{mine=localStorage.getItem('rp-trip')}catch(e){}
       let id=mine,ts=id?await G(db.collection('trips').doc(id)).catch(()=>null):null;
-      if(!ts||!ts.exists){const c=await G(db.collection('config').doc('app'));id=c.exists&&c.data().activeTrip;
-        if(!id)return showImport();ts=await G(db.collection('trips').doc(id));if(!ts.exists)return showImport('Die aktive Reise „'+id+'“ fehlt.')}
+      if(!ts||!ts.exists){if(started)return;const L=await window.__listTrips();
+        if(!L.length)return showImport();if(L.length>1)return showPick(L,mine?'Die zuletzt geöffnete Reise gibt es nicht mehr.':'');
+        id=L[0].id;ls('rp-trip',id);ts=await G(db.collection('trips').doc(id))}
       // läuft schon aus der Kopie und nichts geändert → nichts weiter laden (spart Datenvolumen)
       if(started&&window.__T&&window.__T.id===id&&ts.data().updated===(window.__T.trip||{}).updated)return;
       const t=ts.data(),j=JSON.parse(t.json||'{}');delete t.json;
@@ -1253,7 +1262,7 @@ html[data-xmas] .hb.on{color:#14532d}
       start({id,trip:t,shipName:ship&&ship.name,shipNote:ship&&ship.deckNote,D:{ports:j.ports||[],maps:j.maps||{},src:j.src||{},route:j.route||null,photos:ph},KUL:j.kul||{L:{},P:{}},QUIZ:j.quiz||[],INFO:j.info||{},NOTES:j.notes||[],
         SHIP:ship?JSON.parse(ship.json):{dk:[],cab:{},lifts:{}},DRINKS:ship&&ship.drinks?JSON.parse(ship.drinks):{groups:[]}});
       // im Hintergrund vom Server auffrischen, damit Änderungen beim nächsten Start da sind
-      setTimeout(()=>{if(navigator.onLine===false)return;db.collection('trips').doc(id).get({source:'server'}).catch(()=>{});db.collection('trips').doc(id).collection('photos').get({source:'server'}).catch(()=>{});if(t.ship)db.collection('ships').doc(t.ship).get({source:'server'}).catch(()=>{});db.collection('config').doc('app').get({source:'server'}).catch(()=>{})},8000);
+      setTimeout(()=>{if(navigator.onLine===false)return;db.collection('trips').doc(id).get({source:'server'}).catch(()=>{});db.collection('trips').doc(id).collection('photos').get({source:'server'}).catch(()=>{});if(t.ship)db.collection('ships').doc(t.ship).get({source:'server'}).catch(()=>{})},8000);
     }catch(e){if(e&&e.code==='permission-denied')return showDeny();if(started)return;fail('Reisedaten konnten nicht geladen werden ('+(e&&(e.code||e.message)||'?')+'). Beim ersten Start wird Internet gebraucht.')}
   }
   (async()=>{

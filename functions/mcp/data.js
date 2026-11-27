@@ -1,5 +1,5 @@
 /* Einziger Lesebaustein für Reisedaten (das Admin SDK umgeht die Firestore-Regeln – deshalb feste Positivliste):
- *   config/app · trips (alle Reisen, Kopfdaten für die Auswahl) · trips/<id> · ships/<id> (nur Deckplan) · trips/<id>/{planitems, picks, plandays/meta, plandays/d<N> (alt),
+ *   trips (alle Reisen, Kopfdaten für die Auswahl) · trips/<id> · ships/<id> (nur Deckplan) · trips/<id>/{planitems, picks, plandays/meta, plandays/d<N> (alt),
  *   travel, stays, files, lists + tasks (nur gemeinsame), members/<uid> (nur Existenz)}
  * NIE: users/…, config/user_*, plandays/quiz_*, backups, photos, lists, tasks.
  * Bereinigt wird beim Lesen (keine Sitzplätze, Buchungsnummern, Kabine, Namen). Aufbereitung wie in der App (index.html/app.js). */

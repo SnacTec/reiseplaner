@@ -226,7 +226,7 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
   E-Mail-Adressen, Nutzer-IDs.
 - **Ein einziger Lesebaustein** mit fester Positivliste (im Code, nicht nur hier); Reise-Kennung per Regex prüfen und
   Mitgliedschaft prüfen; ein Test belegt, dass `users/…`, `config/user_*` und `plandays/quiz_*` nicht erreichbar sind.
-- Server liest **nur** freigegebene Pfade: `config/app`, `trips/<id>`, `ships/<id>`, `trips/<id>/{planitems, picks,
+- Server liest **nur** freigegebene Pfade: `trips` (Kopfdaten), `trips/<id>`, `ships/<id>`, `trips/<id>/{planitems, picks,
   plandays/meta (nur dieses Dokument), travel (ohne `seat`, `ref`), stays (ohne `ref`), files (nur Titel/Tage), members (nur zur Prüfung der Mitgliedschaft, keine Ausgabe)}`.
 - Training: Hinweis in der Anleitung, in Claude unter Datenschutz die Nutzung der Chats fürs Training auszuschalten.
 - **Gegen Prompt-Injection:** Texte aus den Daten (Notizen, Tipps, OSM-Namen) werden gekürzt, Steuerzeichen entfernt und
@@ -235,7 +235,7 @@ Freigabe entziehen wirkt damit spätestens nach 1 h (Ablauf des Access-Tokens), 
   könnte eingeschleuster Text Claude dazu bringen, Reisedaten weiterzugeben. Wichtigster Schutz bleibt daher die
   **Datensparsamkeit** (E3); Hinweis dazu in der Bedienungsanleitung.
 
-**Welche Reise:** `config/app.activeTrip`; optionaler Parameter `reise` nur für Reisen, in denen die Person Mitglied ist.
+**Welche Reise:** (ursprünglich `config/app.activeTrip`; seit 27.11. ersetzt, siehe 9.8/9.9)
 **„Heute“:** wie die App (`todayStr` mit Reise-Zeitzone); außerhalb der Reise: Europe/Berlin.
 
 ---
@@ -380,7 +380,7 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 - **Umgesetzt (26.11.):** `reise_format` und `reise_pruefen` auch für Lese-Verbindungen (speichern nichts), Speichern nur mit
   `reise.schreiben` und unter Not-Aus `write`. Verzeichnis `config/kientwuerfe`, damit weder Server noch App `config/*`
   (mit `config/user_*`) auflisten müssen. Kennung schon vergeben → Fehler; Schiff schon vorhanden → Deckplan bleibt;
-  Fotos werden entfernt. Übernehmen ändert `config/app.activeTrip` nicht (nur auf dem eigenen Gerät öffnen).
+  Fotos werden entfernt. Übernehmen öffnet die Reise nur auf dem eigenen Gerät.
   Großer Inhalt (bis 960 kB) wird erst **nach** der Token-Prüfung gelesen und nur für einen einzelnen Aufruf von
   `reise_pruefen`/`reise_entwurf_speichern` angenommen, sonst 413.
 - Größe: Eine Reise mit Tipps kann einige 100 kB groß sein. Für dieses Werkzeug wird die Größengrenze auf 900 kB angehoben
@@ -403,6 +403,19 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 - Zugang je Aufruf: Mitglied der gewählten **oder** der eingestellten Reise. Reiseliste nur mit Kopfdaten (`select`), 60 s Zwischenspeicher,
   mit Angabe bzw. für `reisen` immer frisch.
 - Neue Reise ohne alten Tagesplan gilt als `planV2`; das erste Eintragen setzt `plandays/meta.planV2` wie die App.
+
+### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2
+- **Umgesetzt (Schritt 1):** `config/app.activeTrip` wird nirgends mehr gelesen oder geschrieben.
+  - App: erster Start zeigt alle Reisen zur Auswahl (`showPick` im Lader); jede Reise hat „Öffnen ›“ und „Bearbeiten ›“
+    (Bearbeiten einer anderen Reise: öffnen, `sessionStorage rp-edit-next`, dann `editOpen`). Import/Löschen fassen `config/app` nicht an.
+  - Konnektor: ohne Angabe laufende → nächste → zuletzt vergangene Reise. Zugang = freigegebenes Konto + App-Konto
+    (Anmeldung, Refresh, Aufruf), keine Mitgliedsprüfung mehr – gleichwertig zu den Firestore-Regeln.
+- **Geplant, noch nicht umsetzen (Schritt 2, Nutzerwunsch gemerkt):** Mitglieder je Reise.
+  - Jede Reise hat 1–x Mitglieder; beim Anlegen (Assistent, Import, Entwurf) Mitreisende auswählen, beim Bearbeiten
+    hinzufügen/entfernen. Auswahl aus bekannten Konten; neue Personen weiterhin über die E-Mail-Liste der Regeln.
+  - Echter Schutz nur mit **Regeländerung** (Lesen/Schreiben nur für Mitglieder, Nutzer trägt sie in der Konsole ein),
+    Reiseliste per `where('mem','array-contains',uid)`, einmalige Umstellung bestehender Reisen (beide als Mitglieder),
+    Konnektor prüft „Mitglied dieser Reise“. Sinnvoll, sobald eine dritte Person nur einzelne Reisen sehen soll.
 
 ### 9.7 Offene Entscheidungen (vor W1 klären)
 | Nr | Frage | Vorschlag |

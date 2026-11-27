@@ -165,12 +165,13 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   await test('anmeldung: fremder Browser (ohne/falsches Cookie) wird abgewiesen', async () => {
     assert.equal((await login({ cookie: null })).status, 400); assert.equal((await login({ cookie: 'falsch' })).status, 400);
   });
-  await test('anmeldung: fremde E-Mail, unbestätigte E-Mail, Nicht-Mitglied, falsches nonce', async () => {
+  await test('anmeldung: fremde E-Mail, unbestätigte E-Mail, kein App-Konto, falsches nonce; Zustimmung nennt alle Reisen', async () => {
     assert.equal((await login({ profile: { sub: 'gA', email: 'fremd@example.com', email_verified: true } })).status, 403);
     assert.equal((await login({ profile: { sub: 'gA', email: 'anna@example.com', email_verified: false } })).status, 400);
     assert.equal((await login({ profile: { sub: 'gX', email: 'anna@example.com', email_verified: true } })).status, 403);
     assert.equal((await login({ profile: { sub: 'gA', email: 'anna@example.com', email_verified: true, nonce: 'anders' } })).status, 400);
-    S.D.delete('trips/' + id + '/members/uidA'); const r = await login(); S.D.set('trips/' + id + '/members/uidA', { n: 'Anna' }); assert.equal(r.status, 403);
+    // keine aktive Reise mehr: Mitgliedschaft ist keine Bedingung (Zugang = freigegebenes Konto, wie die Firestore-Regeln)
+    S.D.delete('trips/' + id + '/members/uidA'); const r = await login(); S.D.set('trips/' + id + '/members/uidA', { n: 'Anna' }); assert.equal(r.step, 'consent'); assert.match(r.html, /alle Reisen/);
   });
   await test('zustimmung: falsches CSRF, zu alt, doppelt, Ablehnen', async () => {
     let L = await login(); assert.equal((await L.send('falsch')).status, 400);
@@ -384,9 +385,6 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
       const res = await (await go('/mcp', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + WT.access_token }, body: '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"eintrag_anlegen","arguments":' + bad + '}}' })).json();
       assert.equal(res.result.isError, true, bad);
     }
-    // Mitgliedschaft entzogen → kein Schreiben
-    const mem = S.D.get('trips/' + id + '/members/uidA'); S.D.delete('trips/' + id + '/members/uidA');
-    try { assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /Kein Zugriff/); } finally { S.D.set('trips/' + id + '/members/uidA', mem); }
     // Not-Aus: Lesefehler beim Schalter → Schreiben aus, Lesen geht
     const g = S.get; S.get = async k => { if (k === 'mcp_ctl/state') throw new Error('weg'); return g.call(S, k); }; clock += 31e3;
     try { assert.match((await W(WT.access_token, 'abendessen', { tag: 2, aktion: 'ausfallen' })).t, /Unbekanntes Werkzeug|abgeschaltet/); assert.equal((await call(WT.access_token, 'reise_info', {})).isError, false); }
@@ -488,20 +486,19 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     // vor der Kreuzfahrt-Zeit: nächste Reise; zwischen beiden: Roadtrip ist die nächste; danach: eingestellte Reise
     const c0 = clock; try {
       clock = Date.parse('2099-06-01T10:00:00Z'); RT = await tokens(); assert.match((await W(RT.access_token, 'reise_info', {})).t, new RegExp('\\[' + rid + '\\] – ohne Angabe gewählt: nächste Reise'));
-      clock = Date.parse('2100-01-01T10:00:00Z'); RT = await tokens(); assert.match((await W(RT.access_token, 'reise_info', {})).t, new RegExp('\\[' + id + '\\] – ohne Angabe gewählt: in der App eingestellt'));
+      clock = Date.parse('2100-01-01T10:00:00Z'); RT = await tokens(); assert.match((await W(RT.access_token, 'reise_info', {})).t, new RegExp('\\[' + rid + '\\] – ohne Angabe gewählt: zuletzt vergangene Reise'));
     } finally { clock = c0 + 10e3; RT = await tokens(); WT = await tokens({ access: 'write' }); }
   });
-  await test('reisen: Eintragen in eine andere Reise, Protokoll dort; ohne Zugang zur eingestellten Reise kein Zugriff', async () => {
+  await test('reisen: Eintragen in eine andere Reise, Protokoll dort; Zugang ohne Mitgliedschaft und ohne config/app', async () => {
     const r = await W(WT.access_token, 'eintrag_anlegen', { reise: rid, tag: 2, name: 'Wanderung', uhrzeit: '09:00' }); assert.ok(!r.err, r.t); assert.match(r.t, new RegExp('Reise: .*\\[' + rid + '\\]'));
     assert.equal(S.D.get('trips/' + rid + '/plandays/meta').planV2, true, 'neue Reise: Format vermerkt');
     const it = [...S.D.keys()].filter(k => k.startsWith('trips/' + rid + '/planitems/')); assert.equal(it.length, 1); assert.equal(S.D.get(it[0]).n, 'Wanderung');
     assert.ok([...S.D.keys()].some(k => k.startsWith('trips/' + rid + '/kilog/')), 'Protokoll in der anderen Reise');
     assert.match((await W(WT.access_token, 'tag_plan', { reise: rid, tag: 2 })).t, /Wanderung/);
     assert.ok(!(await W(WT.access_token, 'tag_plan', { tag: 2 })).t.includes('Wanderung'), 'nicht in der laufenden Reise');
-    const m = S.D.get('trips/' + id + '/members/uidA'); S.D.delete('trips/' + id + '/members/uidA');
-    try { assert.match((await W(RT.access_token, 'reise_info', { reise: rid })).t, /Kein Zugriff/); } finally { S.D.set('trips/' + id + '/members/uidA', m); }
-    S.D.set('trips/' + rid + '/members/uidA', { n: 'Anna' });   // Mitglied der anderen Reise reicht für diese
-    try { S.D.delete('trips/' + id + '/members/uidA'); assert.ok(!(await W(RT.access_token, 'reise_info', { reise: rid })).err); } finally { S.D.set('trips/' + id + '/members/uidA', m); S.D.delete('trips/' + rid + '/members/uidA'); }
+    // ohne Mitgliedschaft in irgendeiner Reise: Zugang bleibt (freigegebenes Konto); config/app spielt keine Rolle mehr
+    const m = S.D.get('trips/' + id + '/members/uidA'), ca = S.D.get('config/app'); S.D.delete('trips/' + id + '/members/uidA'); S.D.delete('config/app');
+    try { assert.ok(!(await W(RT.access_token, 'reise_info', { reise: rid })).err); assert.ok(!(await W(RT.access_token, 'reise_info', {})).err); } finally { S.D.set('trips/' + id + '/members/uidA', m); S.D.set('config/app', ca); }
     assert.ok((await W(RT.access_token, 'reise_info', { reise: '../config/app' })).err, 'Pfad in reise');
   });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {

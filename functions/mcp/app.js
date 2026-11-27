@@ -101,13 +101,13 @@ function createApp(deps) {
         const bad = checkArgs(t, p.arguments); if (bad) return ok(id, { content: [{ type: 'text', text: bad }], isError: true });
         if (t.write && !t.ann.readOnlyHint && !await wrate(who.uid, p.arguments && p.arguments.bis_tag && p.arguments.tag ? Math.max(1, Math.min(30, p.arguments.bis_tag - p.arguments.tag + 1)) : 1)) return ok(id, { content: [{ type: 'text', text: `Zu viele Änderungen (höchstens ${C.LIMITS.writePerHour} pro Stunde, ${C.LIMITS.writePerDay} pro Tag) – bitte später.` }], isError: true });
         if (!rate(who.uid)) return ok(id, { content: [{ type: 'text', text: 'Zu viele Anfragen – bitte etwas später erneut.' }], isError: true });
-        // Reise wählen: Angabe „reise“ (Kennung oder Titel), sonst nach Datum (läuft gerade → nächste → in der App eingestellte)
+        // Reise wählen: Angabe „reise“ (Kennung oder Titel), sonst nach Datum (läuft gerade → nächste → zuletzt vergangene)
         const args = { ...(p.arguments || {}) }, want = t.noload ? undefined : args.reise; if (!t.noload) delete args.reise;   // bei den Entwurfs-Werkzeugen ist „reise“ die Reise-Datei
-        const L = await R.trips(!!want || t.name === 'reisen'), active = await O.activeTrip(), pk = pickTrip(L, want, active, now());
+        const L = await R.trips(!!want || t.name === 'reisen'), pk = pickTrip(L, want, now());
         if (pk.e) return ok(id, { content: [{ type: 'text', text: pk.e }], isError: true });
-        const trip = pk.trip ? pk.trip.id : active;
-        // Zugang: Mitglied der gewählten Reise oder der in der App eingestellten (neue Reisen haben noch keine Mitglieder)
-        if (!trip || !(await O.isMember(trip, who.uid) || await O.isMember(active, who.uid))) return ok(id, { content: [{ type: 'text', text: 'Kein Zugriff auf diese Reise.' }], isError: true });
+        // Zugang zu allen Reisen ist mit dem gültigen Token schon geprüft (freigegebenes Konto, siehe oauth.js)
+        const trip = pk.trip ? pk.trip.id : null;
+        if (!trip && !t.noload) return ok(id, { content: [{ type: 'text', text: 'Es gibt noch keine Reise. Eine neue Reise legst du mit reise_format → reise_pruefen → reise_entwurf_speichern an (oder in der App).' }], isError: true });
         const v = t.noload ? null : await R.load(trip, !!t.write), X = v ? ctxOf(v, now()) : null, t0 = Date.now();   // noload: Entwurfs-Werkzeuge und „reisen“ brauchen keine Reisedaten
         const W = t.write ? { S: deps.store, trip, uid: who.uid, now, geo: deps.geo || (async () => []), v, X } : { S: deps.store, trips: L, def: pk.trip, today: pk.today };
         let text; try { text = await t.run(v, X, args, W); }
@@ -127,16 +127,15 @@ function createApp(deps) {
   }
   const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
   const nrm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
-  function pickTrip(L, want, active, t) {
+  function pickTrip(L, want, t) {
     const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(new Date(t)), list = () => L.map(x => `„${U.clean(x.title, 60)}“ [${x.id}]`).join(', ');
     if (want) { const q = nrm(want), a = L.find(x => x.id === want) ? [L.find(x => x.id === want)] : L.filter(x => nrm(x.title) === q).length ? L.filter(x => nrm(x.title) === q) : L.filter(x => nrm(x.title).includes(q) || x.id.includes(q));
       if (a.length === 1) return { trip: a[0], today };
       return { e: a.length ? `Mehrere Reisen passen zu „${U.clean(want, 60)}“: ${a.map(x => `„${U.clean(x.title, 60)}“ [${x.id}]`).join(', ')}. Bitte die Kennung angeben.` : `Eine Reise „${U.clean(want, 60)}“ gibt es nicht. Reisen: ${list() || 'keine'}.` }; }
     const run = L.filter(x => x.start && x.end && x.start <= today && today <= x.end);
-    if (run.length) return { trip: run.find(x => x.id === active) || run[run.length - 1], today, why: 'läuft gerade' };
+    if (run.length) return { trip: run[run.length - 1], today, why: 'läuft gerade' };
     const next = L.filter(x => x.start > today); if (next.length) return { trip: next[0], today, why: 'nächste Reise' };
-    const a = L.find(x => x.id === active); if (a) return { trip: a, today, why: 'in der App eingestellt' };
-    return { trip: L[L.length - 1] || null, today, why: 'zuletzt' };
+    const past = L.slice().sort((a, b) => (a.end || '').localeCompare(b.end || '')); return { trip: past[past.length - 1] || null, today, why: 'zuletzt vergangene Reise' };
   }
   const rpcErr = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
   const canWrite = who => String(who.scope || '').split(' ').includes('reise.schreiben');

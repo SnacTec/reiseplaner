@@ -1,4 +1,4 @@
-/* Stufe 2a: Claude trägt in die aktuelle Reise ein (Plan: docs/MCP-PLAN.md, Abschnitt 9).
+/* Stufe 2a: Claude trägt in eine Reise ein (gewählt per Feld „reise“ bzw. nach Datum) (Plan: docs/MCP-PLAN.md, Abschnitt 9).
  * Gleiches Datenformat wie die App (app.js: addPointDlg/persistPlan, tsPutTask, dinSave, persistPicks):
  *   trips/<id>/planitems/<eid>  {d, o, x:1, n, s, t, at, note, lat?, lon?, addr?, osm?, dk?, dv?, rep?, ki}
  *   trips/<id>/tasks/<tid>      {ts, done, text, who, due, list, note, subs, ki}   (nur gemeinsame Listen)

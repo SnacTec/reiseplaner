@@ -32,8 +32,8 @@ function oauth(deps) {
   const TOK_RE = /^[A-Za-z0-9_-]{43}$/;   // Form unserer Codes/Tokens (rand(32)) – andere gar nicht erst nachschlagen
   const ttl = ms => new Date(now() + ms);   // für die Firestore-TTL-Richtlinie (Feld „ttl“); geprüft wird immer „exp“
 
-  async function activeTrip() { const c = await S.get('config/app'); const id = c && c.activeTrip; return /^[\w-]{1,80}$/.test(String(id || '')) ? id : null; }
-  async function isMember(trip, uid) { return !!(trip && uid && /^[\w-]{1,128}$/.test(uid) && await S.get(`trips/${trip}/members/${uid}`)); }
+  // Zugang: freigegebenes Google-Konto (MCP_ALLOWED_EMAILS) mit Konto in der Reise-App – für alle Reisen (wie die Firestore-Regeln).
+  // Es gibt keine „aktive Reise“ mehr; Mitglieder je Reise sind geplant (docs/MCP-PLAN.md 9.9).
   const allowed = email => !!email && deps.allowed().has(String(email).toLowerCase());
 
   async function client(id) {
@@ -111,11 +111,9 @@ function oauth(deps) {
     if (!allowed(email)) return res.status(403).send(P.error('Dieses Google-Konto ist nicht freigegeben.'));
     const u = await deps.users.byGoogle(g.sub, email);
     if (!u || u.disabled) return res.status(403).send(P.error('Zu diesem Google-Konto gibt es kein Konto in der Reise-App. Bitte einmal in der App anmelden.'));
-    const trip = await activeTrip();
-    if (!await isMember(trip, u.uid)) return res.status(403).send(P.error('Du bist in der aktuellen Reise nicht als Mitreisende/r eingetragen. Bitte einmal in der App anmelden.'));
-    const t = await S.get('trips/' + trip), csrf = U.rand(32);
+    const csrf = U.rand(32);
     await S.set('mcp_pending/' + H(id), { uid: u.uid, email, authAt: now(), csrf: H(csrf) }, true);
-    res.set('Cache-Control', 'no-store').send(P.consent({ id, csrf, email, client: new URL(p.redirect_uri).host, trip: U.clean(t && t.title || 'Reise', 80) }));
+    res.set('Cache-Control', 'no-store').send(P.consent({ id, csrf, email, client: new URL(p.redirect_uri).host }));
   }
 
   /* ---------- 3. Zustimmung ---------- */
@@ -195,10 +193,9 @@ function oauth(deps) {
       if (r.e) return err(res, 400, 'invalid_grant', 'Refresh-Token ungültig');
       const x = r.x, f = await S.get('mcp_families/' + x.family);
       if (!f || f.revoked || f.maxExp <= now() || f.client_id !== cl.id) return err(res, 400, 'invalid_grant', 'Verbindung beendet – bitte neu verbinden');
-      // Freigabe, Konto und Mitgliedschaft erneut prüfen (beim Refresh gibt es kein Google-Token)
+      // Freigabe und Konto erneut prüfen (beim Refresh gibt es kein Google-Token)
       const u = await deps.users.get(x.uid);
-      const trip = await activeTrip();
-      if (!allowed(f.email) || !u || u.disabled || (u.validAfter && u.validAfter > f.created) || !await isMember(trip, x.uid)) {
+      if (!allowed(f.email) || !u || u.disabled || (u.validAfter && u.validAfter > f.created)) {
         await revokeFamily(x.family, 'access-removed'); return err(res, 400, 'invalid_grant', 'Zugang nicht mehr freigegeben');
       }
       await keepClient(cl);
@@ -240,6 +237,6 @@ function oauth(deps) {
   }
 
   const badOk = ip => lim.bad(ip);   // Begrenzung für Anfragen mit ungültigem Token (Kosten)
-  return { prm, asm, badOk, register, authorize, googleCallback, complete, token, revoke, verifyAccess, connections, activeTrip, isMember };
+  return { prm, asm, badOk, register, authorize, googleCallback, complete, token, revoke, verifyAccess, connections };
 }
 module.exports = { oauth };

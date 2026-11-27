@@ -176,6 +176,28 @@ test('entwurf: functions/format/ enthält aktuelle Kopien (sonst: node tools/day
   for (const [a, b] of FORMAT) ok(fs.existsSync(b) && fs.readFileSync(a).equals(fs.readFileSync(b)), path.relative(H.ROOT, b) + ' veraltet – node tools/dayplan-sync.js');
 });
 
+test('reisen: Auswahl beim ersten Start, Öffnen und Bearbeiten bei jeder Reise', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), y = new Date().getFullYear();
+  const L = [{ id: 'alt-1', title: 'Alte Reise', start: (y - 1) + '-03-01', end: (y - 1) + '-03-05' }, { id: 'neu-1', title: 'Spätere Reise', start: (y + 2) + '-05-01', end: (y + 2) + '-05-03' },
+    { id: 'bald-1', title: 'Nächste Reise', start: (y + 1) + '-01-01', end: (y + 1) + '-01-03' }, { id: t.id, title: t.trip.title, start: t.trip.start, end: t.trip.end }];
+  const p = await H.open(c, base, t, '#plan', `window.__listTrips=async()=>${JSON.stringify(L)};`);
+  // Auswahl (Lader): geplante zuerst nach Datum, vergangene zuletzt; Antippen merkt die Reise auf dem Gerät
+  const g = await p.evaluate(L => { window.__showPick(L.slice(0, 3), 'Die zuletzt geöffnete Reise gibt es nicht mehr.'); const G = document.getElementById('gate'); return { txt: G.innerText, ids: [...G.querySelectorAll('[data-tid]')].map(b => b.dataset.tid) }; }, L);
+  ok(g.ids.join() === 'bald-1,neu-1,alt-1', 'Reihenfolge: ' + g.ids); ok(/gibt es nicht mehr/.test(g.txt) && /vorbei/.test(g.txt) && /geplant/.test(g.txt), 'Auswahl-Text: ' + g.txt);
+  await Promise.all([p.waitForNavigation(), p.click('#gate [data-tid="neu-1"]')]); await p.waitForTimeout(1500);
+  ok(await p.evaluate(() => localStorage.getItem('rp-trip')) === 'neu-1', 'Auswahl nicht gemerkt');
+  // Einstellungen → Reisen: jede Reise hat „Bearbeiten ›“; bei einer anderen Reise: öffnen und Bearbeiten vormerken
+  await p.evaluate(() => offlineDlg('trip')); await p.waitForTimeout(600);
+  const n = await p.evaluate(() => ({ ed: document.querySelectorAll('#triplist [data-edit]').length, op: document.querySelectorAll('#triplist [data-open]').length }));
+  ok(n.ed === 4 && n.op === 3, 'Links: ' + JSON.stringify(n));
+  await Promise.all([p.waitForNavigation(), p.click('#triplist [data-trip="bald-1"] [data-edit]')]); await p.waitForTimeout(1500);
+  ok(await p.evaluate(() => localStorage.getItem('rp-trip') === 'bald-1' && sessionStorage.getItem('rp-edit-next') === 'bald-1'), 'Bearbeiten nicht vorgemerkt');
+  // nach dem Öffnen (hier: geöffnete Reise vorgemerkt) startet das Bearbeiten von selbst
+  await p.evaluate(id => sessionStorage.setItem('rp-edit-next', id), t.id); await p.reload(); await p.waitForTimeout(2500);
+  ok(await p.evaluate(() => !document.getElementById('ov').hidden && !sessionStorage.getItem('rp-edit-next')), 'Bearbeiten startet nicht');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

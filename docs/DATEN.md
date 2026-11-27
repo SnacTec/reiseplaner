@@ -2,7 +2,6 @@
 
 ## Firestore (Projekt `reiseplaner-accd8`)
 ```
-config/app                         { activeTrip: "<trip-id>" }
 trips/<trip-id>                    Stammdaten der Reise (siehe unten) + json: "<String>"
 trips/<trip-id>/photos/<code>      { c: "<Ausflugscode>", d: "data:image/jpeg;base64,..." }
 trips/<trip-id>/picks|planitems|lists|tasks|drinkfavs|backups   gemeinsame Einträge der Reisenden
@@ -18,7 +17,7 @@ config/kientwurf_<trip-id>         { id, title, kind, start, end, days, by, at, 
 Große/verschachtelte Teile liegen als **JSON-String** in einem Feld (`json`), weil Firestore
 keine Arrays in Arrays erlaubt und ein Dokument höchstens 1 MB groß sein darf (Fotos deshalb einzeln).
 
-Die App leitet alle Datenbank-Zugriffe automatisch auf `trips/<aktive Reise>/…` um
+Die App leitet alle Datenbank-Zugriffe automatisch auf `trips/<geöffnete Reise>/…` um
 (`FBX.db.collection(name)` in `app.js`). Einträge beziehen sich auf Tag-Nummern,
 Ausflugscodes und die **Reihenfolge** der Orte je Station – beim Ändern einer laufenden
 Reise deshalb nichts umsortieren.
@@ -88,9 +87,10 @@ Vollständige Feldbeschreibung: **docs/IMPORT-FORMAT.md** (maßgeblich), Prüfun
   photos: { "<Code>": "data:image/…" },
   ship: { id, name, short, deckNote, data: <Deckplan>, drinks: <Getränkekarte> } | null }
 ```
-Import: Ist noch keine Reise aktiv, fragt die App nach der Datei. Sonst in der
-Einstellungen → 🧳 Reisen → „+ Neue Reise hinzufügen“.
-Der Import setzt `config/app.activeTrip` auf die neue Reise.
+Welche Reise ein Gerät zeigt, merkt es sich selbst (`rp-trip`). Beim ersten Start (oder wenn die gemerkte Reise fehlt)
+zeigt der Lader alle Reisen zur Auswahl (`showPick`); gibt es nur eine, öffnet sie direkt, gibt es keine, fragt er nach
+der Import-Datei. Eine gemeinsame „aktive Reise“ gibt es nicht mehr (früher `config/app.activeTrip`, wird ignoriert und
+kann in der Konsole gelöscht werden). Import sonst unter Einstellungen → 🧳 Reisen.
 
 ## Zugang
 Wer rein darf, steht **nur** in den Firestore-Regeln (`allowed()`, E-Mail-Liste in der Konsole).
@@ -150,12 +150,11 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 - Rückgängig in der App (`kiUndo`, Einstellungen → Konto → Änderungen durch KI). Schreibt über die normalen Speicherwege
   und setzt `undone:true`.
 
-**Welche Reise der Konnektor nimmt:** Angabe `reise`, sonst laufende → nächste → `config/app.activeTrip` (docs/MCP.md, „Welche Reise?“).
-`config/app` bleibt die Standard-Reise für den Start der App und das Verbinden.
+**Welche Reise der Konnektor nimmt:** Angabe `reise`, sonst laufende → nächste → zuletzt vergangene (docs/MCP.md, „Welche Reise?“).
 
 **Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos, nur dokumentierte `trip`-Felder, `kul.maskRe` ≤ 300 Zeichen, Entwurf eines anderen Mitreisenden nicht ersetzbar,
 höchstens 900 kB, höchstens 3, nach 30 Tagen weg (`ttl` kann zusätzlich als Firestore-TTL-Feld eingerichtet werden).
 „Übernehmen“ in der App: `__checkTrip` → `__importTrip(o, true)` (bricht ab, wenn die Reise schon existiert; vorhandenes Schiff
-bleibt; `config/app.activeTrip` bleibt) → Entwurf löschen (`__kiDrafts.drop`). Keine Regeländerung nötig (`config/*`).
+bleibt) → Entwurf löschen (`__kiDrafts.drop`). Keine Regeländerung nötig (`config/*`).
 Neuerer Stand (`ts`) gewinnt; auf dem Gerät zusätzlich `rp-home`, `rp-spider`, `rp-spider-stats` (+ `-ts`).
 Quiz-Duell: `plandays/quiz_<uid>.daily.<Datum> = {ok, t, done, res:[1|0 je Frage], ans:[gewählte Antwort je Frage]}`.

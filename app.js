@@ -924,7 +924,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='26.11. · R109';
+const APP_VER='27.11. · R110';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -2158,7 +2158,7 @@ async function tripSave(mut){if(window.__TEST_TRIP){const o=window.__TEST_TRIP;m
 async function tripDelete(next){const db=FBX.real,ref=db.collection('trips').doc(TRIP_ID);
   // fremde Einträge (z. B. Mitreisenden-Eintrag, Quizpunkte der anderen) dürfen die Regeln nicht löschen – die bleiben unsichtbar liegen
   for(const c of ['planitems','picks','lists','tasks','files','members','plandays','drinkfavs','photos','backups']){try{const q=await ref.collection(c).get();for(const d of q.docs)await d.ref.delete().catch(()=>{})}catch(e){}}
-  await ref.delete();const cf=await db.collection('config').doc('app').get();if(cf.exists&&cf.data().activeTrip===TRIP_ID)await db.collection('config').doc('app').set({activeTrip:next||null},{merge:true})}
+  await ref.delete()}
 function editOpen(){
   const go=()=>window.EDIT&&EDIT.open();if(window.EDIT)return go();const s=document.createElement('script');s.src='editor.js';s.onload=go;s.onerror=()=>infoToast('Bearbeiten nicht ladbar – bitte mit Internet öffnen.','OK',()=>{});document.head.appendChild(s)}
 /* ---------- Offline: Weltkarte, Ortsliste (GeoNames), Zeitzonen – für Assistent und Bearbeiten ---------- */
@@ -2811,8 +2811,10 @@ function offlineDlg(open){
     {let n=0,t=0;d.querySelector('#appver').onclick=()=>{const now=Date.now();n=now-t<900?n+1:1;t=now;
       if(n>=7){n=0;devSet(!devOn());closeDlg();setTimeout(()=>{offlineDlg();undoToast(devOn()?'Testmodus auf diesem Gerät aktiv.':'Testmodus ausgeschaltet.',null,2500)},80)}}}
     {const tl=d.querySelector('#triplist'),Ld=x=>x?x.split('-').reverse().join('.'):'';
-      const draw=L=>{tl.innerHTML=L.map(t=>`<button class="dkr" data-trip="${esc(t.id)}" style="cursor:pointer"><span class="dkic">${t.id===TRIP_ID?'✓':'🧳'}</span><span class="dktx"><b>${esc(t.title)}</b><small>${esc(Ld(t.start))} – ${esc(Ld(t.end))}${t.id===TRIP_ID?' · geöffnet':''}</small></span>${t.id===TRIP_ID?'<span class="lnk" data-edit>Bearbeiten ›</span>':'<span class="lnk">Öffnen ›</span>'}</button>`).join('');
-        tl.querySelectorAll('[data-trip]').forEach(b=>b.onclick=()=>{const id=b.dataset.trip;if(id===TRIP_ID)return editOpen();try{localStorage.setItem('rp-trip',id)}catch(e){}tl.innerHTML='<p class="src">Reise wird geöffnet …</p>';location.reload()})};
+      // jede Reise: Antippen öffnet sie (nur auf diesem Gerät), „Bearbeiten ›“ öffnet sie und startet gleich das Bearbeiten
+      const draw=L=>{tl.innerHTML=L.map(t=>`<div class="dkr tpr" data-trip="${esc(t.id)}" role="button" tabindex="0" style="cursor:pointer"><span class="dkic">${t.id===TRIP_ID?'✓':'🧳'}</span><span class="dktx"><b>${esc(t.title)}</b><small>${esc(Ld(t.start))} – ${esc(Ld(t.end))}${t.id===TRIP_ID?' · geöffnet':''}</small></span>${t.id===TRIP_ID?'':'<button class="lnk" data-open>Öffnen ›</button>'}<button class="lnk" data-edit>Bearbeiten ›</button></div>`).join('');
+        const go=(id,edit)=>{if(id===TRIP_ID){if(edit)editOpen();return}try{localStorage.setItem('rp-trip',id);if(edit)sessionStorage.setItem('rp-edit-next',id)}catch(e){}tl.innerHTML='<p class="src">Reise wird geöffnet …</p>';location.reload()};
+        tl.querySelectorAll('[data-trip]').forEach(r=>{const id=r.dataset.trip;r.onclick=e=>{const ed=e.target.closest('[data-edit]');if(ed||id!==TRIP_ID||!e.target.closest('button'))go(id,!!ed||id===TRIP_ID)};r.onkeydown=e=>{if(e.key==='Enter'&&e.target===r)go(id,id===TRIP_ID)}})};
       if(window.__listTrips)window.__listTrips().then(draw).catch(()=>draw([{id:TRIP_ID,title:TRIP.title,start:TRIP.start,end:TRIP.end}]));else draw([{id:TRIP_ID,title:TRIP.title,start:TRIP.start,end:TRIP.end}])}
     {const wg=d.querySelector('#wizgo');if(wg)wg.onclick=()=>wizOpen()}
     kdRender(d.querySelector('#kidr'));
@@ -3450,6 +3452,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)dayCheck()
 if(SIM_OFF)setTimeout(simApply,0);
 if(DIN.dk!=null)try{renderPanel()}catch(e){}
 shareCheck();
+// „Bearbeiten ›“ bei einer anderen Reise: nach dem Öffnen gleich das Bearbeiten starten
+try{if(sessionStorage.getItem('rp-edit-next')===TRIP_ID){sessionStorage.removeItem('rp-edit-next');setTimeout(()=>{if(typeof editOpen==='function')editOpen()},400)}}catch(e){}
 {const sb=document.getElementById('syncb');if(sb)sb.onclick=syncDlg;syncDraw()}
 navMark();document.documentElement.classList.remove('boot');
 (function(){const b=document.getElementById('fsb');if(!b)return;const de=document.documentElement;

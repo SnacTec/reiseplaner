@@ -62,7 +62,7 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
   und speichert es mit `reise_entwurf_speichern` als **Entwurf** (nur mit „Lesen und eintragen“).
 - **In der App:** Einstellungen → 🧳 Reisen → „🤖 Entwurf von Claude“: **Vorschau ›** · **Übernehmen** · **Verwerfen**.
   Erst „Übernehmen“ legt die Reise an – über den normalen Import mit erneuter Prüfung. Sie öffnet sich auf diesem Gerät;
-  die eingestellte Reise der anderen bleibt gleich. Claude erreicht die neue Reise trotzdem (siehe „Welche Reise?“).
+  Claude erreicht sie über das Feld `reise` (siehe „Welche Reise?“).
 - Bestehende Reisen werden nie überschrieben (Kennung schon vergeben → Fehler). Gibt es das Schiff schon, bleibt dessen
   Deckplan unverändert. Fotos werden bei Entwürfen nicht übernommen.
 - Höchstens 3 offene Entwürfe, nach 30 Tagen gelöscht (beim nächsten Speichern; App blendet ältere aus).
@@ -79,11 +79,11 @@ Eintragende: `eintrag_anlegen`, `eintrag_aendern`, `eintrag_loeschen`, `aufgabe_
 ## Welche Reise?
 - `reisen` listet alle Reisen (vergangen, laufend, geplant) mit Kennung.
 - Alle Werkzeuge mit Reisedaten haben ein Feld `reise` (Kennung oder Titel). Ohne Angabe nimmt der Server die Reise,
-  die **gerade läuft**, sonst die **nächste**, sonst die in der App eingestellte (`config/app`).
+  die **gerade läuft**, sonst die **nächste**, sonst die zuletzt vergangene. Eine „aktive Reise“ gibt es nicht mehr.
 - Jede Antwort nennt in der zweiten Zeile die Reise („Reise: … [kennung] – ohne Angabe gewählt: läuft gerade“).
-- Einfach sagen: „Was steht in der Florida-Reise an Tag 2?“ oder „Trag in der Karibik-Reise … ein“.
-- Zugang: Mitglied der gewählten oder der in der App eingestellten Reise (neue Reisen haben noch keine Mitglieder).
-  Anmelden/Verbinden setzt weiterhin die Mitgliedschaft in der eingestellten Reise voraus.
+- Einfach sagen (erfundene Beispiele): „Was steht in der Musterland-Reise an Tag 2?“ oder „Trag im Städtetrip … ein“.
+- Zugang: freigegebenes Google-Konto (`MCP_ALLOWED_EMAILS`) mit Konto in der Reise-App – für alle Reisen,
+  wie in den Firestore-Regeln. Mitglieder je Reise sind geplant (`docs/MCP-PLAN.md` 9.9).
 - In eine ganz neue Reise (noch nie in der App geöffnet) kann Claude direkt eintragen; nur Reisen mit altem Tagesplan
   (vor dem Speicherformat `planV2`) müssen erst einmal in der App geöffnet werden.
 

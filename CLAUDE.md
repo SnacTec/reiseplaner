@@ -82,7 +82,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   - Stufe 2b Reise-Entwurf (`draft.js`): `reise_format`, `reise_pruefen`, `reise_entwurf_speichern` → `config/kientwurf_<id>`;
     App: Einstellungen → Reisen „Entwurf von Claude“ (`kdRender`, `kdPreview`, `kdAccept` → `__checkTrip` + `__importTrip(o,true)`).
     Kopien von IMPORT-FORMAT.md, Beispielen und tripcheck.js in `functions/format/` über `node tools/dayplan-sync.js` (Test prüft).
-  - Alle Reisen: Werkzeug `reisen`, Feld `reise` (Kennung/Titel); ohne Angabe laufende → nächste → `config/app` (`pickTrip` in `functions/mcp/app.js`).
+  - Alle Reisen: Werkzeug `reisen`, Feld `reise` (Kennung/Titel); ohne Angabe laufende → nächste → zuletzt vergangene (`pickTrip` in `functions/mcp/app.js`).
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.
@@ -112,6 +112,9 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Ortssuche: fehlt eine Hausnummer in OpenStreetMap, wird die eigene Eingabe mit Lage der nächsten Hausnummer angeboten (`hnOffer`);
   gewählte Orte speichern `n` (Straße) und `a` (PLZ Ort). `putDoc` entfernt leere Felder (Firestore lehnt `undefined` ab).
 - Leere Datums-/Uhrzeitfelder zeigen grauen Beispieltext (`phMark`, Klasse `.empty`).
+- Keine gemeinsame „aktive Reise“ mehr (`config/app` wird ignoriert): jedes Gerät merkt sich seine Reise (`rp-trip`),
+  erster Start = Auswahl (`showPick`), „Bearbeiten ›“ bei jeder Reise (`rp-edit-next`).
+  **Geplant, noch nicht bauen:** Mitglieder je Reise mit Regeländerung (`docs/MCP-PLAN.md` 9.9, Schritt 2).
 - Vorschauen vor dem Live-Gang auf dem Branch `vorschau` (wird wiederverwendet), live = `main`.
 
 ## Design-Regeln (mit dem Nutzer abgestimmt)

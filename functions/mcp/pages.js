@@ -16,9 +16,9 @@ button.p{background:var(--accent);border-color:var(--accent);color:#fff}
 
 const error = msg => shell('Reiseplaner – Anmeldung', `<h1>Reiseplaner</h1><p>${esc(msg)}</p><p class="m">Du kannst dieses Fenster schließen.</p>`);
 
-const consent = ({ id, csrf, email, client, trip }) => shell('Reiseplaner – Zugriff erlauben', `<h1>Zugriff erlauben?</h1>
+const consent = ({ id, csrf, email, client }) => shell('Reiseplaner – Zugriff erlauben', `<h1>Zugriff erlauben?</h1>
 <p><b>${esc(client)}</b> möchte auf deinen Reiseplan zugreifen.</p>
-<ul><li>Angemeldet als <b>${esc(email)}</b></li><li>Reise: ${esc(trip)} (immer die in der App aktuelle Reise)</li>
+<ul><li>Angemeldet als <b>${esc(email)}</b></li><li>Reisen: alle Reisen im Reiseplaner (ohne Angabe die laufende bzw. nächste)</li>
 <li>Lesen: Tage, Orte, Zeiten, Einträge (mit Notizen), Ausflüge, Abendessen, Tipps, gemeinsame ToDos, Dateinamen der Mappe</li>
 <li>Nie: Sitzplätze, Buchungsnummern, Kabinen-/Tischnummer, Adressen, eure Namen und E-Mail-Adressen, Dateiinhalte, private Listen</li></ul>
 <form method="post" action="/authorize/complete"><input type="hidden" name="req" value="${esc(id)}"><input type="hidden" name="csrf" value="${esc(csrf)}">

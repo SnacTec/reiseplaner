@@ -4,7 +4,7 @@ Zwei Wege:
 - **Assistent in der App** (ohne Claude): Einstellungen → 🧳 Reisen → „+ Neue Reise anlegen“ (`wizard.js`).
   Grunddaten → Stationen (Ortssuche weltweit, „Wie Vortag“, bei Kreuzfahrt Hafen/Seetag + Zeiten) → Vorschau → anlegen.
   Ergebnis: Reise nur mit Stationen; Karte (`mapgen.js` + `world.json`), Route, Zeitzonen (Open-Meteo) entstehen automatisch.
-  Wird nur auf dem eigenen Gerät geöffnet (`rp-trip`), `config/app.activeTrip` bleibt unverändert.
+  Wird nur auf dem eigenen Gerät geöffnet (`rp-trip`).
 - **Import-Datei von Claude** (unten): mit recherchierten Inhalten – Tipps, Veranstalter-Ausflüge, Fabriken,
   Länder-Infos, Quiz, ggf. Deckplan/Getränke und handgemachte Karte. Diese Bereiche zeigt die App **nur**, wenn
   die Daten vorhanden sind (`HAS_EX`, `HAS_FA`, `HAS_SRC` in app.js).
@@ -30,7 +30,7 @@ Zwei Wege:
 ## 3. Import (macht der Nutzer)
 Einstellungen → 🧳 Reisen → „+ Neue Reise hinzufügen“ (beim allerersten Start erscheint der Import-Bildschirm).
 Die Reise ist sofort für alle Mitreisenden in der Liste. Gewechselt wird je Gerät (`localStorage` „rp-trip“);
-neue Geräte öffnen `config/app.activeTrip` (zuletzt importiert). Alte Reisen bleiben erhalten.
+neue Geräte zeigen beim ersten Start alle Reisen zur Auswahl. Alte Reisen bleiben erhalten.
 Pläne, Tickets, Buchungen legen die Reisenden danach selbst in der **Reise-Mappe** ab (auch direkt am Tag: „📎 Datei“).
 
 ## 4. Nachträglich ändern
