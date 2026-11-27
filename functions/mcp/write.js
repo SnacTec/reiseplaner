@@ -4,6 +4,7 @@
  *   trips/<id>/tasks/<tid>      {ts, done, text, who, due, list, note, subs, ki}   (nur gemeinsame Listen)
  *   trips/<id>/plandays/meta    {dinner:{… skip:[Tage], ov:{Tag: "HH:MM"}}}
  *   trips/<id>/picks/p_<d>_<c>  {k:"<d>:<c>", v:true|false}
+ *   trips/<id>  json.ports[Tag].ex[]  {c, n, p, dur, lv, prog, note, rec, sold, ki}   Veranstalter-Ausflüge (Stammdaten, nur diese Liste)
  * Jede Änderung: Kennzeichen ki:{uid, at, neu} am Eintrag + Protokoll trips/<id>/kilog/<kid> {uid, at, tool, col, doc, before, after, txt}.
  * Die App zeigt 🤖 und bietet „Rückgängig“ (Einstellungen → Konto → Änderungen durch KI). */
 'use strict';
@@ -188,6 +189,78 @@ function writer(W) {
   };
 }
 
+// Dauer in Stunden → Text wie in der Import-Datei („4,5 Std.“), daraus rechnet die App die Zeit im Tagesplan
+const durTxt = h => (Math.round(h * 4) / 4).toString().replace('.', ',') + ' Std.';
+const CODE = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,11}$/;
+
+function exWriter(W) {
+  const { S, trip, uid, v, X } = W, key = 'trips/' + trip, now = W.now(), op = X.op;
+  let seq = 0;
+  const logDoc = (tool, doc, before, after, txt) => [key + '/kilog/' + nid('k'), { uid, at: now, n: seq++, tool, col: 'ex', doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
+  const dayOf = n => { const p = v.ports.find(q => q.day === +n); if (!p) fail(`Einen Tag ${n} gibt es nicht – die Reise hat ${v.ports.length} Tage.`); if (p.kind === 'sea') fail(`Tag ${p.day} ist ein Seetag – dort gibt es keine ${op}-Ausflüge.`); return p; };
+  // Stammdaten der Reise in einer Transaktion ändern (nur ports[Tag].ex), wie tripSave in der App
+  async function mutate(day, fn) {
+    return S.txn(async T => {
+      const t = await T.get(key); if (!t) return { e: 'Die Reise gibt es nicht (mehr).' };
+      let j; try { j = JSON.parse(t.json || '{}'); } catch (e) { return { e: 'Die Reisedaten sind beschädigt – bitte in der App prüfen.' }; }
+      const p = (j.ports || []).find(q => q && q.day === day); if (!p) return { e: `Tag ${day} fehlt in den Reisedaten.` };
+      if (!Array.isArray(p.ex)) p.ex = [];
+      const r = fn(p.ex, T); if (r && (r.e || r.skip)) return r;
+      const json = JSON.stringify(j); if (Buffer.byteLength(json) > 950 * 1024) return { e: 'Die Reisedaten würden zu groß (Firestore-Grenze) – bitte Texte kürzen.' };
+      T.set(key, { json, updated: now }, true); return r || {};
+    });
+  }
+  return {
+    async ausfluege_anlegen(a) {
+      const p = dayOf(a.tag), seen = new Set(), L = [];
+      for (const x of a.ausfluege) {
+        const c = clean(x.code, 12); if (!CODE.test(c)) fail(`Ungültiger Code „${clean(x.code, 12)}“ – nur Buchstaben, Ziffern, . _ - /.`);
+        if (seen.has(c)) fail(`Code ${c} steht doppelt in der Liste.`); seen.add(c);
+        const f = {};
+        if (x.name != null) { f.n = clean(x.name, 80); if (!f.n) fail(`${c}: Name darf nicht leer sein.`); }
+        if (x.preis != null) f.p = Math.round(x.preis * 100) / 100;
+        if (x.dauer_std != null) f.dur = durTxt(x.dauer_std);
+        if (x.stufe != null) f.lv = clean(x.stufe, 30);
+        if (x.programm != null) f.prog = note(x.programm, 600);
+        if (x.hinweis != null) f.note = note(x.hinweis, 300);
+        if (x.empfohlen != null) f.rec = x.empfohlen ? 1 : 0;
+        if (x.ausverkauft != null) f.sold = x.ausverkauft ? 1 : 0;
+        L.push({ c, f });
+      }
+      const ops = [], out = [];
+      const r = await mutate(p.day, (ex, T) => {
+        for (const { c, f } of L) {
+          const i = ex.findIndex(e => e && String(e.c) === c), cur = i >= 0 ? ex[i] : null;
+          if (!cur && !f.n) return { e: `${c}: Name fehlt (neuer Ausflug).` };
+          const nx = { ...(cur || { c }), ...f }; ['rec', 'sold'].forEach(k => { if (nx[k] === 0) delete nx[k]; });
+          const { ki: k0, ...a0 } = cur || {}, { ki: k1, ...a1 } = nx;
+          if (cur && JSON.stringify(a0) === JSON.stringify(a1)) { out.push(`${c} „${clean(nx.n, 60)}“ unverändert`); continue; }
+          nx.ki = { uid, at: now, neu: cur ? (cur.ki && cur.ki.neu ? 1 : 0) : 1 };
+          if (cur) ex[i] = nx; else ex.push(nx);
+          ops.push(logDoc('ausfluege_anlegen', p.day + ':' + c, cur, nx, `${op}-Ausflug ${c} „${nx.n}“ an Tag ${p.day} ${cur ? 'geändert' : 'angelegt'}`));
+          out.push(`${c} „${clean(nx.n, 60)}“ ${cur ? 'aktualisiert' : 'neu'}${nx.p != null ? ' · ' + nx.p + ' € p. P.' : ''}${nx.dur ? ' · ' + nx.dur : ''}${nx.rec ? ' · empfohlen' : ''}${nx.sold ? ' · ausverkauft' : ''}`);
+        }
+        if (!ops.length) return { skip: true };
+        ops.forEach(([k, d]) => T.set(k, d));
+      });
+      if (r.e) fail('Nicht gespeichert – ' + r.e);
+      return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
+    },
+    async ausflug_loeschen(a) {
+      const p = dayOf(a.tag), c = clean(a.code, 12); let txt = '';
+      const r = await mutate(p.day, (ex, T) => {
+        const i = ex.findIndex(e => e && String(e.c) === c); if (i < 0) return { e: `An Tag ${p.day} gibt es keinen Ausflug ${c}.` };
+        const cur = ex[i]; if (!(cur.ki && cur.ki.neu)) return { e: `Löschen geht nur bei Ausflügen, die Claude selbst angelegt hat. ${c} bitte in der App bearbeiten.` };
+        ex.splice(i, 1); txt = `${op}-Ausflug ${c} „${cur.n}“ an Tag ${p.day} gelöscht`;
+        const [k, d] = logDoc('ausflug_loeschen', p.day + ':' + c, cur, null, txt); T.set(k, d);
+      });
+      if (r.e) fail(r.e);
+      const pk = v.picks[X.dp.pickKey(p.day, c)];
+      return 'Gelöscht: ' + clean(txt, 160) + '.' + (pk ? ' Er war als gewählt markiert – die Wahl bleibt gespeichert, falls er wiederkommt.' : '');
+    },
+  };
+}
+
 async function recent(S, trip, uid) {
   const L = (await S.list('trips/' + trip + '/kilog')).filter(x => x.data && x.data.uid === uid).sort((a, b) => (b.data.at - a.data.at) || ((a.data.n || 0) - (b.data.n || 0))).slice(0, 15).map(x => x.data);
   if (!L.length) return 'Claude hat in dieser Reise noch nichts geändert.';
@@ -195,4 +268,4 @@ async function recent(S, trip, uid) {
   return 'Letzte Änderungen durch Claude (neueste zuerst; Rückgängig in der App unter Einstellungen → Konto):\n' + L.map(x => `- ${f(x.at)} ${clean(x.txt, 160)}${x.undone ? ' (rückgängig gemacht)' : ''}`).join('\n');
 }
 
-module.exports = { writer, recent };
+module.exports = { writer, recent, exWriter };

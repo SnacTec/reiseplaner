@@ -152,6 +152,9 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 
 **Welche Reise der Konnektor nimmt:** Angabe `reise`, sonst laufende → nächste → zuletzt vergangene (docs/MCP.md, „Welche Reise?“).
 
+**Ausflüge vom Konnektor:** `ports[Tag].ex[]` kann `ki:{uid, at, neu}` tragen (🤖); Protokoll `kilog` mit col `ex`, doc `<Tag>:<Code>`.
+**Ausflugsfotos aus der App:** wie beim Import `trips/<id>/photos/<Code>` `{c, d:"data:image/jpeg;base64,…"}` (≤ 700 kB).
+
 **Reise-Entwürfe von Claude** (Stufe 2b, `functions/mcp/draft.js`): nur nach bestandener Prüfung (`tripcheck.js`), ohne Fotos, nur dokumentierte `trip`-Felder, `kul.maskRe` ≤ 300 Zeichen, Entwurf eines anderen Mitreisenden nicht ersetzbar,
 höchstens 900 kB, höchstens 3, nach 30 Tagen weg (`ttl` kann zusätzlich als Firestore-TTL-Feld eingerichtet werden).
 „Übernehmen“ in der App: `__checkTrip` → `__importTrip(o, true)` (bricht ab, wenn die Reise schon existiert; vorhandenes Schiff

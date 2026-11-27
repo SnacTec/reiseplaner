@@ -48,7 +48,11 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
   - Gemeinsame ToDos anlegen und abhaken.
   - Das Abendessen an einem Tag ausfallen lassen, auf eine andere Zeit legen oder wieder normal setzen.
   - Ausflüge wählen oder abwählen.
-- **Nie:** Reisen direkt anlegen (nur als Entwurf, siehe unten) oder löschen, Stationen/Zeiten, An-/Abreise, Unterkünfte, Dateien, private Listen.
+  - **Veranstalter-Ausflüge eintragen** (`ausfluege_anlegen`): bis zu 25 je Tag auf einmal, z. B. aus einem Screenshot des
+    Katalogs („Trag die Ausflüge von Tag 5 ein“). Gleicher Code = aktualisieren (Preis, Programm, empfohlen, ausverkauft).
+    Löschen (`ausflug_loeschen`) nur bei Ausflügen, die Claude angelegt hat. In der App mit 🤖, Rückgängig wie bei Einträgen.
+    Fotos kann Claude nicht weitergeben – die fügt ihr in der App beim Ausflug hinzu („📷 Foto hinzufügen ›“).
+- **Nie:** Reisen direkt anlegen (nur als Entwurf, siehe unten) oder löschen, Stationen/Zeiten, Tipps, An-/Abreise, Unterkünfte, Dateien, private Listen.
 - Orte sucht der Server selbst, nahe der Station. Auf See gehen nur Orte an Bord, an Land nur mit „an Bord: …“.
 - Gibt es eine Überschneidung, speichert Claude nichts und fragt nach.
 - **In der App:** Änderungen von Claude tragen ein 🤖. Unter Einstellungen → Konto → „Änderungen durch KI ›“ lässt sich
@@ -72,9 +76,9 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
 ## Nutzen
 Einfach fragen, z. B. „Was machen wir heute?“, „Plan für Tag 3“, „Wann geht morgen der Flug?“,
 „Welche Tipps gibt es für den nächsten Hafen?“, mit Eintragen auch „Trag an Tag 5 Schnorcheln von 10 bis 12 ein“.
-Lesende Werkzeuge: `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `tipps`, `aufgaben`, `reise_format`, `reise_pruefen`.
+Lesende Werkzeuge: `reisen`, `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `tipps`, `ausfluege`, `aufgaben`, `reise_format`, `reise_pruefen`.
 Eintragende: `eintrag_anlegen`, `eintrag_aendern`, `eintrag_loeschen`, `aufgabe_anlegen`, `aufgabe_erledigt`,
-`abendessen`, `ausflug_waehlen`, `letzte_aenderungen`, `reise_entwurf_speichern`.
+`abendessen`, `ausflug_waehlen`, `ausfluege_anlegen`, `ausflug_loeschen`, `letzte_aenderungen`, `reise_entwurf_speichern`.
 
 ## Welche Reise?
 - `reisen` listet alle Reisen (vergangen, laufend, geplant) mit Kennung.

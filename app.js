@@ -864,6 +864,9 @@ async function fbInit(){
     FBX.lp=(()=>{try{return localStorage.getItem('rp-fs-lp')==='1'}catch(e){return false}})();
     if(FBX.lp)try{FBX.db.settings({experimentalForceLongPolling:true,merge:true})}catch(e){}
     try{await FBX.db.enablePersistence({synchronizeTabs:true})}catch(e){}
+    // Stammdaten von anderer Stelle geändert (z. B. Claude trägt Ausflüge ein, Mitreisende bearbeitet) → Hinweis „Neu laden“
+    {let prevU=(window.__T.trip||{}).updated??null;FBX.real.collection('trips').doc(TRIP_ID).onSnapshot(s=>{if(!s.exists||s.metadata.hasPendingWrites)return;const u=s.data().updated??null;
+      if(u===prevU)return;prevU=u;if(Date.now()-(window.__ownSave||0)<20000)return;dispatchEvent(new CustomEvent('rp-trip-updated'))},()=>{})}
     FBX.db.collection('lists').limit(1).get().catch(e=>{if(e&&e.code==='permission-denied')gateShow('deny')});
     gateHide();
     return u;
@@ -924,7 +927,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='27.11. · R110';
+const APP_VER='27.11. · R111';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -957,12 +960,13 @@ document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.c
    Rückgängig setzt den Stand vor der Änderung über die normalen Speicherwege der App (Plan, Aufgaben, Ausflüge, Abendessen). */
 async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').orderBy('at','desc').limit(40).get();return s.docs.map(d=>({id:d.id,...d.data()}))}
 const kiWho=u=>{const m=MEMBERS.find(x=>x.id===u);return m?m.n:''};
-const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v']};
+const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v'],ex:['c','n','p','dur','lv','prog','note','rec','sold']};
 function kiProj(L,x){if(!x)return null;if(L.col==='dinner'){const d=+L.doc;return {s:(x.skip||[]).includes(d),o:(x.ov||{})[d]||null}}const o={};(KIK[L.col]||[]).forEach(k=>o[k]=x[k]??null);return o}
 function kiCur(L){
   if(L.col==='planitems'){for(const [d,a] of Object.entries(plan)){const it=(a||[]).find(x=>x.id===L.doc);if(it)return {...it,d:+d}}return null}
   if(L.col==='tasks')return TS.tasks.find(x=>x.id===L.doc)||null;
   if(L.col==='picks'){const k=(L.after||L.before||{}).k;return k in picks?{k,v:picks[k]}:null}
+  if(L.col==='ex'){const [d,c]=String(L.doc).split(/:(.*)/s),p=byDay(+d);return (p&&(p.ex||[]).find(x=>String(x.c)===c))||null}
   if(L.col==='dinner')return DIN;return null}
 function kiUndo(L){
   // Eintrag/Aufgabe nach Claudes Änderung in der App neu gespeichert (neue Kennung) → kein Rückgängig, sonst gäbe es ihn doppelt
@@ -974,10 +978,17 @@ function kiUndo(L){
     savePlan();renderPanel();renderDays();updatePills()}
   else if(L.col==='tasks'){if(B)tsPutTask({...B,id:L.doc});else tsDelTask(L.doc);renderPanel()}
   else if(L.col==='picks'){const k=(B||L.after).k;if(B)picks[k]=B.v;else delete picks[k];persistPicks();renderPanel();renderDays();updatePills()}
+  else if(L.col==='ex'){kiExUndo(L);return true}
   else if(L.col==='dinner'){const d=+L.doc;DIN.skip=(DIN.skip||[]).filter(x=>x!==d);if(B&&(B.skip||[]).includes(d))DIN.skip.push(d);DIN.ov={...(DIN.ov||{})};if(B&&B.ov&&B.ov[d])DIN.ov[d]=B.ov[d];else delete DIN.ov[d];dinSave(true);dinRefresh()}
   else return false;
   if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail);
   L.undone=true;return true}
+// Veranstalter-Ausflug (Stammdaten): Stand vor Claude wiederherstellen – in der Reise (tripSave) und sofort in der Anzeige
+async function kiExUndo(L){const [d,c]=String(L.doc).split(/:(.*)/s),B=L.before,put=ex=>{const i=ex.findIndex(x=>String(x.c)===c);if(B){if(i>=0)ex[i]=B;else ex.push(B)}else if(i>=0)ex.splice(i,1)};
+  const p=byDay(+d);if(p){p.ex=p.ex||[];put(p.ex)}
+  L.undone=true;renderPanel();renderDays();updatePills();
+  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===+d);if(q){q.ex=q.ex||[];put(q.ex)}});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000);return}
+  if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail)}
 function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen durch KI</h3></div><div id="kil"><p class="src">wird geladen …</p></div><p class="src" style="margin:10px 0 0">Was Claude über den Konnektor eingetragen oder geändert hat. Einträge im Plan sind mit 🤖 markiert.</p>',async d=>{
   const el=d.querySelector('#kil');let L=[];
   try{L=(await kiLogLoad()).slice().sort((a,b)=>(b.at-a.at)||((a.n||0)-(b.n||0))).slice(0,40)}catch(e){el.innerHTML='<p class="src">Gerade nicht abrufbar.</p>';return}
@@ -1656,15 +1667,35 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pinfo]');if(!b)return;e.stopPropagation();const [d,i]=b.dataset.pinfo.split('|');placeDlg(+d,+i)},true);
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const b=e.target.closest&&e.target.closest('[data-pinfo][role=button]');if(!b||e.target!==b)return;e.preventDefault();const [d,i]=b.dataset.pinfo.split('|');placeDlg(+d,+i)});
 /* Infobox Veranstalter-Ausflug */
+/* Fotos zu Veranstalter-Ausflügen: Firestore trips/<id>/photos/<Code> {c, d:"data:image/jpeg;base64,…"} (wie beim Import).
+   Nur echte Bild-Daten anzeigen (Schutz vor manipulierten Einträgen). In der App verkleinert (max. 1200 px, ≤ 700 kB). */
+const exPh=c=>{const x=D.photos[c];return typeof x==='string'&&/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(x)?x:''};
+async function exPhotoMake(file){const u=URL.createObjectURL(file);try{const im=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('Bild nicht lesbar'));i.src=u});
+  let w=im.naturalWidth,h=im.naturalHeight,f=Math.min(1,1200/Math.max(w,h));const cv=document.createElement('canvas');
+  for(let q=.82;;q-=.12){cv.width=Math.round(w*f);cv.height=Math.round(h*f);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);const d=cv.toDataURL('image/jpeg',Math.max(q,.4));
+    if(d.length<=700e3)return d;if(q<=.46){f*=.75;q=.82+.12}}}finally{URL.revokeObjectURL(u)}}
+async function exPhotoPut(code,data){if(data)D.photos[code]=data;else delete D.photos[code];
+  if(FBX.on&&FBX.db&&!window.__TEST_TRIP){const ref=FBX.db.collection('photos').doc(String(code).replace(/\//g,'_'));await (data?ref.set({c:code,d:data}):ref.delete());if(window.__dropCopy)window.__dropCopy(TRIP_ID)}
+  renderPanel();renderDays()}
+function exPhotoDlg(day,code){const ph=exPh(code);
+  openSheet(`<div class="hd"><h3 style="margin:0">Foto zum Ausflug ${esc(code)}</h3></div>
+  ${ph?`<img src="${ph}" alt="Foto zum Ausflug ${esc(code)}" style="margin:0 0 10px">`:'<p class="src" style="margin:0 0 8px">Noch kein Foto.</p>'}
+  <p class="src" style="margin:0 0 10px">Eigenes Foto oder ein Ausschnitt aus einem Screenshot. Es wird verkleinert und für alle Mitreisenden gespeichert.</p>
+  <input type="file" accept="image/*" id="exphf" hidden>
+  <div class="btns"><button class="chip btn" id="exphc">${ph?'Anderes Foto wählen':'Foto wählen'}</button>${ph?'<button class="chip del" id="exphd">Entfernen</button>':''}</div><p class="src" id="exphm" style="margin:6px 0 0"></p>`,d=>{
+    const fi=d.querySelector('#exphf'),m=d.querySelector('#exphm');d.querySelector('#exphc').onclick=()=>fi.click();
+    fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{m.textContent='Wird verkleinert …';const x=await exPhotoMake(f);m.textContent='Wird gespeichert …';await exPhotoPut(code,x);closeDlg();undoToast('Foto gespeichert.',null,2500)}catch(e){m.textContent='Fehler: '+(e.message||e)}};
+    const dl=d.querySelector('#exphd');if(dl)dl.onclick=async()=>{const old=D.photos[code];try{await exPhotoPut(code,null);closeDlg();undoToast('Foto entfernt.',()=>exPhotoPut(code,old))}catch(e){m.textContent='Fehler: '+(e.message||e)}}})}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-exph]');if(!b)return;e.stopPropagation();e.preventDefault();const c=b.dataset.exph,dy=+b.dataset.exday,was=!$('#ov').hidden;if(was)closeDlg();setTimeout(()=>exPhotoDlg(dy,c),was?90:0)},true);
 function exDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>x.c===code);if(!e)return;
-  const ph=D.photos[e.c],r=calc(p).rows.find(x=>x.tour&&x.e.c===code),pk=isPicked(p,e);
-  openSheet(`<div class="hd"><h3 style="margin:0"><span class="tcos">${esc(OP)}</span> ${esc(e.c)} · ${esc(e.n)}<small class="hds">Tag ${p.day} · ${esc(fmtDate(p.date))} · ${esc(p.name)}</small></h3></div>
+  const ph=exPh(e.c),r=calc(p).rows.find(x=>x.tour&&x.e.c===code),pk=isPicked(p,e);
+  openSheet(`<div class="hd"><h3 style="margin:0">${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}<span class="tcos">${esc(OP)}</span> ${esc(e.c)} · ${esc(e.n)}<small class="hds">Tag ${p.day} · ${esc(fmtDate(p.date))} · ${esc(p.name)}</small></h3></div>
   ${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}" loading="lazy" style="margin:0 0 10px">`:''}
   <div class="tags" style="margin:0 0 10px">${e.p?`<span class="tag" style="font-weight:700">${eur(e.p)} p. P. · ${eur(e.p*2)} für zwei</span>`:''}${e.dur?`<span class="tag">⏱ ${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div>
   ${r&&pk?`<p class="osmrow" style="display:block"><b>Im Tagesplan:</b> ${hm(r.a)}–${hm(r.b)} Uhr${p.kind==='port'?` · alle an Bord ${hm(portWin(p).off)} Uhr`:''}</p>`:''}
   ${e.prog?`<p style="margin:10px 0">${esc(e.prog)}</p>`:''}${e.note?`<p class="src" style="margin:0 0 10px">${esc(e.note)}</p>`:''}
   <p class="src" style="margin:0">Treffpunkt und genaue Zeiten stehen im Ticket bzw. Tagesprogramm an Bord.</p>
-  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button></div>
+  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button></div>
   ${e.p&&!e.sold?`<div class="btns bar"><button class="chip ${pk?'':'btn'}" id="expk">${pk?'Abwählen':'Einplanen'}</button></div>`:''}`,d=>{
     const k=d.querySelector('#expk');if(k)k.onclick=()=>{const u=picksSnap();setPick(p,e,!pk);closeDlg();renderPanel();renderDays();updatePills();if(sel===p.day&&pm(p))drawPort(p,true);undoToast(`Ausflug ${e.c} ${pk?'abgewählt':'eingeplant'}.`,u)};
     d.querySelector('#exday').onclick=()=>{closeDlg();setTimeout(()=>{select(p.day);setTab('ex');const i=p.ex.indexOf(e);setTimeout(()=>focusCard('ex',i),40)},60)}})}
@@ -2148,7 +2179,7 @@ function dayRemap(M){const g=d=>M[d]||null;
 async function tripLoadJson(){if(window.__TEST_TRIP)return {j:JSON.parse(JSON.stringify(window.__TEST_TRIP.data)),t:{...window.__TEST_TRIP.trip}};
   const ref=FBX.real.collection('trips').doc(TRIP_ID);let d=null;if(navigator.onLine!==false)d=await Promise.race([ref.get({source:'server'}),new Promise(r=>setTimeout(()=>r(null),6000))]).catch(()=>null);
   if(!d)d=await ref.get({source:'cache'});const x=d.data();return {j:JSON.parse(x.json||'{}'),t:x}}
-async function tripSave(mut){if(window.__TEST_TRIP){const o=window.__TEST_TRIP;mut(o.data,o.trip);window.__SAVED=o;return}
+async function tripSave(mut){window.__ownSave=Date.now();if(window.__TEST_TRIP){const o=window.__TEST_TRIP;mut(o.data,o.trip);window.__SAVED=o;return}
   const ref=FBX.real.collection('trips').doc(TRIP_ID);
   if(navigator.onLine!==false){try{await Promise.race([FBX.real.runTransaction(async tx=>{const d=await tx.get(ref);const j=JSON.parse(d.data().json||'{}'),u={};mut(j,u);u.json=JSON.stringify(j);u.updated=Date.now();tx.update(ref,u)}),
     new Promise((_,no)=>setTimeout(()=>no(new Error('offline')),8000))]);return 'ok'}catch(e){if(e.message!=='offline'&&navigator.onLine!==false&&e.code!=='unavailable')throw e}}
@@ -2280,7 +2311,7 @@ function closeDlg(){const was=!$('#ov').hidden;const ret=dlgReturn;dlgReturn=nul
 function openDlg(day,code){
   const p=byDay(day),e=(p.ex||[]).find(x=>x.c===code);if(!e)return;
   lastFocus=document.activeElement;
-  const ph=D.photos[e.c];
+  const ph=exPh(e.c);
   $('#dlg').innerHTML=`<div class="hd"><div style="min-width:0"><div class="eyebrow">Tag ${p.day} · ${fmtDate(p.date,1)}</div><div style="font-size:13px;color:var(--muted)">${esc(p.name)}, ${esc(p.land||'')}</div><h3 id="dt">${esc(e.c)} · ${esc(e.n)}</h3></div><button class="x" id="dx" aria-label="Schließen">✕</button></div>
   ${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}">`:''}
   <div class="tags" style="margin-top:10px">${e.dur?`<span class="tag">${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}<span class="tag">${eur(e.p)} p. P. · ${eur(e.p*2)} für zwei</span><span class="tag">Liegezeit ${esc(p.times)}</span></div>
@@ -2346,11 +2377,12 @@ function portPanel(p){
   const exTab=()=>{
     if(!p.ex||!p.ex.length)return '<p class="empty">Keine '+esc(OP)+'-Ausflüge in den Unterlagen.</p>';
     return `<p class="src">Preise pro Person. Haken setzen, was ihr einplant.</p>`+p.ex.map((e,i)=>{
-      const ph=D.photos[e.c];
+      const ph=exPh(e.c);
       return `<div class="card" id="ex${i}" data-code="${esc(e.c)}">${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}" loading="lazy">`:''}
-      <div class="row"><div style="min-width:0"><h4>${esc(e.c)} · ${esc(e.n)}</h4><div class="tags">${e.dur?`<span class="tag">${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div></div><div class="price">${e.p?eur(e.p):(e.sold?'–':'')}</div></div>
+      <div class="row"><div style="min-width:0"><h4>${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${esc(e.c)} · ${esc(e.n)}</h4><div class="tags">${e.dur?`<span class="tag">${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div></div><div class="price">${e.p?eur(e.p):(e.sold?'–':'')}</div></div>
       <p>${esc(e.prog)}</p>${e.note?`<p class="src">${esc(e.note)}</p>`:''}
-      ${e.p&&!e.sold?`<label class="pick"><input type="checkbox" data-pick="${i}" ${isPicked(p,e)?'checked':''}> Einplanen (${eur(e.p)} p. P.)</label>`:''}</div>`}).join('');
+      ${e.p&&!e.sold?`<label class="pick"><input type="checkbox" data-pick="${i}" ${isPicked(p,e)?'checked':''}> Einplanen (${eur(e.p)} p. P.)</label>`:''}
+      <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button></div></div>`}).join('');
   };
   const plTab=()=>plannerHTML(p);
   const faTab=()=>{

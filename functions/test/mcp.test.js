@@ -109,7 +109,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
     const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
-    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'reisen', 'suchen', 'tag_plan', 'tipps']);
+    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'ausfluege', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'reisen', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
     const r = await client.callTool({ name: 'tag_plan', arguments: { wann: 'heute' } }); const txt = r.content[0].text;
     assert.match(txt, /Tag 2/); assert.match(txt, /Café am Hafen/); assert.match(txt, /Abendessen/); assert.match(txt, /Zurück an Bord ca\./);
@@ -504,6 +504,44 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   await test('reisen: Wortwahl – „Hafen“ nur bei Kreuzfahrt, Roadtrip-Tage ohne Zusatz', async () => {
     const a = (await W(RT.access_token, 'tag_plan', { reise: rid, tag: 1 })).t, b = (await W(RT.access_token, 'reise_info', { reise: rid })).t, c = (await W(RT.access_token, 'tag_plan', { tag: 2 })).t;
     assert.ok(!/Hafen/.test(a) && !/Hafen/.test(b), 'Roadtrip: ' + a.split('\n')[2]); assert.match(c, /\(Hafen\)/);
+  });
+  /* ---------- Veranstalter-Ausflüge eintragen ---------- */
+  const exOf = d => JSON.parse(S.D.get('trips/' + id).json).ports.find(p => p.day === d).ex || [];
+  await test('ausflüge: lesen mit allen Angaben (ein Tag, alle Tage)', async () => {
+    const a = (await W(RT.access_token, 'ausfluege', { tag: 2 })).t; assert.match(a, /B12 „[^“]+“ · 39 € p\. P\. · 3,5 Std\./); assert.match(a, /Programm: /);
+    const b = (await W(RT.access_token, 'ausfluege', {})).t; assert.match(b, /alle Tage mit Ausflügen/); assert.match(b, /Tag 2/); assert.ok(!/Tag 3/.test(b), 'Seetag ohne Ausflüge nicht listen');
+  });
+  await test('ausflüge: anlegen und aktualisieren (Liste), Kennzeichen, Protokoll, Stammdaten sonst unverändert', async () => {
+    const t0 = S.D.get('trips/' + id), j0 = JSON.parse(t0.json), lg0 = docs('kilog').length;
+    const r0 = await (await rpc(RT.access_token, 'tools/call', { name: 'ausfluege_anlegen', arguments: { tag: 4, ausfluege: [{ code: 'X1', name: 'X' }] } })).json(); assert.ok(r0.error, 'Lese-Token darf nicht');
+    const r = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [
+      { code: 'C40', name: 'Inselrundfahrt (erfunden)', preis: 49, dauer_std: 4.5, stufe: 'leicht', programm: 'Busfahrt\nmit Fotostopp', empfohlen: true },
+      { code: 'C41', name: 'Kajak (erfunden)', preis: 59.5, dauer_std: 3, ausverkauft: true }] });
+    assert.ok(!r.err, r.t); assert.match(r.t, /C40 „Inselrundfahrt \(erfunden\)“ neu · 49 € p\. P\. · 4,5 Std\. · empfohlen/); assert.match(r.t, /C41 .* ausverkauft/);
+    const ex = exOf(4); assert.equal(ex.length, 2); assert.deepEqual({ ...ex[0], ki: 0 }, { c: 'C40', n: 'Inselrundfahrt (erfunden)', p: 49, dur: '4,5 Std.', lv: 'leicht', prog: 'Busfahrt\nmit Fotostopp', rec: 1, ki: 0 }); assert.equal(ex[0].ki.neu, 1);
+    // bestehenden Ausflug ändern (Preis, ausverkauft) – Rest bleibt, Kennzeichen „geändert“
+    const u = await W(WT.access_token, 'ausfluege_anlegen', { tag: 2, ausfluege: [{ code: 'B12', preis: 45, ausverkauft: true }, { code: 'B20' }] });
+    assert.match(u.t, /B12 .* aktualisiert · 45 €/); assert.match(u.t, /B20 .* unverändert/);
+    const b12 = exOf(2).find(e => e.c === 'B12'), o12 = j0.ports[1].ex.find(e => e.c === 'B12'); assert.equal(b12.p, 45); assert.equal(b12.sold, 1); assert.equal(b12.prog, o12.prog); assert.equal(b12.ki.neu, 0); assert.ok(!exOf(2).find(e => e.c === 'B20').ki);
+    const L = docs('kilog').slice(lg0); assert.equal(L.length, 3); assert.ok(L.every(x => x.col === 'ex')); assert.deepEqual(L.find(x => x.doc === '2:B12').before, o12);
+    const t1 = S.D.get('trips/' + id), j1 = JSON.parse(t1.json); assert.equal(t1.title, t0.title); assert.ok(t1.updated > 0);
+    assert.deepEqual(j1.ports.map(p => ({ ...p, ex: 0 })), j0.ports.map(p => ({ ...p, ex: 0 })), 'sonst nichts geändert'); assert.deepEqual(Object.keys(j1).sort(), Object.keys(j0).sort());
+    assert.match((await W(RT.access_token, 'tag_plan', { tag: 4 })).t, /C40/); assert.match((await W(RT.access_token, 'ausfluege', { tag: 4 })).t, /von Claude angelegt/);
+  });
+  await test('ausflüge: Prüfungen – Seetag, Name fehlt, doppelt, Code, Preis, Listenlänge, Löschen nur eigene', async () => {
+    const E = async (a, re) => { const r = await W(WT.access_token, 'ausfluege_anlegen', a); assert.ok(r.err, JSON.stringify(a)); if (re) assert.match(r.t, re); };
+    await E({ tag: 3, ausfluege: [{ code: 'S1', name: 'x' }] }, /Seetag/);
+    await E({ tag: 4, ausfluege: [{ code: 'NEU9' }] }, /Name fehlt/);
+    await E({ tag: 4, ausfluege: [{ code: 'D1', name: 'a' }, { code: 'D1', name: 'b' }] }, /doppelt/);
+    await E({ tag: 4, ausfluege: [{ code: '<b>', name: 'a' }] }, /Ungültiger Code/);
+    await E({ tag: 4, ausfluege: [{ code: 'P1', name: 'a', preis: -1 }] }, /Ungültig: preis/);
+    await E({ tag: 4, ausfluege: [{ code: 'P1', name: 'a', boese: 1 }] }, /Unbekanntes Feld: boese/);
+    await E({ tag: 4, ausfluege: Array.from({ length: 26 }, (_, i) => ({ code: 'L' + i, name: 'x' })) }, /1–25/);
+    await E({ tag: 4, ausfluege: [] });
+    assert.equal(exOf(4).length, 2, 'nichts gespeichert');
+    const d1 = await W(WT.access_token, 'ausflug_loeschen', { tag: 2, code: 'B20' }); assert.ok(d1.err); assert.match(d1.t, /nur bei Ausflügen, die Claude selbst angelegt/);
+    const d2 = await W(WT.access_token, 'ausflug_loeschen', { tag: 4, code: 'C41' }); assert.ok(!d2.err, d2.t); assert.deepEqual(exOf(4).map(e => e.c), ['C40']);
+    assert.equal(docs('kilog').filter(x => x.tool === 'ausflug_loeschen').pop().before.c, 'C41');
   });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
     const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;

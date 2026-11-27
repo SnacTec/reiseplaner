@@ -5,7 +5,7 @@
 const path = require('path');
 const RPDP = require(path.join(__dirname, '..', 'dayplan.js'));
 const { clean } = require('./util');
-const { writer, recent } = require('./write');
+const { writer, recent, exWriter } = require('./write');
 const DR = require('./draft');
 
 const TYPE = { sight: 'Sehenswürdigkeit', beach: 'Strand', nature: 'Natur', factory: 'Manufaktur/Fabrik', town: 'Ort/Stadt' };
@@ -141,6 +141,17 @@ function tipps(v, X, a) {
   return HEAD + `Tipps für Tag ${p.day} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : '- Keine Tipps hinterlegt.') + (planned.size ? `\n(${planned.size} davon im Tagesplan)` : '');
 }
 
+// Veranstalter-Ausflüge eines Tages (oder aller Tage) mit allen Angaben
+function ausfluege(v, X, a) {
+  const all = !(a && (a.tag != null || a.datum || a.wann)), P = all ? v.ports.filter(p => (p.ex || []).length) : [pickDay(v, X, a)];
+  if (!all && P[0] == null) return HEAD + noDay(v, a);
+  const one = e => { const p = e[0], x = e[1], pk = v.picks[X.dp.pickKey(p.day, x.c)];
+    return `- ${clean(x.c, 12)} „${clean(x.n, 80)}“` + [x.p != null && x.p !== '' ? clean(x.p, 10) + ' € p. P.' : '', x.dur ? clean(x.dur, 20) : '', x.lv ? clean(x.lv, 30) : '', x.rec ? 'empfohlen' : '', x.sold ? 'ausverkauft' : '', pk ? 'gewählt' : '', x.ki ? (x.ki.neu ? 'von Claude angelegt' : 'von Claude geändert') : ''].filter(Boolean).map(s => ' · ' + s).join('') +
+      (x.prog ? `\n  Programm: ${clean(x.prog, 600)}` : '') + (x.note ? `\n  Hinweis: ${clean(x.note, 300)}` : ''); };
+  const out = P.map(p => { const L = (p.ex || []).map(x => one([p, x])); return `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : `- Keine ${X.op}-Ausflüge hinterlegt.`); });
+  return HEAD + `${X.op}-Ausflüge${all ? ' (alle Tage mit Ausflügen)' : ''}:\n` + (out.length ? out.join('\n\n') : `Noch keine ${X.op}-Ausflüge hinterlegt.`);
+}
+
 const DAY = { type: 'object', additionalProperties: false, properties: {
   tag: { type: 'integer', minimum: 1, maximum: 400, description: 'Nummer des Reisetags (Tag 1 = erster Tag)' },
   datum: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Datum JJJJ-MM-TT' },
@@ -152,6 +163,7 @@ const TOOLS = [
   { name: 'an_abreise', title: 'An- und Abreise', description: 'An- oder Abreise mit allen Teilstrecken in Ortszeit, Dauer, Umstiegen und Zeitumstellung.', inputSchema: { type: 'object', additionalProperties: false, properties: { richtung: { type: 'string', enum: ['hin', 'zurueck'] } }, required: ['richtung'] }, run: anAb },
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
+  { name: 'ausfluege', title: 'Veranstalter-Ausflüge', max: 40000, description: 'Veranstalter-Ausflüge mit allen Angaben (Code, Preis, Dauer, Schwierigkeit, Programm, Hinweise, empfohlen, ausverkauft, gewählt). Mit tag/datum/wann für einen Tag, ohne Angabe alle Tage.', inputSchema: DAY, run: ausfluege },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
   { name: 'reisen', title: 'Alle Reisen', noload: true, description: 'Liste aller Reisen (vergangen, laufend, geplant) mit Kennung. Die anderen Werkzeuge nehmen ohne Angabe die laufende bzw. nächste Reise; eine andere mit reise = Kennung oder Titel.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X, a, w) => reisenList(w) },
@@ -209,6 +221,15 @@ function WRITE_TOOLS() {
       ['tag', 'aktion'], (v, X, a, w) => writer(w).abendessen(a), { destructiveHint: false, idempotentHint: true }),
     W('ausflug_waehlen', 'Ausflug wählen', 'Markiert einen Veranstalter-Ausflug (Code aus tag_plan/suchen) als gewählt oder nicht gewählt.',
       { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }), gewaehlt: { type: 'boolean' } }, ['tag', 'code', 'gewaehlt'], (v, X, a, w) => writer(w).ausflug_waehlen(a), { destructiveHint: false, idempotentHint: true }),
+    W('ausfluege_anlegen', 'Ausflüge eintragen', 'Trägt Veranstalter-Ausflüge eines Tages ein (z. B. aus einem Screenshot des Katalogs): bis zu 25 auf einmal. Gibt es den Code an dem Tag schon, wird der Ausflug mit den angegebenen Feldern aktualisiert. Nur Angaben aus den Unterlagen übernehmen, nichts erfinden; Unklares weglassen.',
+      { tag: I('Reisetag', 1, 400), ausfluege: { type: 'array', minItems: 1, maxItems: 25, description: 'Liste der Ausflüge', items: { type: 'object', additionalProperties: false, required: ['code'], properties: {
+        code: S('Ausflugs-Code aus dem Katalog, z. B. „B12“ (eindeutig je Tag)', { minLength: 1, maxLength: 12 }), name: S('Name (Pflicht bei neuen Ausflügen)', { maxLength: 80 }),
+        preis: { type: 'number', minimum: 0, maximum: 5000, description: 'Preis pro Person in Euro' }, dauer_std: { type: 'number', minimum: 0.25, maximum: 24, description: 'Dauer in Stunden, z. B. 4.5' },
+        stufe: S('Schwierigkeit, z. B. „leicht“, „mittel“, „anspruchsvoll“', { maxLength: 30 }), programm: S('Programm in eigenen Worten (max. 600 Zeichen)', { maxLength: 1200 }),
+        hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 300 Zeichen)', { maxLength: 600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' } } } } },
+      ['tag', 'ausfluege'], (v, X, a, w) => exWriter(w).ausfluege_anlegen(a), { destructiveHint: true, idempotentHint: true }),
+    W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug, den Claude selbst angelegt hat (andere bitte in der App bearbeiten).',
+      { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }) }, ['tag', 'code'], (v, X, a, w) => exWriter(w).ausflug_loeschen(a), { destructiveHint: true, idempotentHint: true }),
     W('letzte_aenderungen', 'Letzte Änderungen', 'Zeigt, was Claude zuletzt in dieser Reise eingetragen oder geändert hat.',
       {}, [], (v, X, a, w) => recent(w.S, w.trip, w.uid), { readOnlyHint: true }),
   ];
@@ -222,6 +243,9 @@ function checkArgs(t, a) {
   for (const [k, s] of Object.entries(pr)) { const x = a[k]; if (x == null) continue;
     if (s.type === 'boolean' && typeof x !== 'boolean') return 'Ungültig: ' + k;
     if (s.type === 'object' && (typeof x !== 'object' || Array.isArray(x))) return 'Ungültig: ' + k + ' (JSON-Objekt erwartet)';
+    if (s.type === 'array' && (!Array.isArray(x) || x.length < (s.minItems || 0) || x.length > (s.maxItems || 1e9))) return 'Ungültig: ' + k + (s.maxItems ? ` (Liste mit 1–${s.maxItems} Einträgen)` : '');
+    if (s.type === 'array' && s.items && s.items.properties) for (const it of x) { if (!it || typeof it !== 'object' || Array.isArray(it)) return 'Ungültig: ' + k; const e = checkArgs({ inputSchema: s.items }, it); if (e) return e + ' (in ' + k + ')'; }
+    if (s.type === 'number' && !(typeof x === 'number' && isFinite(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;
     if (s.type === 'integer' && !(Number.isInteger(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;
     if (s.type === 'string' && (typeof x !== 'string' || (s.enum && !s.enum.includes(x)) || (s.pattern && !new RegExp(s.pattern).test(x)) || (s.maxLength && x.length > s.maxLength) || (s.minLength && x.length < s.minLength))) return 'Ungültig: ' + k; }
   return null;

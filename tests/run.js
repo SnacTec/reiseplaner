@@ -198,6 +198,38 @@ test('reisen: Auswahl beim ersten Start, Öffnen und Bearbeiten bei jeder Reise'
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('ausflüge: 🤖 von Claude, Rückgängig, Foto hinzufügen/entfernen, nur echte Bilddaten', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt');
+  const ex2 = t.data.ports[1].ex; ex2[0] = { ...ex2[0], p: 45, ki: { uid: 'u1', at: 1, neu: 0 } };   // von Claude geändert
+  t.data.ports[3].ex = [{ c: 'C40', n: 'Inselrundfahrt (erfunden)', p: 49, dur: '4,5 Std.', ki: { uid: 'u1', at: 1, neu: 1 } }];   // von Claude angelegt
+  t.photos = { B20: 'data:image/png;base64,AAAA" onerror="window.__xss=1' };   // manipuliert → nicht anzeigen
+  const p = await H.open(c, base, t, '#tag-2');
+  await p.evaluate(() => { select(2); setTab('ex'); }); await p.waitForTimeout(400);
+  const a = await p.evaluate(() => ({ kim: document.querySelectorAll('#ex0 .kim').length, kim1: document.querySelectorAll('#ex1 .kim').length, img: document.querySelectorAll('#ex1 img').length, ph: document.querySelectorAll('[data-exph]').length }));
+  ok(a.kim === 1 && a.kim1 === 0, '🤖 falsch: ' + JSON.stringify(a)); ok(a.img === 0 && !(await p.evaluate(() => window.__xss)), 'manipuliertes Foto angezeigt'); ok(a.ph === 2, 'Foto-Links fehlen');
+  // Rückgängig: geänderter Ausflug → alter Preis, angelegter → weg; gespeichert über tripSave
+  const o = t.data.ports[1].ex[0];
+  const r = await p.evaluate(o => { window.confirm = () => true; const b = { ...o }; delete b.ki; b.p = 39;
+    const u1 = kiUndo({ id: 'k1', col: 'ex', doc: '2:' + o.c, before: b, after: { ...o } }), u2 = kiUndo({ id: 'k2', col: 'ex', doc: '4:C40', before: null, after: { c: 'C40', n: 'Inselrundfahrt (erfunden)', p: 49, dur: '4,5 Std.' } });
+    return { u1, u2 }; }, o); await p.waitForTimeout(400);
+  const s = await p.evaluate(c => ({ p: byDay(2).ex.find(x => x.c === c).p, ki: !!byDay(2).ex.find(x => x.c === c).ki, c40: (byDay(4).ex || []).length, saved: window.__SAVED && window.__SAVED.data.ports[1].ex.find(x => x.c === c).p, saved4: (window.__SAVED.data.ports[3].ex || []).length }), o.c);
+  ok(r.u1 && r.u2 && s.p === 39 && !s.ki && s.c40 === 0 && s.saved === 39 && s.saved4 === 0, 'Rückgängig: ' + JSON.stringify(s));
+  // Foto hinzufügen (Datei wählen → verkleinert als JPEG), dann entfernen mit Rückgängig
+  await p.evaluate(() => { select(2); setTab('ex'); }); await p.waitForTimeout(300);
+  await p.click('#ex1 [data-exph]'); await p.waitForTimeout(300);
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+  await p.setInputFiles('#exphf', { name: 'bild.png', mimeType: 'image/png', buffer: png }); await p.waitForTimeout(800);
+  const f = await p.evaluate(c => ({ d: (D.photos[c] || '').slice(0, 23), img: document.querySelectorAll('#ex1 img').length, lnk: document.querySelector('#ex1 [data-exph]').textContent }), ex2[1].c);
+  ok(f.d === 'data:image/jpeg;base64,' && f.img === 1 && /ändern/.test(f.lnk), 'Foto nicht gespeichert: ' + JSON.stringify(f));
+  await p.click('#ex1 [data-exph]'); await p.waitForTimeout(300); await p.click('#exphd'); await p.waitForTimeout(300);
+  ok(!(await p.evaluate(c => c in D.photos, ex2[1].c)), 'Foto nicht entfernt');
+  await p.click('#toast .tundo'); await p.waitForTimeout(300); ok(await p.evaluate(c => /^data:image\/jpeg/.test(D.photos[c] || ''), ex2[1].c), 'Rückgängig Foto');
+  // auch im Ausflugs-Fenster: 🤖 und Foto-Link
+  await p.evaluate(c => { closeDlg(); exDlg(2, c); }, o.c); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => !!document.querySelector('#dlg [data-exph]')), 'Foto-Link im Fenster fehlt');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

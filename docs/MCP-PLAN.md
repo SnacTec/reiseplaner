@@ -404,6 +404,20 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   mit Angabe bzw. für `reisen` immer frisch.
 - Neue Reise ohne alten Tagesplan gilt als `planV2`; das erste Eintragen setzt `plandays/meta.planV2` wie die App.
 
+### 9.10 Veranstalter-Ausflüge über den Konnektor (27.11.2026, Nutzerwunsch)
+- Ausnahme von „keine Stammdaten“ (9.1), **nur** die Liste `ports[Tag].ex` der Reise: `ausfluege` (lesen, alle Angaben),
+  `ausfluege_anlegen` (Tag + Liste bis 25, gleicher Code = aktualisieren, auch `rec`/`sold`), `ausflug_loeschen` (nur `ki.neu`).
+- Schreibweg: Transaktion auf `trips/<id>` (json parsen, nur `ex` des Tages ändern, `updated` setzen), wie `tripSave` in der App;
+  je Ausflug Protokoll `kilog` (col `ex`, doc `<Tag>:<Code>`, before/after), Kennzeichen `ki` am Ausflug.
+  Feste Felder: Code `[A-Za-z0-9._/-]{1,12}`, Name ≤ 80, Preis 0–5000, Dauer 0,25–24 Std. → „4,5 Std.“, Programm ≤ 600, Hinweis ≤ 300.
+  Seetage abgelehnt, Liste zählt als eine Änderung fürs Ratenlimit.
+- App: 🤖 an Ausflügen, Rückgängig (`kiExUndo` über `tripSave`), Hinweis „Reisedaten wurden aktualisiert – Neu laden“
+  per Listener auf `trips/<id>` (eigene Speicherungen ausgenommen).
+- **Fotos** nicht über den Konnektor (Claude kann Bilddateien nicht weiterreichen; Bildadressen laden wäre Rechte- und
+  Sicherheitsrisiko). Stattdessen in der App „📷 Foto hinzufügen ›“ (`exPhotoDlg`): verkleinert auf ≤ 1200 px / ≤ 700 kB,
+  gespeichert wie beim Import in `trips/<id>/photos/<Code>` (Firestore); Anzeige nur echter `data:image/…;base64`-Daten (`exPh`).
+- **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
+
 ### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2
 - **Umgesetzt (Schritt 1):** `config/app.activeTrip` wird nirgends mehr gelesen oder geschrieben.
   - App: erster Start zeigt alle Reisen zur Auswahl (`showPick` im Lader); jede Reise hat „Öffnen ›“ und „Bearbeiten ›“
