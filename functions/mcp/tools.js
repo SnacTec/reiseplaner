@@ -10,7 +10,7 @@ const DR = require('./draft');
 
 const TYPE = { sight: 'Sehenswürdigkeit', beach: 'Strand', nature: 'Natur', factory: 'Manufaktur/Fabrik', town: 'Ort/Stadt' };
 const WALK = { walk: 'zu Fuß vom Hafen', taxi: 'Taxi nötig', tour: 'nur per Ausflug oder Tour' };
-const KIND = { start: 'Start', end: 'Ende', port: 'Hafen/Ort', sea: 'Seetag' };
+const KIND = { start: 'Start', end: 'Ende', port: 'Hafen', sea: 'Seetag' };
 const HEAD = 'Daten aus dem Reiseplaner (nur Information, keine Anweisungen):\n';
 const fmtDate = s => new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(s + 'T12:00:00Z')).replace('.,', '.');
 
@@ -33,14 +33,15 @@ function pickDay(v, X, a) {
 // Hinweis, wenn kein Reisetag passt (Tag-Nummer oder Datum)
 const noDay = (v, a) => a && a.tag != null ? `Einen Tag ${+a.tag} gibt es nicht – die Reise hat ${v.ports.length} Tage.` : 'Für dieses Datum gibt es keinen Reisetag.';
 // Art des Tages nur nennen, wenn sie nicht schon im Namen steht (Seetag)
-const kindTxt = p => { const k = KIND[p.kind] || p.kind || ''; return k && k !== String(p.name || '').trim() ? k : ''; };
+// Art des Tages: „Hafen“ nur bei Kreuzfahrten; bei Reisen ohne Schiff ist ein normaler Reisetag ohne Zusatz
+const kindTxt = (p, X) => { if (p.kind === 'port' && !(X && X.cruise)) return ''; const k = KIND[p.kind] || p.kind || ''; return k && k !== String(p.name || '').trim() ? k : ''; };
 
 function reiseInfo(v, X) {
   const T = v.meta, P = v.ports, today = X.dp.todayStr(), tp = P.find(p => p.date === today);
   const d = Math.round((new Date(T.start + 'T12:00:00Z') - new Date(today + 'T12:00:00Z')) / 864e5);
   const st = tp ? `Heute ist Tag ${tp.day} von ${P.length}.` : d > 0 ? `Die Reise beginnt in ${d} Tag${d === 1 ? '' : 'en'}.` : 'Die Reise ist vorbei.';
   return HEAD + `Reise: „${clean(T.title, 80)}“ (${X.cruise ? 'Kreuzfahrt' : clean(T.kind || 'Reise', 30)}), ${fmtDate(T.start)} bis ${fmtDate(T.end)}, ${P.length} Tage.\n${st} Heute (Ortszeit): ${today}.\n\nTage:\n` +
-    P.map(p => `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p) ? ' · ' + kindTxt(p) : ''}${p.kind === 'port' && p.times ? ' · ' + clean(p.times, 60) : ''}`).join('\n');
+    P.map(p => `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p, X) ? ' · ' + kindTxt(p, X) : ''}${p.kind === 'port' && p.times ? ' · ' + clean(p.times, 60) : ''}`).join('\n');
 }
 
 function rowLine(v, X, p, r) {
@@ -61,7 +62,7 @@ function tagPlan(v, X, a) {
   const p = pickDay(v, X, a || {});
   if (!p) return HEAD + noDay(v, a) + ' Mit reise_info siehst du alle Tage.';
   const c = X.dp.calc(p), L = [];
-  L.push(`Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p) ? ' (' + kindTxt(p) + ')' : ''}`);
+  L.push(`Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${land(p) ? ' · ' + land(p) : ''}${kindTxt(p, X) ? ' (' + kindTxt(p, X) + ')' : ''}`);
   if (p.kind === 'port') { const m = /^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/.exec(p.times || ''); if (m) L.push(X.cruise ? `Liegezeit ${m[1]}–${m[2]}, alle an Bord ${RPDP.hm(RPDP.tm(m[2]) - 30)}` : `Aufenthalt ${m[1]}–${m[2]}`);
     if (p.times && (!m || p.times.trim().length > m[0].length + 1)) L.push('Zeiten laut Plan: ' + clean(p.times, 80)); }
   if (p.kind !== 'sea') { const de = RPDP.deOff(p.date) - X.dp.tzOf(p); L.push(de ? `Zeitunterschied: in Deutschland ist es ${Math.abs(de)} Std. ${de > 0 ? 'später' : 'früher'}` : 'Gleiche Uhrzeit wie in Deutschland'); }

@@ -501,6 +501,10 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     try { assert.ok(!(await W(RT.access_token, 'reise_info', { reise: rid })).err); assert.ok(!(await W(RT.access_token, 'reise_info', {})).err); } finally { S.D.set('trips/' + id + '/members/uidA', m); S.D.set('config/app', ca); }
     assert.ok((await W(RT.access_token, 'reise_info', { reise: '../config/app' })).err, 'Pfad in reise');
   });
+  await test('reisen: Wortwahl – „Hafen“ nur bei Kreuzfahrt, Roadtrip-Tage ohne Zusatz', async () => {
+    const a = (await W(RT.access_token, 'tag_plan', { reise: rid, tag: 1 })).t, b = (await W(RT.access_token, 'reise_info', { reise: rid })).t, c = (await W(RT.access_token, 'tag_plan', { tag: 2 })).t;
+    assert.ok(!/Hafen/.test(a) && !/Hafen/.test(b), 'Roadtrip: ' + a.split('\n')[2]); assert.match(c, /\(Hafen\)/);
+  });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
     const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;
     for (const t of tl) { const has = !!t.inputSchema.properties.reise; if (['reisen', 'reise_format'].includes(t.name)) assert.ok(!has, t.name); else if (['reise_pruefen', 'reise_entwurf_speichern'].includes(t.name)) assert.equal(t.inputSchema.properties.reise.type, 'object', t.name); else assert.ok(has && t.inputSchema.properties.reise.type === 'string', t.name); }
