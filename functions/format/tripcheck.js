@@ -100,6 +100,14 @@
         if (!e.n) err(`${X}: "n" (Name) fehlt.`);
         if (e.p != null && !isNum(e.p)) err(`${X}: "p" (Preis pro Person) muss eine Zahl sein.`);
         if (e.dur && !/\d+(?:[.,]\d+)?\s*Std/.test(e.dur)) warn(`${X}: "dur" sollte wie „4,5 Std.“ aussehen (sonst rechnet die App mit 4 Std.).`);
+        if (e.orte != null) {
+          if (!Array.isArray(e.orte) || e.orte.length > 20) err(`${X}: "orte" muss eine Liste mit höchstens 20 Orten sein.`);
+          else e.orte.forEach((o, k) => {
+            if (!o || typeof o.n !== 'string' || !o.n.trim() || o.n.length > 80) return err(`${X}, Ort ${k + 1}: "n" (Name, max. 80 Zeichen) fehlt.`);
+            if (!isNum(o.lat) || !isNum(o.lon) || Math.abs(o.lat) > 90 || Math.abs(o.lon) > 180) return err(`${X}, Ort „${o.n}“: "lat"/"lon" fehlen oder sind ungültig.`);
+            if (isNum(p.lat) && isNum(p.lon) && km(p.lat, p.lon, o.lat, o.lon) > 300) warn(`${X}, Ort „${o.n}“ liegt über 300 km vom ${p.name || 'Hafen'} entfernt – Koordinaten prüfen.`);
+          });
+        }
       });
       (p.recCodes || []).forEach(c => { if (!codes.has(c)) warn(`${L}: recCodes enthält ${c}, den es in "ex" nicht gibt.`); });
       (p.pois || []).forEach(q => { if (q && q.ex && !codes.has(q.ex)) warn(`${L}: Tipp „${q.n}“ verweist auf Ausflug ${q.ex}, den es nicht gibt.`); });

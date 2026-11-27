@@ -416,6 +416,9 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 - **Fotos** nicht über den Konnektor (Claude kann Bilddateien nicht weiterreichen; Bildadressen laden wäre Rechte- und
   Sicherheitsrisiko). Stattdessen in der App „📷 Foto hinzufügen ›“ (`exPhotoDlg`): verkleinert auf ≤ 1200 px / ≤ 700 kB,
   gespeichert wie beim Import in `trips/<id>/photos/<Code>` (Firestore); Anzeige nur echter `data:image/…;base64`-Daten (`exPh`).
+- **Orte je Ausflug** (`ex[].orte = [{n,lat,lon}]`, auch in der Import-Datei, `tripcheck.js` prüft): Konnektor nur Suchtexte
+  (Photon nahe Hafen, ≤ 200 km), App: Links unter dem Programm und im Programmtext (`exOrteHTML`, `exProgHTML`), Antippen →
+  online Google Maps, offline eigene Karte mit Pin (`MAPMARK`) und Hinweis; „📍 Orte ›“ zum Hinzufügen/Entfernen (`exOrteDlg`).
 - **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
 
 ### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2

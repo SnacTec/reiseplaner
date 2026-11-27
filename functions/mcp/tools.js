@@ -147,7 +147,7 @@ function ausfluege(v, X, a) {
   if (!all && P[0] == null) return HEAD + noDay(v, a);
   const one = e => { const p = e[0], x = e[1], pk = v.picks[X.dp.pickKey(p.day, x.c)];
     return `- ${clean(x.c, 12)} „${clean(x.n, 80)}“` + [x.p != null && x.p !== '' ? clean(x.p, 10) + ' € p. P.' : '', x.dur ? clean(x.dur, 20) : '', x.lv ? clean(x.lv, 30) : '', x.rec ? 'empfohlen' : '', x.sold ? 'ausverkauft' : '', pk ? 'gewählt' : '', x.ki ? (x.ki.neu ? 'von Claude angelegt' : 'von Claude geändert') : ''].filter(Boolean).map(s => ' · ' + s).join('') +
-      (x.prog ? `\n  Programm: ${clean(x.prog, 600)}` : '') + (x.note ? `\n  Hinweis: ${clean(x.note, 300)}` : ''); };
+      (Array.isArray(x.orte) && x.orte.length ? `\n  Orte: ${x.orte.map(o => clean(o && o.n, 60)).join(', ')}` : '') + (x.prog ? `\n  Programm: ${clean(x.prog, 600)}` : '') + (x.note ? `\n  Hinweis: ${clean(x.note, 300)}` : ''); };
   const out = P.map(p => { const L = (p.ex || []).map(x => one([p, x])); return `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : `- Keine ${X.op}-Ausflüge hinterlegt.`); });
   return HEAD + `${X.op}-Ausflüge${all ? ' (alle Tage mit Ausflügen)' : ''}:\n` + (out.length ? out.join('\n\n') : `Noch keine ${X.op}-Ausflüge hinterlegt.`);
 }
@@ -226,7 +226,8 @@ function WRITE_TOOLS() {
         code: S('Ausflugs-Code aus dem Katalog, z. B. „B12“ (eindeutig je Tag)', { minLength: 1, maxLength: 12 }), name: S('Name (Pflicht bei neuen Ausflügen)', { maxLength: 80 }),
         preis: { type: 'number', minimum: 0, maximum: 5000, description: 'Preis pro Person in Euro' }, dauer_std: { type: 'number', minimum: 0.25, maximum: 24, description: 'Dauer in Stunden, z. B. 4.5' },
         stufe: S('Schwierigkeit, z. B. „leicht“, „mittel“, „anspruchsvoll“', { maxLength: 30 }), programm: S('Programm in eigenen Worten (max. 600 Zeichen)', { maxLength: 1200 }),
-        hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 300 Zeichen)', { maxLength: 600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' } } } } },
+        hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 300 Zeichen)', { maxLength: 600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' },
+        orte: { type: 'array', minItems: 0, maxItems: 8, description: 'Orte, die der Ausflug besucht (z. B. „Leuchtturm Punta X“), als Suchtext – der Server sucht sie nahe dem Hafen; nie Koordinaten angeben. Ersetzt die bisherige Liste, [] = keine Orte.', items: { type: 'string', minLength: 3, maxLength: 100 } } } } } },
       ['tag', 'ausfluege'], (v, X, a, w) => exWriter(w).ausfluege_anlegen(a), { destructiveHint: true, idempotentHint: true }),
     W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug, den Claude selbst angelegt hat (andere bitte in der App bearbeiten).',
       { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }) }, ['tag', 'code'], (v, X, a, w) => exWriter(w).ausflug_loeschen(a), { destructiveHint: true, idempotentHint: true }),
@@ -244,6 +245,7 @@ function checkArgs(t, a) {
     if (s.type === 'boolean' && typeof x !== 'boolean') return 'Ungültig: ' + k;
     if (s.type === 'object' && (typeof x !== 'object' || Array.isArray(x))) return 'Ungültig: ' + k + ' (JSON-Objekt erwartet)';
     if (s.type === 'array' && (!Array.isArray(x) || x.length < (s.minItems || 0) || x.length > (s.maxItems || 1e9))) return 'Ungültig: ' + k + (s.maxItems ? ` (Liste mit 1–${s.maxItems} Einträgen)` : '');
+    if (s.type === 'array' && s.items && s.items.type === 'string') for (const it of x) { if (typeof it !== 'string' || it.length < (s.items.minLength || 0) || it.length > (s.items.maxLength || 1e9)) return 'Ungültig: ' + k; }
     if (s.type === 'array' && s.items && s.items.properties) for (const it of x) { if (!it || typeof it !== 'object' || Array.isArray(it)) return 'Ungültig: ' + k; const e = checkArgs({ inputSchema: s.items }, it); if (e) return e + ' (in ' + k + ')'; }
     if (s.type === 'number' && !(typeof x === 'number' && isFinite(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;
     if (s.type === 'integer' && !(Number.isInteger(x) && x >= s.minimum && x <= s.maximum)) return 'Ungültig: ' + k;

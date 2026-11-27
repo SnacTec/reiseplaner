@@ -52,6 +52,8 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
     Katalogs („Trag die Ausflüge von Tag 5 ein“). Gleicher Code = aktualisieren (Preis, Programm, empfohlen, ausverkauft).
     Löschen (`ausflug_loeschen`) nur bei Ausflügen, die Claude angelegt hat. In der App mit 🤖, Rückgängig wie bei Einträgen.
     Fotos kann Claude nicht weitergeben – die fügt ihr in der App beim Ausflug hinzu („📷 Foto hinzufügen ›“).
+  - **Orte eines Ausflugs** (Feld `orte` in `ausfluege_anlegen`): nur als Suchtext, der Server sucht sie nahe dem Hafen
+    (≤ 200 km); nicht Gefundenes wird gemeldet. In der App antippbar: mit Internet Google Maps, ohne die eigene Karte mit Pin.
 - **Nie:** Reisen direkt anlegen (nur als Entwurf, siehe unten) oder löschen, Stationen/Zeiten, Tipps, An-/Abreise, Unterkünfte, Dateien, private Listen.
 - Orte sucht der Server selbst, nahe der Station. Auf See gehen nur Orte an Bord, an Land nur mit „an Bord: …“.
 - Gibt es eine Überschneidung, speichert Claude nichts und fragt nach.

@@ -84,7 +84,8 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
     Kopien von IMPORT-FORMAT.md, Beispielen und tripcheck.js in `functions/format/` über `node tools/dayplan-sync.js` (Test prüft).
   - Alle Reisen: Werkzeug `reisen`, Feld `reise` (Kennung/Titel); ohne Angabe laufende → nächste → zuletzt vergangene (`pickTrip` in `functions/mcp/app.js`).
   - Veranstalter-Ausflüge: `ausfluege`, `ausfluege_anlegen` (Liste je Tag, `exWriter` in write.js), `ausflug_loeschen` (nur eigene);
-    App: 🤖, `kiExUndo`, Listener auf `trips/<id>` → „Neu laden“; Fotos nur in der App (`exPhotoDlg`, `exPh`). Teil-Import gemerkt, nicht gebaut.
+    App: 🤖, `kiExUndo`, Listener auf `trips/<id>` → „Neu laden“; Fotos nur in der App (`exPhotoDlg`, `exPh`).
+    Orte je Ausflug `ex[].orte` (`exOrteHTML`, `exProgHTML`, `exOrtOpen`: online Google Maps, offline `MAPMARK`-Pin; `exOrteDlg`). Teil-Import gemerkt, nicht gebaut.
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.

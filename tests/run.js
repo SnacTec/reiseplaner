@@ -230,6 +230,35 @@ test('ausflüge: 🤖 von Claude, Rückgängig, Foto hinzufügen/entfernen, nur 
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('ausflüge: Orte als Links (Liste und im Programm), Google Maps online, eigene Karte offline, Orte bearbeiten', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), bad = '<img src=x onerror="window.__xss=1">';
+  t.data.ports[1].ex[1].orte = [{ n: 'Hafenbucht ' + bad, lat: 39.88, lon: 4.3 }];
+  const p = await H.open(c, base, t, '#tag-2');
+  await p.evaluate(() => { window.open = u => { window.__opened = u; return {}; }; select(2); setTab('ex'); }); await p.waitForTimeout(400);
+  const a = await p.evaluate(() => ({ list: document.querySelectorAll('#ex0 .exol [data-exo]').length, inText: document.querySelectorAll('#ex0 p [data-exo]').length, txt: document.querySelector('#ex0').innerText }));
+  ok(a.list === 1 && a.inText === 2, 'Links: ' + JSON.stringify(a)); ok(/📍 Leuchtturm/.test(a.txt), 'Ortszeile fehlt');
+  ok(!(await p.evaluate(() => window.__xss)) && !(await p.$('#ex1 img[src="x"]')), 'Ortsname nicht maskiert (XSS)');
+  await p.click('#ex0 .exol [data-exo]'); await p.waitForTimeout(200);
+  ok(/google\.com\/maps\/search\/\?api=1&query=39\.861,4\.322/.test(await p.evaluate(() => window.__opened || '')), 'Google Maps nicht geöffnet');
+  // ohne Internet: eigene Karte mit Pin und Hinweis
+  await c.setOffline(true); await p.evaluate(() => { window.__opened = null; select(2); setTab('ex'); }); await p.waitForTimeout(300);
+  await p.click('#ex0 .exol [data-exo]'); await p.waitForTimeout(900);
+  const o = await p.evaluate(() => ({ opened: window.__opened, mark: MAPMARK && MAPMARK.n, toast: (document.getElementById('toast') || {}).innerText || '', sel }));
+  ok(!o.opened && o.mark === 'Leuchtturm' && /Kein Internet/.test(o.toast) && o.sel === 2, 'offline: ' + JSON.stringify(o));
+  await c.setOffline(false);
+  // Orte bearbeiten: suchen, hinzufügen, entfernen, Rückgängig
+  await p.evaluate(() => { closeDlg(); exOrteDlg(2, 'B12'); }); await p.waitForTimeout(300);
+  await p.fill('#exoq', 'Strandbar'); await p.click('#exos'); await p.waitForTimeout(800);
+  await p.click('#exor [data-exr="0"]'); await p.waitForTimeout(400);
+  const n = await p.evaluate(() => ({ local: byDay(2).ex[0].orte.map(o => o.n), saved: window.__SAVED.data.ports[1].ex[0].orte.length, rows: document.querySelectorAll('#exol [data-exod]').length }));
+  ok(n.local.length === 2 && n.saved === 2 && n.rows === 2, 'hinzufügen: ' + JSON.stringify(n));
+  await p.click('#exol [data-exod="0"]'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => byDay(2).ex[0].orte.length === 1 && window.__SAVED.data.ports[1].ex[0].orte.length === 1), 'entfernen');
+  await p.click('#toast .tundo'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => byDay(2).ex[0].orte[0].n === 'Leuchtturm' && byDay(2).ex[0].orte.length === 2), 'Rückgängig');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

@@ -146,6 +146,7 @@ Mehrere Nächte am selben Ort: einfach mehrere Tage mit gleichem `name`/`lat`/`l
 | `note` | Hinweise |
 | `rec` | `1` = empfohlen |
 | `sold` | `1` = ausverkauft |
+| `orte` | optional: Orte, die der Ausflug besucht, `[{ "n": "Leuchtturm", "lat": 39.861, "lon": 4.322 }]` (höchstens 20). In der App antippbar: mit Internet Google Maps, ohne Internet die eigene Karte. Namen, die genau so im Programm stehen, werden dort ebenfalls zu Links. |
 
 Fotos dazu optional in `photos` mit dem Code als Schlüssel (siehe 8).
 

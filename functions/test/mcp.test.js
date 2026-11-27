@@ -543,6 +543,15 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     const d2 = await W(WT.access_token, 'ausflug_loeschen', { tag: 4, code: 'C41' }); assert.ok(!d2.err, d2.t); assert.deepEqual(exOf(4).map(e => e.c), ['C40']);
     assert.equal(docs('kilog').filter(x => x.tool === 'ausflug_loeschen').pop().before.c, 'C41');
   });
+  await test('ausflüge: Orte – Server sucht nahe dem Hafen, nicht Gefundenes wird gemeldet, [] leert, keine Koordinaten von Claude', async () => {
+    const r = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: ['Strand Sonnenbucht, Inselort', 'Nirgends-Turm', 'Fernort-Kap'] }] });
+    assert.ok(!r.err, r.t); assert.match(r.t, /Orte: Strand Sonnenbucht/); assert.match(r.t, /Nicht gefunden .*Nirgends-Turm.*Fernort-Kap/);
+    const o = exOf(4).find(e => e.c === 'C40').orte; assert.equal(o.length, 1); assert.equal(o[0].n, 'Strand Sonnenbucht'); assert.ok(isFinite(o[0].lat) && isFinite(o[0].lon));
+    assert.match((await W(RT.access_token, 'ausfluege', { tag: 4 })).t, /Orte: Strand Sonnenbucht/);
+    assert.ok((await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: [{ n: 'x', lat: 1, lon: 2 }] }] })).err, 'Koordinaten-Objekte abgelehnt');
+    assert.ok((await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: Array(9).fill('Strand') }] })).err, 'höchstens 8');
+    const c = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: [] }] }); assert.match(c.t, /Orte: keine/); assert.ok(!('orte' in exOf(4).find(e => e.c === 'C40')));
+  });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
     const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;
     for (const t of tl) { const has = !!t.inputSchema.properties.reise; if (['reisen', 'reise_format'].includes(t.name)) assert.ok(!has, t.name); else if (['reise_pruefen', 'reise_entwurf_speichern'].includes(t.name)) assert.equal(t.inputSchema.properties.reise.type, 'object', t.name); else assert.ok(has && t.inputSchema.properties.reise.type === 'string', t.name); }

@@ -152,6 +152,7 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 
 **Welche Reise der Konnektor nimmt:** Angabe `reise`, sonst laufende → nächste → zuletzt vergangene (docs/MCP.md, „Welche Reise?“).
 
+**Orte je Ausflug:** `ports[Tag].ex[].orte = [{n, lat, lon}]` (App: „📍 Orte ›“, Konnektor: Suche nahe dem Hafen).
 **Ausflüge vom Konnektor:** `ports[Tag].ex[]` kann `ki:{uid, at, neu}` tragen (🤖); Protokoll `kilog` mit col `ex`, doc `<Tag>:<Code>`.
 **Ausflugsfotos aus der App:** wie beim Import `trips/<id>/photos/<Code>` `{c, d:"data:image/jpeg;base64,…"}` (≤ 700 kB).
 

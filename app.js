@@ -927,7 +927,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='27.11. · R111';
+const APP_VER='27.11. · R112';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -960,7 +960,7 @@ document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.c
    Rückgängig setzt den Stand vor der Änderung über die normalen Speicherwege der App (Plan, Aufgaben, Ausflüge, Abendessen). */
 async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').orderBy('at','desc').limit(40).get();return s.docs.map(d=>({id:d.id,...d.data()}))}
 const kiWho=u=>{const m=MEMBERS.find(x=>x.id===u);return m?m.n:''};
-const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v'],ex:['c','n','p','dur','lv','prog','note','rec','sold']};
+const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v'],ex:['c','n','p','dur','lv','prog','note','rec','sold','orte']};
 function kiProj(L,x){if(!x)return null;if(L.col==='dinner'){const d=+L.doc;return {s:(x.skip||[]).includes(d),o:(x.ov||{})[d]||null}}const o={};(KIK[L.col]||[]).forEach(k=>o[k]=x[k]??null);return o}
 function kiCur(L){
   if(L.col==='planitems'){for(const [d,a] of Object.entries(plan)){const it=(a||[]).find(x=>x.id===L.doc);if(it)return {...it,d:+d}}return null}
@@ -1687,15 +1687,47 @@ function exPhotoDlg(day,code){const ph=exPh(code);
     fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{m.textContent='Wird verkleinert …';const x=await exPhotoMake(f);m.textContent='Wird gespeichert …';await exPhotoPut(code,x);closeDlg();undoToast('Foto gespeichert.',null,2500)}catch(e){m.textContent='Fehler: '+(e.message||e)}};
     const dl=d.querySelector('#exphd');if(dl)dl.onclick=async()=>{const old=D.photos[code];try{await exPhotoPut(code,null);closeDlg();undoToast('Foto entfernt.',()=>exPhotoPut(code,old))}catch(e){m.textContent='Fehler: '+(e.message||e)}}})}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-exph]');if(!b)return;e.stopPropagation();e.preventDefault();const c=b.dataset.exph,dy=+b.dataset.exday,was=!$('#ov').hidden;if(was)closeDlg();setTimeout(()=>exPhotoDlg(dy,c),was?90:0)},true);
+/* Orte eines Ausflugs (ex[].orte = [{n,lat,lon}]): antippen → mit Internet Google Maps, ohne Internet eigene Karte mit Pin */
+const exOrte=e=>(Array.isArray(e.orte)?e.orte:[]).filter(o=>o&&o.n&&isFinite(o.lat)&&isFinite(o.lon));
+const exOLink=(p,e,i,t)=>`<button type="button" class="lnk exo" data-exo="${i}" data-exday="${p.day}" data-exc="${esc(e.c)}">${t}</button>`;
+function exOrteHTML(p,e){const O=exOrte(e);return O.length?`<p class="exol">${O.map((o,i)=>exOLink(p,e,i,'📍 '+esc(o.n))).join('<span aria-hidden="true"> · </span>')}</p>`:''}
+// Namen der Orte im Programmtext werden ebenfalls zu Links (längste zuerst, nur ganze Treffer)
+function exProgHTML(p,e){const h=esc(e.prog||''),O=exOrte(e).map((o,i)=>({i,k:esc(o.n)})).filter(x=>x.k.length>=3).sort((a,b)=>b.k.length-a.k.length);if(!O.length)return h;
+  const rx=new RegExp('('+O.map(x=>x.k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','g');return h.replace(rx,m=>{const x=O.find(y=>y.k===m);return x?exOLink(p,e,x.i,m):m})}
+function exOrtOpen(day,code,i){const p=byDay(day),e=p&&(p.ex||[]).find(x=>String(x.c)===code),o=e&&exOrte(e)[i];if(!o)return;
+  if(navigator.onLine!==false&&!OFFLINE){const u='https://www.google.com/maps/search/?api=1&query='+o.lat+','+o.lon;window.__lastMaps=u;let w=null;try{w=window.open(u,'_blank');if(w)w.opener=null}catch(x){}if(!w&&!window.__TEST_TRIP)location.href=u;return}
+  MAPMARK={n:o.n,lat:o.lat,lon:o.lon,day,c:code};if(sel===day)mapSoon();placeShow(day,o.lat,o.lon);
+  setTimeout(()=>{const mc=document.querySelector('.mapcol');if(mc)mc.scrollIntoView({behavior:'smooth',block:'start'});undoToast('Kein Internet – interne Karte wird genutzt.',null,3500)},450)}
+document.addEventListener('click',ev=>{const b=ev.target.closest&&ev.target.closest('[data-exo],[data-exoe]');if(!b)return;ev.stopPropagation();ev.preventDefault();
+  const dy=+b.dataset.exday;if(b.dataset.exoe!=null){const was=!$('#ov').hidden;if(was)closeDlg();setTimeout(()=>exOrteDlg(dy,b.dataset.exoe),was?90:0);return}
+  exOrtOpen(dy,b.dataset.exc,+b.dataset.exo)},true);
+// Orte bearbeiten: Ortssuche nahe dem Hafen (wie bei Einträgen), Entfernen mit Rückgängig; gespeichert in den Reisedaten (tripSave)
+async function exOrteSave(day,code,O){const p=byDay(day),e=p&&(p.ex||[]).find(x=>String(x.c)===code);if(!e)return;
+  const put=x=>{if(O.length)x.orte=O.map(o=>({n:o.n,lat:o.lat,lon:o.lon}));else delete x.orte};put(e);renderPanel();renderDays();
+  await tripSave(j=>{const q=(j.ports||[]).find(y=>y.day===day),x=q&&(q.ex||[]).find(y=>String(y.c)===code);if(x)put(x)});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}
+function exOrteDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>String(x.c)===code);if(!e)return;
+  openSheet(`<div class="hd"><h3 style="margin:0">Orte · ${esc(e.c)} ${esc(e.n)}<small class="hds">Tag ${p.day} · ${esc(p.name)}</small></h3></div>
+  <div id="exol"></div><p class="src" style="margin:8px 0 4px">Ort hinzufügen (Suche nahe ${esc(p.name)}):</p>
+  <div class="dinf"><label style="flex:3">Name oder Adresse<input id="exoq" maxlength="100" placeholder="z. B. Leuchtturm"></label><label style="flex:0 0 auto;justify-content:flex-end"><button class="chip btn" id="exos" type="button">Suchen</button></label></div>
+  <div id="exor"></div>`,d=>{
+    const L=d.querySelector('#exol'),R=d.querySelector('#exor'),q=d.querySelector('#exoq'),cur=()=>exOrte(e).slice();
+    const draw=()=>{const O=cur();L.innerHTML=O.length?O.map((o,i)=>`<div class="aic"><div>${exOLink(p,e,i,'📍 '+esc(o.n))}</div><button class="chip del" data-exod="${i}">Entfernen</button></div>`).join(''):'<p class="src" style="margin:0">Noch keine Orte.</p>';
+      L.querySelectorAll('[data-exod]').forEach(b=>b.onclick=async()=>{const O0=cur(),O=O0.slice();O.splice(+b.dataset.exod,1);await exOrteSave(day,code,O);draw();undoToast('Ort entfernt.',async()=>{await exOrteSave(day,code,O0);if(L.isConnected)draw()})})};
+    const go=async()=>{const t=q.value.trim();if(t.length<3){R.innerHTML='<p class="src">Bitte mindestens 3 Zeichen.</p>';return}R.innerHTML='<p class="src">Suche …</p>';
+      const r=await placeSearchAny(t,{lat:p.lat,lon:p.lon});
+      R.innerHTML=r.length?r.slice(0,6).map((x,i)=>`<button class="dkr" data-exr="${i}" type="button"><span class="dkic">📍</span><span class="dktx"><b>${esc(x.name)}</b><small>${esc(x.addr||'')}</small></span></button>`).join(''):`<p class="src">${esc(r.msg||'Nichts gefunden.')}</p>`;
+      R.querySelectorAll('[data-exr]').forEach(b=>b.onclick=async()=>{const x=r[+b.dataset.exr],O=cur();if(O.length>=20)return undoToast('Höchstens 20 Orte.',null,2500);
+        O.push({n:String(x.name).slice(0,80),lat:+x.lat,lon:+x.lon});await exOrteSave(day,code,O);R.innerHTML='';q.value='';draw();undoToast('„'+x.name+'“ hinzugefügt.',null,2500)})};
+    d.querySelector('#exos').onclick=go;q.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();go()}});draw()})}
 function exDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>x.c===code);if(!e)return;
   const ph=exPh(e.c),r=calc(p).rows.find(x=>x.tour&&x.e.c===code),pk=isPicked(p,e);
   openSheet(`<div class="hd"><h3 style="margin:0">${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}<span class="tcos">${esc(OP)}</span> ${esc(e.c)} · ${esc(e.n)}<small class="hds">Tag ${p.day} · ${esc(fmtDate(p.date))} · ${esc(p.name)}</small></h3></div>
   ${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}" loading="lazy" style="margin:0 0 10px">`:''}
   <div class="tags" style="margin:0 0 10px">${e.p?`<span class="tag" style="font-weight:700">${eur(e.p)} p. P. · ${eur(e.p*2)} für zwei</span>`:''}${e.dur?`<span class="tag">⏱ ${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div>
   ${r&&pk?`<p class="osmrow" style="display:block"><b>Im Tagesplan:</b> ${hm(r.a)}–${hm(r.b)} Uhr${p.kind==='port'?` · alle an Bord ${hm(portWin(p).off)} Uhr`:''}</p>`:''}
-  ${e.prog?`<p style="margin:10px 0">${esc(e.prog)}</p>`:''}${e.note?`<p class="src" style="margin:0 0 10px">${esc(e.note)}</p>`:''}
+  ${e.prog?`<p style="margin:10px 0">${exProgHTML(p,e)}</p>`:''}${exOrteHTML(p,e)}${e.note?`<p class="src" style="margin:0 0 10px">${esc(e.note)}</p>`:''}
   <p class="src" style="margin:0">Treffpunkt und genaue Zeiten stehen im Ticket bzw. Tagesprogramm an Bord.</p>
-  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button></div>
+  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button></div>
   ${e.p&&!e.sold?`<div class="btns bar"><button class="chip ${pk?'':'btn'}" id="expk">${pk?'Abwählen':'Einplanen'}</button></div>`:''}`,d=>{
     const k=d.querySelector('#expk');if(k)k.onclick=()=>{const u=picksSnap();setPick(p,e,!pk);closeDlg();renderPanel();renderDays();updatePills();if(sel===p.day&&pm(p))drawPort(p,true);undoToast(`Ausflug ${e.c} ${pk?'abgewählt':'eingeplant'}.`,u)};
     d.querySelector('#exday').onclick=()=>{closeDlg();setTimeout(()=>{select(p.day);setTab('ex');const i=p.ex.indexOf(e);setTimeout(()=>focusCard('ex',i),40)},60)}})}
@@ -1890,7 +1922,10 @@ function mapPins(items){
     const on=+d===sel;items.push({x:xy[0],y:xy[1],kind:'star',lvl:'star',pday:+d,color:cssv('--plan'),label:nm,prio:on?9:8,on,aria:nm+' (unser Ort, Tag '+d+')',
       onClick:()=>s.x?placeDlg(+d,k):tipDlg(+d,s.i)})})});
   if(STAY_ON)STAYS.forEach(s=>{if(s.lat==null)return;const xy=llxy(s.lat,s.lon);items.push({x:xy[0],y:xy[1],kind:'stay',lvl:'star',color:'#7b5cc4',label:s.n,prio:8,aria:s.n+' (Unterkunft)',onClick:()=>stayDlg(s.id,s.d1)})});
+  // Ort aus einem Ausflug (ohne Internet angetippt): eigener Pin
+  if(MAPMARK){const xy=llxy(MAPMARK.lat,MAPMARK.lon);items.push({x:xy[0],y:xy[1],kind:'star',lvl:'star',on:true,color:'#d6336c',label:MAPMARK.n,prio:10,aria:MAPMARK.n+' (Ort aus Ausflug)',onClick:()=>exDlg(MAPMARK.day,MAPMARK.c)})}
 }
+var MAPMARK=null;
 var mapT=0;function mapSoon(){if(mapT)return;mapT=requestAnimationFrame(()=>{mapT=0;try{if(!M)return;const p=sel!=null?byDay(sel):null;drawMain(pm(p)?p:null,true)}catch(e){}})}
 /* Infofenster für einen Tipp (gleicher Aufbau wie bei OpenStreetMap-Orten) */
 function tipDlg(day,i){const P=byDay(day),q=P&&(P.pois||[])[i];if(!q)return;const c=CAT[tipCat(q)],w=WALK[q.w];
@@ -2380,9 +2415,9 @@ function portPanel(p){
       const ph=exPh(e.c);
       return `<div class="card" id="ex${i}" data-code="${esc(e.c)}">${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}" loading="lazy">`:''}
       <div class="row"><div style="min-width:0"><h4>${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${esc(e.c)} · ${esc(e.n)}</h4><div class="tags">${e.dur?`<span class="tag">${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div></div><div class="price">${e.p?eur(e.p):(e.sold?'–':'')}</div></div>
-      <p>${esc(e.prog)}</p>${e.note?`<p class="src">${esc(e.note)}</p>`:''}
+      <p>${exProgHTML(p,e)}</p>${exOrteHTML(p,e)}${e.note?`<p class="src">${esc(e.note)}</p>`:''}
       ${e.p&&!e.sold?`<label class="pick"><input type="checkbox" data-pick="${i}" ${isPicked(p,e)?'checked':''}> Einplanen (${eur(e.p)} p. P.)</label>`:''}
-      <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button></div></div>`}).join('');
+      <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button></div></div>`}).join('');
   };
   const plTab=()=>plannerHTML(p);
   const faTab=()=>{

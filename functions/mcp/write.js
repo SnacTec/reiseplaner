@@ -4,7 +4,7 @@
  *   trips/<id>/tasks/<tid>      {ts, done, text, who, due, list, note, subs, ki}   (nur gemeinsame Listen)
  *   trips/<id>/plandays/meta    {dinner:{… skip:[Tage], ov:{Tag: "HH:MM"}}}
  *   trips/<id>/picks/p_<d>_<c>  {k:"<d>:<c>", v:true|false}
- *   trips/<id>  json.ports[Tag].ex[]  {c, n, p, dur, lv, prog, note, rec, sold, ki}   Veranstalter-Ausflüge (Stammdaten, nur diese Liste)
+ *   trips/<id>  json.ports[Tag].ex[]  {c, n, p, dur, lv, prog, note, rec, sold, orte:[{n,lat,lon}], ki}   Veranstalter-Ausflüge (Stammdaten, nur diese Liste)
  * Jede Änderung: Kennzeichen ki:{uid, at, neu} am Eintrag + Protokoll trips/<id>/kilog/<kid> {uid, at, tool, col, doc, before, after, txt}.
  * Die App zeigt 🤖 und bietet „Rückgängig“ (Einstellungen → Konto → Änderungen durch KI). */
 'use strict';
@@ -227,24 +227,32 @@ function exWriter(W) {
         if (x.ausverkauft != null) f.sold = x.ausverkauft ? 1 : 0;
         L.push({ c, f });
       }
+      // Orte: Server sucht selbst (Photon) nahe dem Hafen, ≤ 200 km; Claude liefert keine Koordinaten
+      const miss = [];
+      if (p.lat == null && a.ausfluege.some(x => x.orte && x.orte.length)) fail(`Für Tag ${p.day} ist keine Lage bekannt – Orte können nicht gesucht werden.`);
+      for (let k = 0; k < L.length; k++) { const o = a.ausfluege[k].orte; if (o == null) continue; const res = [];
+        for (const q0 of o) { const q = clean(q0, 100); let R = []; try { R = await W.geo(q, { lat: p.lat, lon: p.lon }); } catch (e) { fail('Ortssuche gerade nicht erreichbar – bitte später erneut (oder ohne orte).'); }
+          const x = (R || []).find(r => r && isFinite(r.lat) && isFinite(r.lon) && RPDP.hav(p, r) <= 200);
+          if (x) res.push({ n: clean(q.split(',')[0], 60), lat: +(+x.lat).toFixed(6), lon: +(+x.lon).toFixed(6) }); else miss.push(`${L[k].c}: „${q}“`); }
+        L[k].f.orte = res; }
       const ops = [], out = [];
       const r = await mutate(p.day, (ex, T) => {
         for (const { c, f } of L) {
           const i = ex.findIndex(e => e && String(e.c) === c), cur = i >= 0 ? ex[i] : null;
           if (!cur && !f.n) return { e: `${c}: Name fehlt (neuer Ausflug).` };
-          const nx = { ...(cur || { c }), ...f }; ['rec', 'sold'].forEach(k => { if (nx[k] === 0) delete nx[k]; });
+          const nx = { ...(cur || { c }), ...f }; ['rec', 'sold'].forEach(k => { if (nx[k] === 0) delete nx[k]; }); if (Array.isArray(nx.orte) && !nx.orte.length) delete nx.orte;
           const { ki: k0, ...a0 } = cur || {}, { ki: k1, ...a1 } = nx;
           if (cur && JSON.stringify(a0) === JSON.stringify(a1)) { out.push(`${c} „${clean(nx.n, 60)}“ unverändert`); continue; }
           nx.ki = { uid, at: now, neu: cur ? (cur.ki && cur.ki.neu ? 1 : 0) : 1 };
           if (cur) ex[i] = nx; else ex.push(nx);
           ops.push(logDoc('ausfluege_anlegen', p.day + ':' + c, cur, nx, `${op}-Ausflug ${c} „${nx.n}“ an Tag ${p.day} ${cur ? 'geändert' : 'angelegt'}`));
-          out.push(`${c} „${clean(nx.n, 60)}“ ${cur ? 'aktualisiert' : 'neu'}${nx.p != null ? ' · ' + nx.p + ' € p. P.' : ''}${nx.dur ? ' · ' + nx.dur : ''}${nx.rec ? ' · empfohlen' : ''}${nx.sold ? ' · ausverkauft' : ''}`);
+          out.push(`${c} „${clean(nx.n, 60)}“ ${cur ? 'aktualisiert' : 'neu'}${nx.p != null ? ' · ' + nx.p + ' € p. P.' : ''}${nx.dur ? ' · ' + nx.dur : ''}${nx.rec ? ' · empfohlen' : ''}${nx.sold ? ' · ausverkauft' : ''}${f.orte ? ' · Orte: ' + (f.orte.map(o => o.n).join(', ') || 'keine') : ''}`);
         }
         if (!ops.length) return { skip: true };
         ops.forEach(([k, d]) => T.set(k, d));
       });
       if (r.e) fail('Nicht gespeichert – ' + r.e);
-      return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
+      return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (miss.length ? `\nNicht gefunden (nahe ${clean(p.name, 40)}), daher weggelassen: ${miss.join(', ')} – genauer benennen und erneut aufrufen, oder in der App hinzufügen.` : '') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
     },
     async ausflug_loeschen(a) {
       const p = dayOf(a.tag), c = clean(a.code, 12); let txt = '';

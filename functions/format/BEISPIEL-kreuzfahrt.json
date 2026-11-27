@@ -165,7 +165,14 @@
       "lv": "leicht",
       "prog": "Erfundenes Programm: Busfahrt, Leuchtturm, Fotostopp.",
       "note": "Beispielhinweis: festes Schuhwerk.",
-      "rec": 1
+      "rec": 1,
+      "orte": [
+       {
+        "n": "Leuchtturm",
+        "lat": 39.861,
+        "lon": 4.322
+       }
+      ]
      },
      {
       "c": "B20",
