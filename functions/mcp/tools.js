@@ -263,8 +263,8 @@ function WRITE_TOOLS() {
       ['tag', 'tipps'], (v, X, a, w) => exWriter(w).tipps_anlegen(a), { destructiveHint: true, idempotentHint: true }),
     W('tipp_loeschen', 'Tipp löschen', 'Löscht einen Tipp, den Claude selbst angelegt hat (nicht, wenn er im Tagesplan eingeplant ist).',
       { tag: I('Reisetag', 1, 400), id: S('Kennung aus tipps', { minLength: 1, maxLength: 60 }) }, ['tag', 'id'], (v, X, a, w) => exWriter(w).tipp_loeschen(a), { destructiveHint: true, idempotentHint: true }),
-    W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug, den Claude selbst angelegt hat (andere bitte in der App bearbeiten).',
-      { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }) }, ['tag', 'code'], (v, X, a, w) => exWriter(w).ausflug_loeschen(a), { destructiveHint: true, idempotentHint: true }),
+    W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug (code) oder alle Ausflüge eines Tages (alle = true). NUR wenn der Nutzer das ausdrücklich verlangt – vorher nennen, was gelöscht wird, und bestätigen lassen. Rückgängig ist in der App möglich.',
+      { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }), alle: { type: 'boolean', description: 'true = alle Ausflüge dieses Tages löschen' } }, ['tag'], (v, X, a, w) => exWriter(w).ausflug_loeschen(a), { destructiveHint: true, idempotentHint: true }),
     W('letzte_aenderungen', 'Letzte Änderungen', 'Zeigt, was Claude zuletzt in dieser Reise eingetragen oder geändert hat.',
       {}, [], (v, X, a, w) => recent(w.S, w.trip, w.uid), { readOnlyHint: true }),
   ];

@@ -85,6 +85,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   - Alle Reisen: Werkzeug `reisen`, Feld `reise` (Kennung/Titel); ohne Angabe laufende → nächste → zuletzt vergangene (`pickTrip` in `functions/mcp/app.js`).
   - Veranstalter-Ausflüge: `ausfluege`, `ausfluege_anlegen` (Liste je Tag, `exWriter` in write.js), `ausflug_loeschen` (nur eigene);
     App: 🤖, `kiExUndo`, Listener auf `trips/<id>` → „Neu laden“; Fotos nur in der App (`exPhotoDlg`, `exPh`).
+    App: Ausflüge anlegen/bearbeiten/löschen (`exEditDlg`, `exDelete`; Code-Wechsel nimmt Wahl und Foto mit).
     Orte je Ausflug `ex[].orte` (`exOrteHTML`, `exProgHTML`, `exOrtOpen`: online Google Maps, offline `MAPMARK`-Pin; `exOrteDlg`). Teil-Import gemerkt, nicht gebaut.
   - Ortsinfos/Tipps: `ort_info`, `ort_info_setzen`, `tipps_anlegen`, `tipp_loeschen` (gleicher Schreibweg, `kiInfo`/`ki`); App `poiFix` ergänzt Position.
   - Ortssuche des Servers: `geo.js` (Photon → Nominatim, Fehler im Log `firebase functions:log --only mcp`).
@@ -127,6 +128,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - **Blauer Textlink mit ›** für Navigation und Aktionen in Listen (`.lnk`): „Deckplan ›“, „+ Eintrag“, „📎 Datei“, „Weg ›“.
 - **Blauer Knopf** (`.chip.btn`) nur für die eine Hauptaktion eines Fensters; **beige** (`.chip`) für Nebenaktionen.
 - **Löschen** rot umrandet, rechts – mit „Rückgängig“-Meldung (`undoToast`).
+- **Halbe Fenster (Handy):** am Griff/Kopf ziehen – drei Größen: Standard (Inhaltshöhe), Mitte, fast oben; darunter schließen (`sheetSnaps`).
 - Seiten haben „‹“ oben links, kein ✕; Formulare haben „Speichern/Abbrechen“; kleine Info-Fenster schließen per Wischen/Antippen daneben.
 - Info-Texte auf/zu per Antippen, immer nur eins offen. Kategorie-Leisten in einer Zeile (wischbar bzw. Kacheln), kein Umbruch.
 - Vor größeren Umbauten: Screenshot-Vorschau zeigen und fragen; Header-Gestaltung nicht ändern (Nutzerwunsch).

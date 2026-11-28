@@ -528,7 +528,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.deepEqual(j1.ports.map(p => ({ ...p, ex: 0 })), j0.ports.map(p => ({ ...p, ex: 0 })), 'sonst nichts geändert'); assert.deepEqual(Object.keys(j1).sort(), Object.keys(j0).sort());
     assert.match((await W(RT.access_token, 'tag_plan', { tag: 4 })).t, /C40/); assert.match((await W(RT.access_token, 'ausfluege', { tag: 4 })).t, /von Claude angelegt/);
   });
-  await test('ausflüge: Prüfungen – Seetag, Name fehlt, doppelt, Code, Preis, Listenlänge, Löschen nur eigene', async () => {
+  await test('ausflüge: Prüfungen – Seetag, Name fehlt, doppelt, Code, Preis, Listenlänge; Löschen einzeln und alle', async () => {
     const E = async (a, re) => { const r = await W(WT.access_token, 'ausfluege_anlegen', a); assert.ok(r.err, JSON.stringify(a)); if (re) assert.match(r.t, re); };
     await E({ tag: 3, ausfluege: [{ code: 'S1', name: 'x' }] }, /Seetag/);
     await E({ tag: 4, ausfluege: [{ code: 'NEU9' }] }, /Name fehlt/);
@@ -539,7 +539,12 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await E({ tag: 4, ausfluege: Array.from({ length: 26 }, (_, i) => ({ code: 'L' + i, name: 'x' })) }, /1–25/);
     await E({ tag: 4, ausfluege: [] });
     assert.equal(exOf(4).length, 2, 'nichts gespeichert');
-    const d1 = await W(WT.access_token, 'ausflug_loeschen', { tag: 2, code: 'B20' }); assert.ok(d1.err); assert.match(d1.t, /nur bei Ausflügen, die Claude selbst angelegt/);
+    // löschen: jeden Ausflug (auch aus der Reise), einzeln oder alle eines Tages – je Ausflug ein Protokoll-Eintrag
+    const d1 = await W(WT.access_token, 'ausflug_loeschen', { tag: 2, code: 'B20' }); assert.ok(!d1.err, d1.t); assert.ok(!exOf(2).some(e => e.c === 'B20'));
+    assert.ok((await W(WT.access_token, 'ausflug_loeschen', { tag: 2 })).err, 'ohne code/alle'); assert.ok((await W(WT.access_token, 'ausflug_loeschen', { tag: 2, code: 'B12', alle: true })).err, 'beides');
+    const n2 = exOf(2).length, d0 = await W(WT.access_token, 'ausflug_loeschen', { tag: 2, alle: true }); assert.ok(!d0.err, d0.t); assert.equal(exOf(2).length, 0); assert.match(d0.t, /B12/);
+    assert.equal(docs('kilog').filter(x => x.tool === 'ausflug_loeschen' && x.doc.startsWith('2:')).length, n2 + 1);
+    assert.ok((await W(WT.access_token, 'ausflug_loeschen', { tag: 2, alle: true })).err, 'nichts mehr da');
     const d2 = await W(WT.access_token, 'ausflug_loeschen', { tag: 4, code: 'C41' }); assert.ok(!d2.err, d2.t); assert.deepEqual(exOf(4).map(e => e.c), ['C40']);
     assert.equal(docs('kilog').filter(x => x.tool === 'ausflug_loeschen').pop().before.c, 'C41');
   });

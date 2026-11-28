@@ -337,18 +337,22 @@ function exWriter(W) {
       return 'Gelöscht: ' + clean(txt, 160) + '.';
     },
 
+    // löscht einen Ausflug (code) oder alle eines Tages (alle = true) – nur auf ausdrückliche Bitte (siehe Beschreibung); je Ausflug Protokoll + Rückgängig
     async ausflug_loeschen(a) {
-      const p = dayOf(a.tag), c = clean(a.code, 12); let txt = '';
+      const p = dayOf(a.tag), c = a.code != null ? clean(a.code, 12) : null, all = a.alle === true; const gone = [];
+      if (!c && !all) fail('Bitte code angeben oder alle = true.'); if (c && all) fail('Entweder code oder alle = true, nicht beides.');
       const r = await mutate(p.day, (port, T) => {
         const ex = Array.isArray(port.ex) ? port.ex : [];
-        const i = ex.findIndex(e => e && String(e.c) === c); if (i < 0) return { e: `An Tag ${p.day} gibt es keinen Ausflug ${c}.` };
-        const cur = ex[i]; if (!(cur.ki && cur.ki.neu)) return { e: `Löschen geht nur bei Ausflügen, die Claude selbst angelegt hat. ${c} bitte in der App bearbeiten.` };
-        ex.splice(i, 1); txt = `${op}-Ausflug ${c} „${cur.n}“ an Tag ${p.day} gelöscht`;
-        const [k, d] = logDoc('ausflug_loeschen', p.day + ':' + c, cur, null, txt); T.set(k, d);
+        const idx = all ? ex.map((e, i) => i) : [ex.findIndex(e => e && String(e.c) === c)];
+        if (!idx.length) return { e: `An Tag ${p.day} gibt es keine ${op}-Ausflüge.` }; if (idx[0] < 0) return { e: `An Tag ${p.day} gibt es keinen Ausflug ${c}.` };
+        for (const i of idx.slice().reverse()) { const cur = ex[i]; ex.splice(i, 1); gone.unshift(cur);
+          const [k, d] = logDoc('ausflug_loeschen', p.day + ':' + cur.c, cur, null, `${op}-Ausflug ${cur.c} „${cur.n}“ an Tag ${p.day} gelöscht`); T.set(k, d); }
+        port.ex = ex;
       });
       if (r.e) fail(r.e);
-      const pk = v.picks[X.dp.pickKey(p.day, c)];
-      return 'Gelöscht: ' + clean(txt, 160) + '.' + (pk ? ' Er war als gewählt markiert – die Wahl bleibt gespeichert, falls er wiederkommt.' : '');
+      const pk = gone.filter(e => v.picks[X.dp.pickKey(p.day, e.c)]);
+      return `Gelöscht an Tag ${p.day} (${clean(p.name, 60)}): ` + gone.map(e => `${clean(e.c, 12)} „${clean(e.n, 60)}“`).join(', ') + '.' +
+        (pk.length ? ` Als gewählt markiert waren: ${pk.map(e => clean(e.c, 12)).join(', ')} – die Wahl bleibt gespeichert, falls sie wiederkommen.` : '') + ' Rückgängig in der App unter Einstellungen → Konto → Änderungen durch KI.';
     },
   };
 }

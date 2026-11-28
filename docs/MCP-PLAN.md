@@ -422,6 +422,8 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 - **Ortssuche robuster** (`functions/mcp/geo.js`, 28.11.): Photon, bei Fehler/ohne Treffer Nominatim (≤ 1/s, eigene Kennung im
   User-Agent); Fehler mit Statuscode im Function-Log (`firebase functions:log --only mcp`, ohne Suchtext). Ist die Suche ganz
   weg, speichert `ausfluege_anlegen` die Ausflüge trotzdem, behält vorhandene Orte und meldet die fehlenden. Timeout 60 s.
+- **Löschen erweitert** (R116, Nutzerwunsch): `ausflug_loeschen` löscht jeden Ausflug oder alle eines Tages (`alle: true`), nur auf
+  ausdrückliche Bitte; je Ausflug Protokoll/Rückgängig. App: Ausflüge anlegen/bearbeiten/löschen (`exEditDlg`, `exDelete`, `exStore`).
 - **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
 
 ### 9.11 Ortsinfos und Tipps über den Konnektor (28.11.2026, Nutzerwunsch: „Reise über Claude ändern“)

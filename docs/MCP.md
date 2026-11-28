@@ -50,7 +50,8 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
   - Ausflüge wählen oder abwählen.
   - **Veranstalter-Ausflüge eintragen** (`ausfluege_anlegen`): bis zu 25 je Tag auf einmal, z. B. aus einem Screenshot des
     Katalogs („Trag die Ausflüge von Tag 5 ein“). Gleicher Code = aktualisieren (Preis, Programm, empfohlen, ausverkauft).
-    Löschen (`ausflug_loeschen`) nur bei Ausflügen, die Claude angelegt hat. In der App mit 🤖, Rückgängig wie bei Einträgen.
+    Löschen (`ausflug_loeschen`): einzelne oder alle Ausflüge eines Tages (`alle`), nur auf ausdrückliche Bitte. In der App mit 🤖, Rückgängig wie bei Einträgen.
+    In der App selbst: Ausflug antippen → „✏️ Bearbeiten ›“ / „Löschen“, „+ Ausflug“ im Bereich Ausflüge.
     Fotos kann Claude nicht weitergeben – die fügt ihr in der App beim Ausflug hinzu („📷 Foto hinzufügen ›“).
   - **Orte eines Ausflugs** (Feld `orte` in `ausfluege_anlegen`): nur als Suchtext, der Server sucht sie nahe dem Hafen
     (≤ 200 km); nicht Gefundenes wird gemeldet. In der App antippbar: mit Internet Google Maps, ohne die eigene Karte mit Pin.

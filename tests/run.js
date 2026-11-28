@@ -303,6 +303,51 @@ test('währung: aus dem Land (dayplan.js), Anzeige unter „Über den Ort“, ke
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('ausflüge in der App: anlegen, bearbeiten (Code-Wechsel nimmt Wahl mit), löschen mit Rückgängig', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
+  await p.evaluate(() => { window.confirm = () => true; select(4); setTab('ex'); }); await p.waitForTimeout(300);
+  ok(await p.$('[data-exnew="4"]'), '„+ Ausflug“ fehlt an Tag ohne Ausflüge');
+  await p.click('[data-exnew="4"]'); await p.waitForTimeout(300);
+  await p.fill('#exf [name=c]', 'N1'); await p.fill('#exf [name=n]', 'Neuer Ausflug (erfunden)'); await p.fill('#exf [name=p]', '49,5'); await p.fill('#exf [name=h]', '4,5'); await p.fill('#exf [name=prog]', 'Programm (erfunden).');
+  await p.click('#exf [type=submit]'); await p.waitForTimeout(300);
+  let s = await p.evaluate(() => ({ ex: byDay(4).ex, sv: window.__SAVED.data.ports[3].ex }));
+  ok(s.ex.length === 1 && s.ex[0].p === 49.5 && s.ex[0].dur === '4,5 Std.' && s.sv.length === 1, 'anlegen: ' + JSON.stringify(s.ex));
+  // doppelter Code abgelehnt
+  await p.evaluate(() => exEditDlg(4, null)); await p.waitForTimeout(200); await p.fill('#exf [name=c]', 'N1'); await p.fill('#exf [name=n]', 'x'); await p.click('#exf [type=submit]'); await p.waitForTimeout(200);
+  ok(/gibt es an dem Tag schon/.test(await p.innerText('#exfm')), 'doppelter Code nicht erkannt');
+  // bearbeiten mit Code-Wechsel: Wahl wandert mit, 🤖 entfällt
+  await p.evaluate(() => { closeDlg(); const e = byDay(2).ex[0]; e.ki = { neu: 1 }; picks[pickKey(2, e.c)] = true; persistPicks(); });
+  const old = await p.evaluate(() => byDay(2).ex[0].c);
+  await p.evaluate(c => exEditDlg(2, c), old); await p.waitForTimeout(200); await p.fill('#exf [name=c]', 'Z9'); await p.fill('#exf [name=p]', ''); await p.click('#exf [type=submit]'); await p.waitForTimeout(300);
+  s = await p.evaluate(o => ({ e: byDay(2).ex[0], pkNew: picks[pickKey(2, 'Z9')], pkOld: pickKey(2, o) in picks }), old);
+  ok(s.e.c === 'Z9' && !('p' in s.e) && !s.e.ki && s.pkNew === true && !s.pkOld, 'bearbeiten: ' + JSON.stringify(s));
+  // löschen aus dem Ausflugsfenster, Rückgängig stellt Ausflug und Wahl wieder her
+  await p.evaluate(() => exDlg(2, 'Z9')); await p.waitForTimeout(200); await p.click('#exdel'); await p.waitForTimeout(400);
+  ok(await p.evaluate(() => !byDay(2).ex.some(e => e.c === 'Z9') && !window.__SAVED.data.ports[1].ex.some(e => e.c === 'Z9')), 'nicht gelöscht');
+  await p.click('#toast .tundo'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => byDay(2).ex[0].c === 'Z9' && picks[pickKey(2, 'Z9')] === true), 'Rückgängig');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+test('fenster: drei Größen beim Ziehen (Standard, Mitte, fast oben), nach unten schließen', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
+  const H0 = await p.evaluate(() => innerHeight);
+  const drag = async dy => { const g = await p.$('#dlg .grab'), b = await g.boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2;
+    await p.mouse.move(x, y); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(x, y + dy * i / 8); await p.mouse.up(); await p.waitForTimeout(350); };
+  const hgt = () => p.evaluate(() => $('#ov').hidden ? 0 : Math.round(document.getElementById('dlg').getBoundingClientRect().height));
+  // kleiner Inhalt: Standard → fast oben → Standard → schließen
+  await p.evaluate(() => exPhotoDlg(2, byDay(2).ex[0].c)); await p.waitForTimeout(300);
+  const h1 = await hgt(); await drag(-380); const h2 = await hgt();
+  ok(Math.abs(h2 - Math.round(H0 * .92)) <= 3 && h1 < h2 - 40, 'nach oben: ' + h1 + ' → ' + h2);
+  await drag(400); const h3 = await hgt(); ok(Math.abs(h3 - h1) <= 3, 'zurück auf Standard: ' + h3 + ' statt ' + h1);
+  await drag(250); ok((await hgt()) === 0, 'nach unten schließt nicht');
+  // großer Inhalt: Standard (fast oben) → Mitte → schließen
+  await p.evaluate(() => exEditDlg(2, byDay(2).ex[0].c)); await p.waitForTimeout(300);
+  const b1 = await hgt(); await drag(Math.round(b1 - H0 * .5)); const b2 = await hgt();
+  ok(Math.abs(b2 - Math.round(H0 * .5)) <= 3, 'Mitte: ' + b1 + ' → ' + b2 + ' (Ziel ' + Math.round(H0 * .5) + ')');
+  await drag(250); ok((await hgt()) === 0, 'aus der Mitte schließt nicht');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

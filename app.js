@@ -707,7 +707,7 @@ function asPage(){const d=$('#dlg');d.classList.add('full','page');const x=d.que
 function phMark(r){(r||document).querySelectorAll('input[type=date],input[type=time]').forEach(i=>i.classList.toggle('empty',!i.value))}
 ['input','change'].forEach(ev=>document.addEventListener(ev,e=>{const t=e.target;if(t&&t.matches&&t.matches('input[type=date],input[type=time]'))t.classList.toggle('empty',!t.value)},true));
 function openSheet(html,setup){
-  lastFocus=document.activeElement;$('#dlg').classList.remove('wide','full','page');$('#dlg').style.transform='';$('#dlg').style.minHeight='';$('#dlg').innerHTML='<div class="grab" aria-hidden="true"></div>'+V(html);$('#ov').hidden=false;dlgOpened();$('#dlg').scrollTop=0;
+  lastFocus=document.activeElement;$('#dlg').classList.remove('wide','full','page');$('#dlg').style.transform='';$('#dlg').style.minHeight='';$('#dlg').style.height='';$('#dlg').innerHTML='<div class="grab" aria-hidden="true"></div>'+V(html);$('#ov').hidden=false;dlgOpened();$('#dlg').scrollTop=0;
   const x=$('#dlg').querySelector('[data-close]');$('#dlg').querySelectorAll('[data-close]').forEach(b=>b.onclick=closeDlg);
   {const h=$('#dlg').querySelector('h2,h3');if(h&&!h.id)h.id='dt'}
   if(setup)setup($('#dlg'));phMark($('#dlg'));
@@ -964,7 +964,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='28.11. · R115';
+const APP_VER='28.11. · R116';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -1029,7 +1029,7 @@ async function kiExUndo(L){const [d,c]=String(L.doc).split(/:(.*)/s),B=L.before,
     const f=col==='poi'?'pois':'ex',k=col==='poi'?'id':'c',a=q[f]=q[f]||[],i=a.findIndex(x=>String(x[k])===c),b=B&&JSON.parse(JSON.stringify(B));if(b){if(i>=0)a[i]=b;else a.push(b)}else if(i>=0)a.splice(i,1)};
   const p=byDay(+d);if(p){put(p);if(col==='poi')poiFix(p)}
   L.undone=true;renderPanel();renderDays();updatePills();if(col==='poi')mapSoon();
-  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===+d);if(q)put(q)});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000);return}
+  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===+d);if(q&&q!==p)put(q)});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000);return}
   if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail)}
 function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen durch KI</h3></div><div id="kil"><p class="src">wird geladen …</p></div><p class="src" style="margin:10px 0 0">Was Claude über den Konnektor eingetragen oder geändert hat. Einträge im Plan sind mit 🤖 markiert.</p>',async d=>{
   const el=d.querySelector('#kil');let L=[];
@@ -1760,6 +1760,39 @@ function exOrteDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>String(x
       R.querySelectorAll('[data-exr]').forEach(b=>b.onclick=async()=>{const x=r[+b.dataset.exr],O=cur();if(O.length>=20)return undoToast('Höchstens 20 Orte.',null,2500);
         O.push({n:String(x.name).slice(0,80),lat:+x.lat,lon:+x.lon});await exOrteSave(day,code,O);R.innerHTML='';q.value='';draw();undoToast('„'+x.name+'“ hinzugefügt.',null,2500)})};
     d.querySelector('#exos').onclick=go;q.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();go()}});draw()})}
+/* Veranstalter-Ausflüge in der App anlegen, bearbeiten, löschen (Stammdaten der Reise über tripSave, wie der Editor).
+   Code-Änderung nimmt Wahl (picks) und Foto mit. Manuelles Speichern entfernt das 🤖-Kennzeichen. */
+async function exStore(day,fn){const p=byDay(day);if(!p)return;p.ex=p.ex||[];fn(p.ex);renderPanel();renderDays();updatePills();renderTotals();
+  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===day);if(q&&q!==p){q.ex=Array.isArray(q.ex)?q.ex:[];fn(q.ex)}});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000)}}
+function exDelete(day,code){const p=byDay(day),i=(p&&p.ex||[]).findIndex(x=>String(x.c)===code);if(i<0)return;const e=p.ex[i],k=pickKey(day,code),hadPk=k in picks,pv=picks[k],ph=D.photos[code];
+  if(isPicked(p,e)&&!confirm(`Ausflug ${code} ist eingeplant. Trotzdem löschen?`))return;
+  exStore(day,ex=>{const j=ex.findIndex(x=>String(x.c)===code);if(j>=0)ex.splice(j,1)});delete picks[k];persistPicks();if(ph)exPhotoPut(code,null).catch(()=>{});
+  undoToast(`Ausflug ${code} gelöscht.`,()=>{exStore(day,ex=>{if(!ex.some(x=>String(x.c)===code))ex.splice(Math.min(i,ex.length),0,e)});if(hadPk){picks[k]=pv;persistPicks()}if(ph)exPhotoPut(code,ph).catch(()=>{})})}
+function exEditDlg(day,code){const p=byDay(day);if(!p)return;const e=code!=null?(p.ex||[]).find(x=>String(x.c)===code):null;if(code!=null&&!e)return;const isNew=!e,x=e||{};
+  const hrs=x.dur?((/(\d+(?:[.,]\d+)?)/.exec(x.dur)||[])[1]||'').replace('.',','):'';
+  openSheet(`<div class="hd"><h3 style="margin:0">${isNew?'Neuer Ausflug':'Ausflug bearbeiten'}<small class="hds">Tag ${p.day} · ${esc(p.name)}</small></h3></div>
+  <form class="sform" id="exf"><div class="dinf"><label style="flex:1">Code<input name="c" maxlength="12" required value="${esc(x.c||'')}" placeholder="z. B. B12"></label><label style="flex:3">Name<input name="n" maxlength="80" required value="${esc(x.n||'')}"></label></div>
+  <div class="dinf"><label>Preis p. P. (€)<input name="p" inputmode="decimal" value="${x.p!=null?String(x.p).replace('.',','):''}" placeholder="z. B. 49"></label><label>Dauer (Std.)<input name="h" inputmode="decimal" value="${esc(hrs)}" placeholder="z. B. 4,5"></label><label>Schwierigkeit<input name="lv" maxlength="30" value="${esc(x.lv||'')}" placeholder="leicht"></label></div>
+  <label>Programm<textarea name="prog" rows="5" maxlength="1000">${esc(x.prog||'')}</textarea></label>
+  <label>Hinweis<textarea name="note" rows="3" maxlength="800">${esc(x.note||'')}</textarea></label>
+  <div style="display:flex;gap:22px;flex-wrap:wrap"><label class="ckl"><input type="checkbox" name="rec" ${x.rec?'checked':''}> empfohlen</label><label class="ckl"><input type="checkbox" name="sold" ${x.sold?'checked':''}> ausverkauft</label></div>
+  <p class="src" id="exfm" style="margin:0"></p>
+  <div class="btns"><button class="chip btn" type="submit">Speichern</button><button class="chip" type="button" data-close>Abbrechen</button>${isNew?'':'<button class="chip del" type="button" id="exfdel">Löschen</button>'}</div></form>`,d=>{
+    {const dl=d.querySelector('#exfdel');if(dl)dl.onclick=()=>{closeDlg();setTimeout(()=>exDelete(day,code),90)}}
+    const f=d.querySelector('#exf'),m=d.querySelector('#exfm'),num=v=>{v=String(v).trim().replace(',','.');return v===''?null:+v};
+    f.onsubmit=ev=>{ev.preventDefault();const c=f.c.value.trim(),n=f.n.value.trim(),pr=num(f.p.value),h=num(f.h.value);
+      if(!/^[A-Za-z0-9][A-Za-z0-9._\/-]{0,11}$/.test(c)){m.textContent='Code: nur Buchstaben, Ziffern und . _ - / (max. 12).';return}
+      if((p.ex||[]).some(y=>String(y.c)===c&&y!==e)){m.textContent='Diesen Code gibt es an dem Tag schon.';return}
+      if(pr!=null&&!(pr>=0&&pr<=5000)){m.textContent='Preis bitte als Zahl.';return}if(h!=null&&!(h>=0.25&&h<=24)){m.textContent='Dauer bitte in Stunden (0,25 bis 24).';return}
+      const nx={...x,c,n};delete nx.ki;if(pr!=null)nx.p=pr;else delete nx.p;if(h!=null)nx.dur=String(Math.round(h*4)/4).replace('.',',')+' Std.';else delete nx.dur;
+      [['lv',f.lv.value],['prog',f.prog.value],['note',f.note.value]].forEach(([k,v])=>{v=v.trim();if(v)nx[k]=v;else delete nx[k]});
+      if(f.rec.checked)nx.rec=1;else delete nx.rec;if(f.sold.checked)nx.sold=1;else delete nx.sold;
+      const old=e?String(e.c):null;closeDlg();
+      exStore(day,ex=>{const j=old!=null?ex.findIndex(y=>String(y.c)===old):-1;if(j>=0)ex[j]=nx;else ex.push(nx)});
+      if(old!=null&&old!==c){const k0=pickKey(day,old),k1=pickKey(day,c);if(k0 in picks){picks[k1]=picks[k0];delete picks[k0];persistPicks()}const ph=D.photos[old];if(ph){exPhotoPut(c,ph).then(()=>exPhotoPut(old,null)).catch(()=>{})}}
+      undoToast(isNew?`Ausflug ${c} angelegt.`:`Ausflug ${c} gespeichert.`,null,2500)}})}
+document.addEventListener('click',ev=>{const b=ev.target.closest&&ev.target.closest('[data-exed],[data-exnew]');if(!b)return;ev.stopPropagation();ev.preventDefault();
+  const dy=+(b.dataset.exday||b.dataset.exnew),c=b.dataset.exed??null,was=!$('#ov').hidden;if(was)closeDlg();setTimeout(()=>exEditDlg(dy,c),was?90:0)},true);
 function exDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>x.c===code);if(!e)return;
   const ph=exPh(e.c),r=calc(p).rows.find(x=>x.tour&&x.e.c===code),pk=isPicked(p,e);
   openSheet(`<div class="hd"><h3 style="margin:0">${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}<span class="tcos">${esc(OP)}</span> ${esc(e.c)} · ${esc(e.n)}<small class="hds">Tag ${p.day} · ${esc(fmtDate(p.date))} · ${esc(p.name)}</small></h3></div>
@@ -1768,8 +1801,9 @@ function exDlg(day,code){const p=byDay(day),e=p&&(p.ex||[]).find(x=>x.c===code);
   ${r&&pk?`<p class="osmrow" style="display:block"><b>Im Tagesplan:</b> ${hm(r.a)}–${hm(r.b)} Uhr${p.kind==='port'?` · alle an Bord ${hm(portWin(p).off)} Uhr`:''}</p>`:''}
   ${e.prog?`<p style="margin:10px 0">${exProgHTML(p,e)}</p>`:''}${exOrteHTML(p,e)}${e.note?`<p class="src" style="margin:0 0 10px">${esc(e.note)}</p>`:''}
   <p class="src" style="margin:0">Treffpunkt und genaue Zeiten stehen im Ticket bzw. Tagesprogramm an Bord.</p>
-  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button></div>
-  ${e.p&&!e.sold?`<div class="btns bar"><button class="chip ${pk?'':'btn'}" id="expk">${pk?'Abwählen':'Einplanen'}</button></div>`:''}`,d=>{
+  <div class="acts" style="margin-top:10px"><button type="button" class="lnk" id="exday">Tag ${p.day} öffnen ›</button><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button><button type="button" class="lnk" data-exed="${esc(e.c)}" data-exday="${p.day}">✏️ Bearbeiten ›</button></div>
+  <div class="btns bar">${e.p&&!e.sold?`<button class="chip ${pk?'':'btn'}" id="expk">${pk?'Abwählen':'Einplanen'}</button>`:''}<button class="chip del" id="exdel">Löschen</button></div>`,d=>{
+    d.querySelector('#exdel').onclick=()=>{closeDlg();setTimeout(()=>exDelete(p.day,e.c),90)};
     const k=d.querySelector('#expk');if(k)k.onclick=()=>{const u=picksSnap();setPick(p,e,!pk);closeDlg();renderPanel();renderDays();updatePills();if(sel===p.day&&pm(p))drawPort(p,true);undoToast(`Ausflug ${e.c} ${pk?'abgewählt':'eingeplant'}.`,u)};
     d.querySelector('#exday').onclick=()=>{closeDlg();setTimeout(()=>{select(p.day);setTab('ex');const i=p.ex.indexOf(e);setTimeout(()=>focusCard('ex',i),40)},60)}})}
 function placeDlg(day,pi){const s=(plan[day]||[])[pi];if(!s||s.lat==null)return;
@@ -2368,13 +2402,28 @@ let lastFocus=null;
 (function(){const ov=$('#ov');let y=0;const set=()=>{const on=!ov.hidden,h=document.documentElement;if(on===h.classList.contains('dlgopen'))return;
   if(on){y=window.scrollY;h.classList.add('dlgopen');document.body.style.top=(-y)+'px'}else{h.classList.remove('dlgopen');document.body.style.top='';window.scrollTo({top:y,left:0,behavior:'instant'});h.style.overflow='hidden';requestAnimationFrame(()=>{window.scrollTo({top:y,left:0,behavior:'instant'});h.style.overflow=''})}};
   new MutationObserver(set).observe(ov,{attributes:true,attributeFilter:['hidden']});set()})();
-/* Bottom Sheet am Handy: am Griff oder Kopf nach unten ziehen schließt */
-(function(){let st=null;const dl=()=>$('#dlg');
-  document.addEventListener('pointerdown',e=>{const d=dl();if(!d||$('#ov').hidden||!matchMedia('(max-width:600px)').matches)return;const top=d.getBoundingClientRect().top,inTop=e.clientY-top<48&&d.contains(e.target);const h=inTop||e.target.closest('.grab,.dlg .hd');if(!h||e.target.closest('button,input,select,a')||d.scrollTop>0)return;st={y:e.clientY,id:e.pointerId,dy:0}});
-  document.addEventListener('pointermove',e=>{if(!st||e.pointerId!==st.id)return;st.dy=Math.max(0,e.clientY-st.y);if(st.dy>4){const d=dl();d.style.transition='none';d.style.transform=`translateY(${st.dy}px)`}});
-  const end=e=>{if(!st||e.pointerId!==st.id)return;const d=dl(),dy=st.dy;st=null;d.style.transition='transform .2s ease';if(dy>90){d.style.transform='translateY(110%)';setTimeout(()=>{d.style.transform='';d.style.transition='';closeDlg()},180)}else{d.style.transform='';if(dy>20)swJust=Date.now()}};
+/* Bottom Sheet am Handy: am Griff oder Kopf ziehen. Drei Größen: Standard (so hoch wie der Inhalt), Mitte, fast ganz oben;
+   unter die kleinste Größe ziehen schließt. Vollbild-Seiten (.full): nur nach unten ziehen schließt (wie bisher). */
+(function(){let st=null;const dl=()=>$('#dlg'),VH=()=>innerHeight;
+  const natural=d=>{const h=d.style.height;d.style.height='';const n=d.getBoundingClientRect().height;d.style.height=h;return n};
+  const snapsOf=(nat)=>{const half=Math.round(VH()*.5),top=Math.round(VH()*.92),a=[Math.round(nat)];if(nat>half+40)a.push(half);if(nat<top-40)a.push(top);return a.sort((x,y)=>x-y)};
+  window.sheetSnaps=()=>{const d=dl();return d?snapsOf(natural(d)):[]};
+  document.addEventListener('pointerdown',e=>{const d=dl();if(!d||$('#ov').hidden||!matchMedia('(max-width:600px)').matches)return;const top=d.getBoundingClientRect().top,inTop=e.clientY-top<48&&d.contains(e.target);const h=inTop||e.target.closest('.grab,.dlg .hd');if(!h||e.target.closest('button,input,select,a')||d.scrollTop>0)return;
+    e.preventDefault();try{getSelection().removeAllRanges()}catch(x){}   // kein Text markieren/mitziehen (bricht sonst das Ziehen ab)
+    const full=d.classList.contains('full'),nat=full?0:natural(d);st={y:e.clientY,id:e.pointerId,dy:0,full,h0:d.getBoundingClientRect().height,nat,S:full?[]:snapsOf(nat),hh:null,ex:0}});
+  document.addEventListener('pointermove',e=>{if(!st||e.pointerId!==st.id)return;const d=dl();st.dy=e.clientY-st.y;
+    if(st.full){const dy=Math.max(0,st.dy);if(dy>4){d.style.transition='none';d.style.transform=`translateY(${dy}px)`}return}
+    if(Math.abs(st.dy)<4)return;const mn=st.S[0],mx=st.S[st.S.length-1],want=st.h0-st.dy;st.hh=Math.max(mn,Math.min(mx,want));st.ex=Math.max(0,mn-want);
+    d.style.transition='none';d.style.height=st.hh+'px';d.style.transform=st.ex?`translateY(${st.ex}px)`:''});
+  const end=e=>{if(!st||e.pointerId!==st.id)return;const d=dl(),s=st;st=null;d.style.transition='transform .2s ease, height .2s ease';
+    const close=()=>{d.style.transform='translateY(110%)';setTimeout(()=>{d.style.transform='';d.style.transition='';d.style.height='';closeDlg()},180)};
+    if(s.full){if(s.dy>90)close();else{d.style.transform='';if(s.dy>20)swJust=Date.now()}return}
+    if(s.ex>90)return close();
+    if(s.hh==null){d.style.transform='';return}
+    const t=s.S.reduce((b,x)=>Math.abs(x-s.hh)<Math.abs(b-s.hh)?x:b,s.S[0]);d.style.transform='';d.style.height=t===Math.round(s.nat)?s.nat+'px':t+'px';
+    if(t===Math.round(s.nat))setTimeout(()=>{if(d.style.height===s.nat+'px')d.style.height=''},220);swJust=Date.now()};
   document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
-  document.addEventListener('touchmove',e=>{if(st&&st.dy>2)e.preventDefault()},{passive:false})})();
+  document.addEventListener('touchmove',e=>{if(st&&Math.abs(st.dy)>2)e.preventDefault()},{passive:false})})();
 let popIgnore=0,dlgReturn=null;
 /* Unterseiten in Vollbild-Fenstern (z. B. Quiz-Lobby → Spiel): eigener Verlaufseintrag, damit die Zurück-Taste eine Ebene zurück geht */
 const SUBS=[];Object.defineProperty(window,'subDepth',{get:()=>SUBS.length});
@@ -2443,19 +2492,20 @@ function portPanel(p){
       return `<div class="card" id="poi${i}" data-i="${i}"><div class="row"><span class="badge ic" style="--c:${CAT[tipCat(q)].c}">${tipIcon(q)}</span><div style="min-width:0"><h4>${q.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${esc(q.n)}</h4><div class="tags"><span class="tag">${TYPES[q.t][0]}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">Luftlinie ${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km${q.ca?' (Lage ungefähr)':''}</span></div></div></div><p>${esc(q.d)}</p>${q.g?`<p class="src" style="margin:0 0 2px">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}<div class="acts">${q.g?`<button class="lnk" data-add="${i}">${(plan[p.day]||[]).some(s=>s.i===i)?'✓ Im Tagesplan':'+ Zum Tagesplan'}</button>`:''}<a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">In Karten-App öffnen ›</a>${q.ex?`<button class="lnk" data-ex="${esc(q.ex)}">Ausflug ${esc(q.ex)} ›</button>`:''}</div></div>`}).join('');
   };
   const exTab=()=>{
-    if(!p.ex||!p.ex.length)return '<p class="empty">Keine '+esc(OP)+'-Ausflüge in den Unterlagen.</p>';
-    return `<p class="src">Preise pro Person. Haken setzen, was ihr einplant.</p>`+p.ex.map((e,i)=>{
+    const add=`<div class="acts" style="margin:0 0 8px"><button type="button" class="lnk" data-exnew="${p.day}">+ Ausflug</button></div>`;
+    if(!p.ex||!p.ex.length)return add+'<p class="empty">Noch keine '+esc(OP)+'-Ausflüge eingetragen.</p>';
+    return add+`<p class="src">Preise pro Person. Haken setzen, was ihr einplant.</p>`+p.ex.map((e,i)=>{
       const ph=exPh(e.c);
       return `<div class="card" id="ex${i}" data-code="${esc(e.c)}">${ph?`<img src="${ph}" alt="Eindruck zum Ausflug ${esc(e.c)}" loading="lazy">`:''}
       <div class="row"><div style="min-width:0"><h4>${e.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${esc(e.c)} · ${esc(e.n)}</h4><div class="tags">${e.dur?`<span class="tag">${esc(e.dur)}</span>`:''}${e.lv?`<span class="tag">${esc(e.lv)}</span>`:''}${e.rec?'<span class="tag g">Empfehlung</span>':''}${e.sold?'<span class="tag y">ausverkauft</span>':''}</div></div><div class="price">${e.p?eur(e.p):(e.sold?'–':'')}</div></div>
       <p>${exProgHTML(p,e)}</p>${exOrteHTML(p,e)}${e.note?`<p class="src">${esc(e.note)}</p>`:''}
       ${e.p&&!e.sold?`<label class="pick"><input type="checkbox" data-pick="${i}" ${isPicked(p,e)?'checked':''}> Einplanen (${eur(e.p)} p. P.)</label>`:''}
-      <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button></div></div>`}).join('');
+      <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button><button type="button" class="lnk" data-exed="${esc(e.c)}" data-exday="${p.day}">✏️ Bearbeiten ›</button></div></div>`}).join('');
   };
   const plTab=()=>plannerHTML(p);
   const nPoi=p.pois.length,nEx=(p.ex||[]).length;
   const sec=(k,t,n,b)=>`<details class="sec" data-sec="${k}" id="sec-${k}" ${openSec.has(k)?'open':''}><summary><b>${t}</b>${n!=null?`<span>${n}</span>`:''}</summary>${b}</details>`;
-  return head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'');
+  return head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx||((CRUISE||HAS_EX)&&p.kind!=='sea')?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'');
 }
 function renderPanel(){
   const a=$('#panel');const keep=a.scrollTop;
