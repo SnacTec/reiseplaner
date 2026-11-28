@@ -419,6 +419,9 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
 - **Orte je Ausflug** (`ex[].orte = [{n,lat,lon}]`, auch in der Import-Datei, `tripcheck.js` prüft): Konnektor nur Suchtexte
   (Photon nahe Hafen, ≤ 200 km), App: Links unter dem Programm und im Programmtext (`exOrteHTML`, `exProgHTML`), Antippen →
   online Google Maps, offline eigene Karte mit Pin (`MAPMARK`) und Hinweis; „📍 Orte ›“ zum Hinzufügen/Entfernen (`exOrteDlg`).
+- **Ortssuche robuster** (`functions/mcp/geo.js`, 28.11.): Photon, bei Fehler/ohne Treffer Nominatim (≤ 1/s, eigene Kennung im
+  User-Agent); Fehler mit Statuscode im Function-Log (`firebase functions:log --only mcp`, ohne Suchtext). Ist die Suche ganz
+  weg, speichert `ausfluege_anlegen` die Ausflüge trotzdem, behält vorhandene Orte und meldet die fehlenden. Timeout 60 s.
 - **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
 
 ### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2

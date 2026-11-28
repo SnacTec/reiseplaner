@@ -86,6 +86,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   - Veranstalter-Ausflüge: `ausfluege`, `ausfluege_anlegen` (Liste je Tag, `exWriter` in write.js), `ausflug_loeschen` (nur eigene);
     App: 🤖, `kiExUndo`, Listener auf `trips/<id>` → „Neu laden“; Fotos nur in der App (`exPhotoDlg`, `exPh`).
     Orte je Ausflug `ex[].orte` (`exOrteHTML`, `exProgHTML`, `exOrtOpen`: online Google Maps, offline `MAPMARK`-Pin; `exOrteDlg`). Teil-Import gemerkt, nicht gebaut.
+  - Ortssuche des Servers: `geo.js` (Photon → Nominatim, Fehler im Log `firebase functions:log --only mcp`).
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).
 - Orte (OSM, `osmDlg`) und Tipps immer zum geöffneten Tag (`sel`), mehrfach planbar; Hinweis „Schon im Tagesplan: Tag …“.

@@ -228,13 +228,14 @@ function exWriter(W) {
         L.push({ c, f });
       }
       // Orte: Server sucht selbst (Photon) nahe dem Hafen, ≤ 200 km; Claude liefert keine Koordinaten
-      const miss = [];
+      const miss = []; let down = false;   // down: Ortssuche nicht erreichbar → Ausflüge trotzdem speichern, Orte melden
       if (p.lat == null && a.ausfluege.some(x => x.orte && x.orte.length)) fail(`Für Tag ${p.day} ist keine Lage bekannt – Orte können nicht gesucht werden.`);
       for (let k = 0; k < L.length; k++) { const o = a.ausfluege[k].orte; if (o == null) continue; const res = [];
-        for (const q0 of o) { const q = clean(q0, 100); let R = []; try { R = await W.geo(q, { lat: p.lat, lon: p.lon }); } catch (e) { fail('Ortssuche gerade nicht erreichbar – bitte später erneut (oder ohne orte).'); }
+        for (const q0 of o) { const q = clean(q0, 100); let R = []; if (down) { miss.push(`${L[k].c}: „${q}“`); continue; }
+          try { R = await W.geo(q, { lat: p.lat, lon: p.lon }); } catch (e) { down = true; miss.push(`${L[k].c}: „${q}“`); continue; }
           const x = (R || []).find(r => r && isFinite(r.lat) && isFinite(r.lon) && RPDP.hav(p, r) <= 200);
           if (x) res.push({ n: clean(q.split(',')[0], 60), lat: +(+x.lat).toFixed(6), lon: +(+x.lon).toFixed(6) }); else miss.push(`${L[k].c}: „${q}“`); }
-        L[k].f.orte = res; }
+        if (res.length || !down) L[k].f.orte = res; }   // bei Ausfall bisherige Orte nicht löschen
       const ops = [], out = [];
       const r = await mutate(p.day, (ex, T) => {
         for (const { c, f } of L) {
@@ -252,7 +253,7 @@ function exWriter(W) {
         ops.forEach(([k, d]) => T.set(k, d));
       });
       if (r.e) fail('Nicht gespeichert – ' + r.e);
-      return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (miss.length ? `\nNicht gefunden (nahe ${clean(p.name, 40)}), daher weggelassen: ${miss.join(', ')} – genauer benennen und erneut aufrufen, oder in der App hinzufügen.` : '') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
+      return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (miss.length ? (down ? `\nOrtssuche gerade nicht erreichbar – diese Orte fehlen noch: ${miss.join(', ')}. Die Ausflüge selbst sind gespeichert; Orte später erneut eintragen oder in der App hinzufügen („📍 Orte ›“).` : `\nNicht gefunden (nahe ${clean(p.name, 40)}), daher weggelassen: ${miss.join(', ')} – genauer benennen und erneut aufrufen, oder in der App hinzufügen.`) : '') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
     },
     async ausflug_loeschen(a) {
       const p = dayOf(a.tag), c = clean(a.code, 12); let txt = '';

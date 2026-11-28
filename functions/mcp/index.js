@@ -7,6 +7,7 @@ const admin = require('firebase-admin');
 const { OAuth2Client } = require('google-auth-library');
 const { firestoreStore } = require('./store');
 const { createApp } = require('./app');
+const { makeGeo } = require('./geo');
 
 const PEPPER = defineSecret('MCP_PEPPER'), ALLOWED = defineSecret('MCP_ALLOWED_EMAILS'), GSECRET = defineSecret('MCP_GOOGLE_SECRET');
 // Client-ID des Google-OAuth-Clients (nicht geheim): beim ersten Hochladen fragt die Firebase-CLI danach und merkt sie sich
@@ -35,16 +36,10 @@ function build() {
       async byGoogle(sub, email) { const u = await admin.auth().getUserByProviderUid('google.com', sub).catch(() => null) || await admin.auth().getUserByEmail(email).catch(() => null); return u && { uid: u.uid, disabled: u.disabled, validAfter: u.tokensValidAfterTime ? Date.parse(u.tokensValidAfterTime) : 0 }; },
       async get(uid) { const u = await admin.auth().getUser(uid).catch(() => null); return u && { uid: u.uid, disabled: u.disabled, validAfter: u.tokensValidAfterTime ? Date.parse(u.tokensValidAfterTime) : 0 }; },
     },
-    // Ortssuche wie in der App (Photon/OpenStreetMap, kostenlos, ohne Schlüssel), nahe der Station
-    async geo(q, near) {
-      const u = 'https://photon.komoot.io/api/?' + new URLSearchParams({ q, limit: '5', lang: 'de', ...(near ? { lat: String(near.lat), lon: String(near.lon), location_bias_scale: '0.5' } : {}) });
-      const r = await fetch(u, { headers: { 'user-agent': 'Reiseplaner-Konnektor' }, signal: AbortSignal.timeout(6000) }); if (!r.ok) throw new Error('Ortssuche ' + r.status);
-      const j = await r.json();
-      return (j.features || []).map(f => { const p = f.properties || {}, [lon, lat] = f.geometry.coordinates, street = [p.street, p.housenumber].filter(Boolean).join(' ');
-        return { name: p.name || street || p.city || q, addr: [p.name && street ? street : '', p.postcode && p.city ? p.postcode + ' ' + p.city : (p.city || p.town || p.village || ''), p.country].filter(Boolean).join(', '), lat, lon }; });
-    },
+    // Ortssuche (Photon wie in der App, bei Fehler Nominatim), nahe der Station – siehe geo.js
+    geo: makeGeo({ fetch, log: (...a) => console.log('mcp', ...a) }),
     verifyFirebase: async t => { const d = await admin.auth().verifyIdToken(t, true); return { uid: d.uid }; },
   });
 }
-exports.mcp = onRequest({ region: 'europe-west3', memory: '512MiB', maxInstances: 2, timeoutSeconds: 30, concurrency: 20, invoker: 'public', secrets: [PEPPER, ALLOWED, GSECRET] },
+exports.mcp = onRequest({ region: 'europe-west3', memory: '512MiB', maxInstances: 2, timeoutSeconds: 60, concurrency: 20, invoker: 'public', secrets: [PEPPER, ALLOWED, GSECRET] },
   (req, res) => { if (!app) app = build(); return app(req, res); });

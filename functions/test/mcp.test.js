@@ -47,7 +47,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     users: { byGoogle: async (sub) => sub === 'gA' ? users.uidA : null, get: async uid => users[uid] || null },
     verifyFirebase: async t => t === 'fb-ok' ? { uid: 'uidA' } : null,
     // Ortssuche (Photon) nachgebildet: „Nirgends“ = kein Treffer, „Fernort“ = nur weit entfernt (> 200 km)
-    geo: async (q, near) => /Nirgends/.test(q) ? [] : /Fernort/.test(q) ? [{ name: 'Fernort', addr: 'weit weg', lat: near.lat + 5, lon: near.lon }] : [{ name: 'Teststrand', addr: 'Testort', lat: near.lat + 0.01, lon: near.lon + 0.01 }],
+    geo: async (q, near) => { if (/Ausfall/.test(q)) throw new Error('Ortssuche nicht erreichbar'); return /Nirgends/.test(q) ? [] : /Fernort/.test(q) ? [{ name: 'Fernort', addr: 'weit weg', lat: near.lat + 5, lon: near.lon }] : [{ name: 'Teststrand', addr: 'Testort', lat: near.lat + 0.01, lon: near.lon + 0.01 }] },
   };
   const app = createApp(deps); handler = app;
 
@@ -551,6 +551,24 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.ok((await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: [{ n: 'x', lat: 1, lon: 2 }] }] })).err, 'Koordinaten-Objekte abgelehnt');
     assert.ok((await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: Array(9).fill('Strand') }] })).err, 'höchstens 8');
     const c = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: [] }] }); assert.match(c.t, /Orte: keine/); assert.ok(!('orte' in exOf(4).find(e => e.c === 'C40')));
+  });
+  await test('ausflüge: Ortssuche nicht erreichbar – Ausflüge trotzdem gespeichert, vorhandene Orte bleiben, Meldung', async () => {
+    await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: ['Strand Sonnenbucht'] }] });
+    const r = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', preis: 51, orte: ['Ausfall-Turm', 'Strand Zwei'] }] });
+    assert.ok(!r.err, r.t); assert.match(r.t, /Ortssuche gerade nicht erreichbar – diese Orte fehlen noch: C40: „Ausfall-Turm“, C40: „Strand Zwei“/);
+    const e = exOf(4).find(x => x.c === 'C40'); assert.equal(e.p, 51); assert.equal(e.orte.length, 1, 'bisherige Orte bleiben');
+  });
+  await test('ortssuche (geo.js): Photon, bei Fehler Nominatim (1/s), Protokoll ohne Suchtext, beide weg → Fehler', async () => {
+    const { makeGeo } = require('../mcp/geo'), L = [], calls = []; let t = 0, ph = 200, nom = 200, slept = 0;
+    const res = (ok, status, body) => ({ ok, status, json: async () => body });
+    const fetch = async u => { calls.push(u.split('?')[0]); if (u.includes('photon')) return ph === 'x' ? Promise.reject(new Error('netz')) : res(ph === 200, ph, { features: [{ properties: { name: 'P' }, geometry: { coordinates: [4.3, 39.9] } }] });
+      return res(nom === 200, nom, [{ name: 'N', display_name: 'N, Ort, Land', lat: '39.8', lon: '4.2' }]); };
+    const g = makeGeo({ fetch, log: (...a) => L.push(a.join(' ')), now: () => t, sleep: async ms => { slept += ms; t += ms; } });
+    assert.equal((await g('Geheimer Ort', { lat: 39.9, lon: 4.3 }))[0].name, 'P');
+    ph = 403; const a = await g('Geheimer Ort', { lat: 39.9, lon: 4.3 }); assert.equal(a[0].name, 'N'); assert.equal(a[0].lat, 39.8);
+    assert.ok(L.some(x => /Photon 403/.test(x)) && !L.join().includes('Geheimer'), 'Protokoll: ' + L);
+    await g('x', null); assert.ok(slept >= 1000, 'Nominatim höchstens 1/s');
+    ph = 'x'; nom = 503; await assert.rejects(() => g('x', null), /nicht erreichbar/); assert.ok(L.some(x => /Nominatim 503/.test(x)));
   });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
     const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;
