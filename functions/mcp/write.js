@@ -221,8 +221,8 @@ function exWriter(W) {
         if (x.preis != null) f.p = Math.round(x.preis * 100) / 100;
         if (x.dauer_std != null) f.dur = durTxt(x.dauer_std);
         if (x.stufe != null) f.lv = clean(x.stufe, 30);
-        if (x.programm != null) f.prog = note(x.programm, 600);
-        if (x.hinweis != null) f.note = note(x.hinweis, 300);
+        if (x.programm != null) f.prog = note(x.programm, 1000);
+        if (x.hinweis != null) f.note = note(x.hinweis, 800);
         if (x.empfohlen != null) f.rec = x.empfohlen ? 1 : 0;
         if (x.ausverkauft != null) f.sold = x.ausverkauft ? 1 : 0;
         L.push({ c, f });

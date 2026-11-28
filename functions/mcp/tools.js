@@ -147,7 +147,7 @@ function ausfluege(v, X, a) {
   if (!all && P[0] == null) return HEAD + noDay(v, a);
   const one = e => { const p = e[0], x = e[1], pk = v.picks[X.dp.pickKey(p.day, x.c)];
     return `- ${clean(x.c, 12)} „${clean(x.n, 80)}“` + [x.p != null && x.p !== '' ? clean(x.p, 10) + ' € p. P.' : '', x.dur ? clean(x.dur, 20) : '', x.lv ? clean(x.lv, 30) : '', x.rec ? 'empfohlen' : '', x.sold ? 'ausverkauft' : '', pk ? 'gewählt' : '', x.ki ? (x.ki.neu ? 'von Claude angelegt' : 'von Claude geändert') : ''].filter(Boolean).map(s => ' · ' + s).join('') +
-      (Array.isArray(x.orte) && x.orte.length ? `\n  Orte: ${x.orte.map(o => clean(o && o.n, 60)).join(', ')}` : '') + (x.prog ? `\n  Programm: ${clean(x.prog, 600)}` : '') + (x.note ? `\n  Hinweis: ${clean(x.note, 300)}` : ''); };
+      (Array.isArray(x.orte) && x.orte.length ? `\n  Orte: ${x.orte.map(o => clean(o && o.n, 60)).join(', ')}` : '') + (x.prog ? `\n  Programm: ${clean(x.prog, 1000)}` : '') + (x.note ? `\n  Hinweis: ${clean(x.note, 800)}` : ''); };
   const out = P.map(p => { const L = (p.ex || []).map(x => one([p, x])); return `Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : `- Keine ${X.op}-Ausflüge hinterlegt.`); });
   return HEAD + `${X.op}-Ausflüge${all ? ' (alle Tage mit Ausflügen)' : ''}:\n` + (out.length ? out.join('\n\n') : `Noch keine ${X.op}-Ausflüge hinterlegt.`);
 }
@@ -163,7 +163,7 @@ const TOOLS = [
   { name: 'an_abreise', title: 'An- und Abreise', description: 'An- oder Abreise mit allen Teilstrecken in Ortszeit, Dauer, Umstiegen und Zeitumstellung.', inputSchema: { type: 'object', additionalProperties: false, properties: { richtung: { type: 'string', enum: ['hin', 'zurueck'] } }, required: ['richtung'] }, run: anAb },
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
-  { name: 'ausfluege', title: 'Veranstalter-Ausflüge', max: 40000, description: 'Veranstalter-Ausflüge mit allen Angaben (Code, Preis, Dauer, Schwierigkeit, Programm, Hinweise, empfohlen, ausverkauft, gewählt). Mit tag/datum/wann für einen Tag, ohne Angabe alle Tage.', inputSchema: DAY, run: ausfluege },
+  { name: 'ausfluege', title: 'Veranstalter-Ausflüge', max: 80000, description: 'Veranstalter-Ausflüge mit allen Angaben (Code, Preis, Dauer, Schwierigkeit, Programm, Hinweise, empfohlen, ausverkauft, gewählt). Mit tag/datum/wann für einen Tag, ohne Angabe alle Tage.', inputSchema: DAY, run: ausfluege },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
   { name: 'reisen', title: 'Alle Reisen', noload: true, description: 'Liste aller Reisen (vergangen, laufend, geplant) mit Kennung. Die anderen Werkzeuge nehmen ohne Angabe die laufende bzw. nächste Reise; eine andere mit reise = Kennung oder Titel.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X, a, w) => reisenList(w) },
@@ -225,8 +225,8 @@ function WRITE_TOOLS() {
       { tag: I('Reisetag', 1, 400), ausfluege: { type: 'array', minItems: 1, maxItems: 25, description: 'Liste der Ausflüge', items: { type: 'object', additionalProperties: false, required: ['code'], properties: {
         code: S('Ausflugs-Code aus dem Katalog, z. B. „B12“ (eindeutig je Tag)', { minLength: 1, maxLength: 12 }), name: S('Name (Pflicht bei neuen Ausflügen)', { maxLength: 80 }),
         preis: { type: 'number', minimum: 0, maximum: 5000, description: 'Preis pro Person in Euro' }, dauer_std: { type: 'number', minimum: 0.25, maximum: 24, description: 'Dauer in Stunden, z. B. 4.5' },
-        stufe: S('Schwierigkeit, z. B. „leicht“, „mittel“, „anspruchsvoll“', { maxLength: 30 }), programm: S('Programm in eigenen Worten (max. 600 Zeichen)', { maxLength: 1200 }),
-        hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 300 Zeichen)', { maxLength: 600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' },
+        stufe: S('Schwierigkeit, z. B. „leicht“, „mittel“, „anspruchsvoll“', { maxLength: 30 }), programm: S('Programm in eigenen Worten (max. 1000 Zeichen)', { maxLength: 2000 }),
+        hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 800 Zeichen)', { maxLength: 1600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' },
         orte: { type: 'array', minItems: 0, maxItems: 8, description: 'Orte, die der Ausflug besucht (z. B. „Leuchtturm Punta X“), als Suchtext – der Server sucht sie nahe dem Hafen; nie Koordinaten angeben. Ersetzt die bisherige Liste, [] = keine Orte.', items: { type: 'string', minLength: 3, maxLength: 100 } } } } } },
       ['tag', 'ausfluege'], (v, X, a, w) => exWriter(w).ausfluege_anlegen(a), { destructiveHint: true, idempotentHint: true }),
     W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug, den Claude selbst angelegt hat (andere bitte in der App bearbeiten).',

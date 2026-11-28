@@ -409,7 +409,7 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   `ausfluege_anlegen` (Tag + Liste bis 25, gleicher Code = aktualisieren, auch `rec`/`sold`), `ausflug_loeschen` (nur `ki.neu`).
 - Schreibweg: Transaktion auf `trips/<id>` (json parsen, nur `ex` des Tages ändern, `updated` setzen), wie `tripSave` in der App;
   je Ausflug Protokoll `kilog` (col `ex`, doc `<Tag>:<Code>`, before/after), Kennzeichen `ki` am Ausflug.
-  Feste Felder: Code `[A-Za-z0-9._/-]{1,12}`, Name ≤ 80, Preis 0–5000, Dauer 0,25–24 Std. → „4,5 Std.“, Programm ≤ 600, Hinweis ≤ 300.
+  Feste Felder: Code `[A-Za-z0-9._/-]{1,12}`, Name ≤ 80, Preis 0–5000, Dauer 0,25–24 Std. → „4,5 Std.“, Programm ≤ 1000, Hinweis ≤ 800 (28.11. angehoben).
   Seetage abgelehnt, Liste zählt als eine Änderung fürs Ratenlimit.
 - App: 🤖 an Ausflügen, Rückgängig (`kiExUndo` über `tripSave`), Hinweis „Reisedaten wurden aktualisiert – Neu laden“
   per Listener auf `trips/<id>` (eigene Speicherungen ausgenommen).

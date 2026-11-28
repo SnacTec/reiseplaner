@@ -552,6 +552,13 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.ok((await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: Array(9).fill('Strand') }] })).err, 'höchstens 8');
     const c = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: [] }] }); assert.match(c.t, /Orte: keine/); assert.ok(!('orte' in exOf(4).find(e => e.c === 'C40')));
   });
+  await test('ausflüge: lange Texte – Programm bis 1000, Hinweis bis 800 Zeichen ungekürzt', async () => {
+    const pr = 'P'.repeat(990), hi = 'H'.repeat(790);
+    const r = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', programm: pr, hinweis: hi }] }); assert.ok(!r.err, r.t);
+    const e = exOf(4).find(x => x.c === 'C40'); assert.equal(e.prog, pr); assert.equal(e.note, hi);
+    const t = (await W(RT.access_token, 'ausfluege', { tag: 4 })).t; assert.ok(t.includes(hi) && t.includes(pr), 'Anzeige gekürzt');
+    await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', hinweis: 'H'.repeat(1200) }] }); assert.equal(exOf(4).find(x => x.c === 'C40').note.length, 800);
+  });
   await test('ausflüge: Ortssuche nicht erreichbar – Ausflüge trotzdem gespeichert, vorhandene Orte bleiben, Meldung', async () => {
     await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', orte: ['Strand Sonnenbucht'] }] });
     const r = await W(WT.access_token, 'ausfluege_anlegen', { tag: 4, ausfluege: [{ code: 'C40', preis: 51, orte: ['Ausfall-Turm', 'Strand Zwei'] }] });
