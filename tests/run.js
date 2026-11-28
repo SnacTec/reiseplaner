@@ -364,6 +364,25 @@ test('quiz: feste Kennungen (unabhängig von der Reihenfolge), Tages-Duell bleib
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+for (const [label, opt] of [['Handy', { device: 'Pixel 7' }], ['PC', { viewport: { width: 1440, height: 900 } }]])
+  test(`tageswechsel (${label}): aufgeklappte Bereiche bleiben offen, gleicher Bereich an gleicher Stelle`, async ({ browser, base }) => {
+    const c = await H.context(browser, opt), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
+    const mob = label === 'Handy';
+    const pos = () => p.evaluate(() => { const r = document.getElementById('sec-ov').getBoundingClientRect(); return { top: Math.round(r.top), open: document.getElementById('sec-ov').open, sel }; });
+    await p.evaluate(mob => { const s = document.getElementById('sec-ov'); s.open = true; s.dispatchEvent(new Event('toggle')); const r = s.getBoundingClientRect();
+      if (mob) window.scrollTo({ top: window.scrollY + r.top - 120, behavior: 'instant' }); else { const pn = document.getElementById('panel'); pn.style.scrollBehavior = 'auto'; pn.scrollTop += r.top - pn.getBoundingClientRect().top - 120; pn.style.scrollBehavior = ''; } }, mob);
+    await p.waitForTimeout(500); const a = await pos();
+    await p.evaluate(() => stepDay(4)); await p.waitForTimeout(700); const b = await pos();
+    ok(b.sel === 4 && b.open && Math.abs(b.top - a.top) <= 4, 'Tag 4: ' + JSON.stringify({ a, b }));
+    // Seetag ohne diese Bereiche: kein Fehler; zurück auf einen Hafentag ist „Über den Ort“ weiterhin offen
+    await p.evaluate(() => stepDay(3)); await p.waitForTimeout(400); ok(await p.evaluate(() => sel === 3), 'Seetag');
+    await p.evaluate(() => stepDay(4)); await p.waitForTimeout(600); ok((await pos()).open, 'nach dem Seetag zugeklappt');
+    // neu geöffnet (aus dem Reiseplan): wie bisher zugeklappt und oben
+    await p.evaluate(() => { showTrip(); }); await p.waitForTimeout(300); await p.evaluate(() => select(2)); await p.waitForTimeout(400);
+    ok(!(await p.evaluate(() => document.getElementById('sec-ov').open)), 'neu geöffnet sollte zugeklappt sein');
+    await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+  });
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

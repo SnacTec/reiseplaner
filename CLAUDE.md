@@ -56,6 +56,8 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Am Handy keine Tagesleiste (`.days`) mehr; auf der Tagesseite Pfeile `#pgnav`. ToDos (Menü) ebenfalls als Seite mit `#pgbar`.
 - Reise-Mappe ist Hauptseite (`showMappe`, `mappeView`, Hash `#mappe`). Im Reiseplan je Tag „Details ›“ (`.tdd`).
   Tageswechsel auf der Tagesseite ersetzt den Verlauf (`nav(hash,true)`), Zurück führt direkt zur Herkunft.
+  Tageswechsel auf der Tagesseite (`stepDay`: Pfeile, Wischen, PC-Tagesleiste) behält aufgeklappte Bereiche (`keepSecs`) und hält den
+  Bereich oben im Bild an derselben Stelle (`dayBlocks`, Rückfall auf den Bereich davor); neu geöffnet = oben und zugeklappt.
 - Einträge: kein Wischen-Löschen mehr (nur ToDos); Löschen per Antippen im Fenster (Tipps: `tipDlg` „Aus dem Plan entfernen“).
   „+ Eintrag/+ Datei“ nur auf der Tagesseite. Scroll-Stelle je Hauptseite (`restoreScroll`), erneutes Tippen = nach oben.
 - Menü: Suche, ToDos, Übersichtskarte, Getränkekarte, Deckplan, **Spiele** (Lobby: Quiz, Spider), Einstellungen, Konto.

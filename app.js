@@ -964,7 +964,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='28.11. · R118';
+const APP_VER='28.11. · R119';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -1339,7 +1339,7 @@ function renderDays(){
     const b=document.createElement('button');b.className='day '+(p.kind==='port'?'port':p.kind);
     const ld=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();b.innerHTML=`<small><span>Tag ${p.day} · ${fmtDate(p.date)}</span></small><b>${esc(p.name)}</b><small>${esc(ld||'auf See')}</small>`;
     if(sel===p.day)b.setAttribute('aria-current','true');if(p.date===TODAY)b.classList.add('today');
-    b.onclick=()=>{hideTip2();select(p.day)};n.appendChild(b);
+    b.onclick=()=>{hideTip2();if(sel!=null&&!todayView&&!tripView&&!todoView&&!mappeView&&!bordView)stepDay(p.day);else select(p.day)};n.appendChild(b);
     b.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showTip2(b,p.day)});
     b.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hideTip2()});
     b.addEventListener('focus',()=>showTip2(b,p.day));b.addEventListener('blur',hideTip2);
@@ -2696,21 +2696,40 @@ function showToday(fromHash){if(fromHash!==true){saveScroll();todayOff=null}mapp
 function showTrip(fromHash){if(fromHash!==true)saveScroll();mappeView=false;tripView=true;todoView=false;bordView=false;sel=null;renderDays();renderBar();drawOverview();renderPanel();$('#panel').scrollTop=0;if(fromHash!==true)nav('#plan');}
 /* Tag wechseln per Wischen oder ‹ › : Leseposition halten statt nach oben zur Karte springen */
 let daySwipe=false;
+/* Tag wechseln innerhalb der Tagesseite (Pfeile, Wischen, Tagesleiste am PC): aufgeklappte Bereiche bleiben offen,
+   und der Bereich, der gerade oben im Bild ist (Tagesplan, Über den Ort, Tipps vor Ort, Ausflüge), steht danach an derselben Stelle.
+   Fehlt er am neuen Tag, gilt der nächste vorhandene davor. Wer oben bei der Karte ist, bleibt oben. */
+const DAY_BLK=['dcard','ov','poi','ex'];
+const dayBlocks=()=>[...$('#panel').querySelectorAll('.dcard, details.sec[data-sec]')].map(el=>({k:el.classList.contains('dcard')?'dcard':el.dataset.sec,el}));
+var keepSecs=false;
 function stepDay(i){
   if(i<1||i>D.ports.length)return;
-  const pnl=$('#panel'),mob=matchMedia('(max-width:860px)').matches,y=window.scrollY,top=pnl.getBoundingClientRect().top+y,inPanel=mob&&y>top-80;
-  daySwipe=true;try{select(i)}finally{daySwipe=false}
-  if(mob)window.scrollTo({top:inPanel?Math.max(0,pnl.getBoundingClientRect().top+window.scrollY-8):y,behavior:'instant'});
+  const pnl=$('#panel'),mob=matchMedia('(max-width:860px)').matches,ref=(mob?(($('#pgbar')||{}).offsetHeight||0):pnl.getBoundingClientRect().top)+8;
+  // Bezug: eine Bereichs-Überschrift sichtbar in der oberen Bildhälfte hat Vorrang, sonst der Bereich, in dem man gerade liest
+  let a=null,up=null;for(const b of dayBlocks()){const t=b.el.getBoundingClientRect().top;if(t<=ref)up={k:b.k,t};else{if(t<innerHeight*.5)a={k:b.k,t};break}}
+  a=a||up;
+  const y=window.scrollY;
+  daySwipe=true;keepSecs=true;try{select(i)}finally{daySwipe=false;keepSecs=false}
+  if(mob)window.scrollTo({top:y,behavior:'instant'});
+  if(!a)return;   // oben bei Karte/Kopf: Lage beibehalten
+  const pos=()=>mob?window.scrollY:pnl.scrollTop;
+  const align=()=>{const B=dayBlocks();let b=B.find(x=>x.k===a.k);
+    if(!b){const ix=DAY_BLK.indexOf(a.k);for(let j=ix-1;j>=0&&!b;j--)b=B.find(x=>x.k===DAY_BLK[j])}
+    if(!b)return;const r=b.el.getBoundingClientRect(),want=Math.max(a.t,ref-Math.max(0,r.height-80)),diff=r.top-want;
+    if(mob)window.scrollTo({top:Math.max(0,window.scrollY+diff),behavior:'instant'});else{pnl.style.scrollBehavior='auto';pnl.scrollTop+=diff;pnl.style.scrollBehavior=''}};
+  align();const p0=pos(),n0=sel;
+  // nachgeladene Inhalte oben (Wetter, Karte) verschieben die Seite kurz danach – einmal nachziehen, wenn nicht selbst gescrollt wurde
+  clearTimeout(stepDay.t);stepDay.t=setTimeout(()=>{if(sel===n0&&Math.abs(pos()-p0)<2)align()},450);
 }
 let DAYFROM='trip';
 function select(day,fromHash,keep){const inPage=!todayView&&!tripView&&!todoView;if(todayView)DAYFROM='today';else if(tripView)DAYFROM='trip';else if(mappeView)DAYFROM='mappe';else if(bordView)DAYFROM='bord';else if(todoView)DAYFROM='todo';bordView=false;todayView=false;mappeView=false;
   if(!fromHash&&!keep)saveScroll();
   tripView=false;todoView=false;bordView=false;hideTip2();
-  if(day!==sel){tab='ov';addMode=null;expKey=null;openSec=new Set();filt=new Set(Object.keys(TYPES))}
+  if(day!==sel){if(!keepSecs){tab='ov';openSec=new Set()}addMode=null;expKey=null;filt=new Set(Object.keys(TYPES))}
   sel=day;const p=day==null?null:byDay(day);
   renderDays();renderBar();
   if(p&&pm(p))drawPort(p,keep);else drawOverview(keep&&false);
-  renderPanel();$('#panel').scrollTop=0;
+  renderPanel();if(!keepSecs)$('#panel').scrollTop=0;
   if(!fromHash&&!keep)nav(day==null?'':'#tag-'+day,inPage);
   if(matchMedia('(max-width:860px)').matches&&!fromHash&&!keep&&!daySwipe)window.scrollTo({top:0,behavior:'smooth'});
 }
