@@ -136,9 +136,21 @@ function aufgaben(v, X, a) {
 
 function tipps(v, X, a) {
   const p = pickDay(v, X, a || {}); if (!p) return HEAD + noDay(v, a);
-  const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + clean(t.km, 6).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + clean(t.g.t, 4) + ' Min' : ''}${t.d ? '\n  ' + clean(t.d, 240) : ''}`);
+  const L = (p.pois || []).map(t => `- „${clean(t.n, 60)}“ [${clean(t.id, 60)}] · ${TYPE[t.t] || 'Sehenswürdigkeit'}${t.km != null ? ' · ' + clean(t.km, 6).replace('.', ',') + ' km' : ''}${WALK[t.w] ? ' · ' + WALK[t.w] : ''}${t.g && t.g.t ? ' · Weg ca. ' + clean(t.g.t, 4) + ' Min' : ''}${t.g && t.g.o ? ' · ' + clean(t.g.o, 60) : ''}${t.g && t.g.f != null ? ' · Eintritt ' + (t.g.f ? clean(t.g.f, 8) + ' ' + clean(t.g.u || '€', 3) : 'frei') : ''}${t.ki ? (t.ki.neu ? ' · von Claude angelegt' : ' · von Claude geändert') : ''}${t.d ? '\n  ' + clean(t.d, 400) : ''}`);
   const planned = new Set((v.plan[p.day] || []).filter(s => !s.x).map(s => s.ti));
   return HEAD + `Tipps für Tag ${p.day} · ${clean(p.name, 60)}:\n` + (L.length ? L.join('\n') : '- Keine Tipps hinterlegt.') + (planned.size ? `\n(${planned.size} davon im Tagesplan)` : '');
+}
+
+// „Über den Ort und Tipps“ eines Tages
+function ortInfo(v, X, a) {
+  const p = pickDay(v, X, a || {}); if (!p) return HEAD + noDay(v, a);
+  const L = [`Ortsinfos Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${p.kiInfo ? ' (von Claude ergänzt)' : ''}:`];
+  if (p.text) L.push('Kurztext: ' + clean(p.text, 300)); if (p.ort) L.push('Der Ort: ' + clean(p.ort, 800)); if (p.walk) L.push('Zu Fuß möglich? ' + clean(p.walk, 200));
+  if (p.verdikt) L.push('Selbst oder Ausflug? ' + clean(p.verdikt, 400)); if (p.rec) L.push('Empfehlung: ' + clean(p.rec, 400));
+  if ((p.tips || []).length) L.push('Auf eigene Faust:\n' + p.tips.map(t => '- ' + clean(t, 300)).join('\n'));
+  if ((p.tr || []).length) L.push((X.cruise ? 'Anreise im Hafen' : 'Anreise') + ':\n' + p.tr.map(t => '- ' + clean(t, 300)).join('\n'));
+  if (L.length === 1) L.push('- Noch keine Ortsinfos hinterlegt.');
+  return HEAD + L.join('\n');
 }
 
 // Veranstalter-Ausflüge eines Tages (oder aller Tage) mit allen Angaben
@@ -164,6 +176,7 @@ const TOOLS = [
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
   { name: 'ausfluege', title: 'Veranstalter-Ausflüge', max: 80000, description: 'Veranstalter-Ausflüge mit allen Angaben (Code, Preis, Dauer, Schwierigkeit, Programm, Hinweise, empfohlen, ausverkauft, gewählt). Mit tag/datum/wann für einen Tag, ohne Angabe alle Tage.', inputSchema: DAY, run: ausfluege },
+  { name: 'ort_info', title: 'Ortsinfos', description: 'Bereich „Über den Ort und Tipps“ eines Tages: Kurztext, Beschreibung des Ortes, zu Fuß möglich?, selbst oder Ausflug?, Empfehlung, Tipps auf eigene Faust, Anreise im Hafen. Ohne Angabe: heute.', inputSchema: DAY, run: ortInfo },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
   { name: 'reisen', title: 'Alle Reisen', noload: true, description: 'Liste aller Reisen (vergangen, laufend, geplant) mit Kennung. Die anderen Werkzeuge nehmen ohne Angabe die laufende bzw. nächste Reise; eine andere mit reise = Kennung oder Titel.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X, a, w) => reisenList(w) },
@@ -229,6 +242,24 @@ function WRITE_TOOLS() {
         hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 800 Zeichen)', { maxLength: 1600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' },
         orte: { type: 'array', minItems: 0, maxItems: 8, description: 'Orte, die der Ausflug besucht (z. B. „Leuchtturm Punta X“), als Suchtext – der Server sucht sie nahe dem Hafen; nie Koordinaten angeben. Ersetzt die bisherige Liste, [] = keine Orte.', items: { type: 'string', minLength: 3, maxLength: 100 } } } } } },
       ['tag', 'ausfluege'], (v, X, a, w) => exWriter(w).ausfluege_anlegen(a), { destructiveHint: true, idempotentHint: true }),
+    W('ort_info_setzen', 'Ortsinfos ändern', 'Ändert den Bereich „Über den Ort und Tipps“ eines Tages. Nur angegebene Felder werden geändert; leerer Text bzw. leere Liste entfernt das Feld. Vorher ort_info lesen. Eigene Formulierungen, nichts erfinden.',
+      { tag: I('Reisetag', 1, 400), kurztext: S('Kurzer Text (max. 300 Zeichen), v. a. für Seetage, Start und Ende', { maxLength: 600 }), ort: S('1–5 Sätze über den Ort (max. 800 Zeichen)', { maxLength: 1600 }),
+        zu_fuss: S('Zu Fuß möglich?, z. B. „Ja, Altstadt 15 Min“ (max. 200)', { maxLength: 400 }), selbst_oder_ausflug: S('Selbst oder Ausflug? – kurze Einschätzung (max. 400)', { maxLength: 800 }),
+        empfehlung: S('Empfehlung in einem Satz (max. 400)', { maxLength: 800 }),
+        auf_eigene_faust: { type: 'array', minItems: 0, maxItems: 12, description: 'Tipps auf eigene Faust (ersetzt die Liste)', items: { type: 'string', minLength: 1, maxLength: 600 } },
+        anreise: { type: 'array', minItems: 0, maxItems: 8, description: 'Hinweise zur Anreise im Hafen/Ort: Taxi, Shuttle, Tender (ersetzt die Liste)', items: { type: 'string', minLength: 1, maxLength: 600 } } },
+      ['tag'], (v, X, a, w) => exWriter(w).ort_info_setzen(a), { destructiveHint: true, idempotentHint: true }),
+    W('tipps_anlegen', 'Tipps eintragen', 'Trägt Tipps („Orte im Detail“: Sehenswürdigkeiten, Strände, Natur …) eines Tages ein: bis zu 15 auf einmal. Mit id (aus tipps) oder gleichem Namen wird ein vorhandener Tipp aktualisiert. Lage nur als Suchtext in ort – der Server sucht selbst nahe dem Hafen; nie Koordinaten angeben.',
+      { tag: I('Reisetag', 1, 400), tipps: { type: 'array', minItems: 1, maxItems: 15, description: 'Liste der Tipps', items: { type: 'object', additionalProperties: false, properties: {
+        id: S('Kennung eines vorhandenen Tipps (aus tipps)', { maxLength: 60 }), name: S('Name (Pflicht bei neuen)', { maxLength: 80 }),
+        art: S('sight = Sehenswürdigkeit, beach = Strand, nature = Natur, factory = Fabrik/Plantage, town = Ort/Stadt', { enum: ['sight', 'beach', 'nature', 'factory', 'town'] }),
+        erreichbar: S('walk = zu Fuß, taxi = Taxi nötig, tour = nur per Ausflug/Tour', { enum: ['walk', 'taxi', 'tour'] }),
+        ort: S('Lage als Suchtext, z. B. „Playa Dorada, Puerto Plata“ (Pflicht bei neuen)', { minLength: 3, maxLength: 100 }),
+        beschreibung: S('1–2 Sätze (max. 400 Zeichen)', { maxLength: 800 }), weg_min: I('Wegzeit ab Hafen in Minuten', 0, 300), aufenthalt_min: I('Aufenthalt in Minuten', 5, 600),
+        eintritt: { type: 'number', minimum: 0, maximum: 1000, description: 'Eintritt pro Person (0 = frei)' }, oeffnung: S('Öffnungszeiten als Text', { maxLength: 80 }), notiz: S('Zusatznotiz', { maxLength: 200 }) } } } },
+      ['tag', 'tipps'], (v, X, a, w) => exWriter(w).tipps_anlegen(a), { destructiveHint: true, idempotentHint: true }),
+    W('tipp_loeschen', 'Tipp löschen', 'Löscht einen Tipp, den Claude selbst angelegt hat (nicht, wenn er im Tagesplan eingeplant ist).',
+      { tag: I('Reisetag', 1, 400), id: S('Kennung aus tipps', { minLength: 1, maxLength: 60 }) }, ['tag', 'id'], (v, X, a, w) => exWriter(w).tipp_loeschen(a), { destructiveHint: true, idempotentHint: true }),
     W('ausflug_loeschen', 'Ausflug löschen', 'Löscht einen Veranstalter-Ausflug, den Claude selbst angelegt hat (andere bitte in der App bearbeiten).',
       { tag: I('Reisetag', 1, 400), code: S('Ausflugs-Code', { minLength: 1, maxLength: 12 }) }, ['tag', 'code'], (v, X, a, w) => exWriter(w).ausflug_loeschen(a), { destructiveHint: true, idempotentHint: true }),
     W('letzte_aenderungen', 'Letzte Änderungen', 'Zeigt, was Claude zuletzt in dieser Reise eingetragen oder geändert hat.',

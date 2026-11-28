@@ -109,7 +109,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     await tr.finishAuth(back.searchParams.get('code')); assert.ok(tok && tok.access_token && tok.refresh_token);
     const cl = (await S.list('mcp_clients')).find(x => x.data.used); assert.ok(cl && cl.data.exp > clock + 80 * 864e5, 'benutzter Client wird verlängert');
     tr = mk(); client = new Client({ name: 'test', version: '1' }); await client.connect(tr);
-    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'ausfluege', 'jetzt', 'reise_format', 'reise_info', 'reise_pruefen', 'reisen', 'suchen', 'tag_plan', 'tipps']);
+    const L = await client.listTools(); assert.deepEqual(L.tools.map(t => t.name).sort(), ['an_abreise', 'aufgaben', 'ausfluege', 'jetzt', 'ort_info', 'reise_format', 'reise_info', 'reise_pruefen', 'reisen', 'suchen', 'tag_plan', 'tipps']);
     assert.ok(L.tools.every(t => t.annotations && t.annotations.readOnlyHint === true));
     const r = await client.callTool({ name: 'tag_plan', arguments: { wann: 'heute' } }); const txt = r.content[0].text;
     assert.match(txt, /Tag 2/); assert.match(txt, /Café am Hafen/); assert.match(txt, /Abendessen/); assert.match(txt, /Zurück an Bord ca\./);
@@ -576,6 +576,43 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.ok(L.some(x => /Photon 403/.test(x)) && !L.join().includes('Geheimer'), 'Protokoll: ' + L);
     await g('x', null); assert.ok(slept >= 1000, 'Nominatim höchstens 1/s');
     ph = 'x'; nom = 503; await assert.rejects(() => g('x', null), /nicht erreichbar/); assert.ok(L.some(x => /Nominatim 503/.test(x)));
+  });
+  /* ---------- Ortsinfos und Tipps ---------- */
+  const portOf = d => JSON.parse(S.D.get('trips/' + id).json).ports.find(p => p.day === d);
+  clock += 3700e3; RT = await tokens(); WT = await tokens({ access: 'write' });   // neues Stundenfenster für die Schreibgrenze
+  await test('ortsinfos: lesen, Felder setzen und leeren, Seetag-Kurztext, Protokoll, Rest unverändert', async () => {
+    const a = (await W(RT.access_token, 'ort_info', { tag: 2 })).t; assert.match(a, /Ortsinfos Tag 2/); assert.match(a, /Auf eigene Faust:\n- /);
+    const p0 = portOf(2), j0 = JSON.parse(S.D.get('trips/' + id).json);
+    const r = await W(WT.access_token, 'ort_info_setzen', { tag: 2, ort: 'Neuer Text über den Ort (erfunden).', auf_eigene_faust: ['Erster Tipp', 'Zweiter Tipp'], anreise: [] });
+    assert.ok(!r.err, r.t); assert.match(r.t, /Der Ort, Auf eigene Faust, Anreise/);
+    const p1 = portOf(2); assert.equal(p1.ort, 'Neuer Text über den Ort (erfunden).'); assert.deepEqual(p1.tips, ['Erster Tipp', 'Zweiter Tipp']); assert.ok(!('tr' in p1)); assert.equal(p1.walk, p0.walk); assert.ok(p1.kiInfo);
+    const L = docs('kilog').filter(x => x.col === 'portinfo').pop(); assert.equal(L.doc, '2'); assert.deepEqual(L.before.tips, p0.tips); assert.deepEqual(L.after.tips, p1.tips);
+    const j1 = JSON.parse(S.D.get('trips/' + id).json); assert.deepEqual(j1.ports.filter(p => p.day !== 2), j0.ports.filter(p => p.day !== 2));
+    assert.match((await W(WT.access_token, 'ort_info_setzen', { tag: 2, ort: 'Neuer Text über den Ort (erfunden).' })).t, /Keine Änderung/);
+    assert.ok(!(await W(WT.access_token, 'ort_info_setzen', { tag: 3, kurztext: 'Seetag mit Pool (erfunden).' })).err, 'Seetag-Kurztext'); assert.equal(portOf(3).text, 'Seetag mit Pool (erfunden).');
+    assert.ok((await W(WT.access_token, 'ort_info_setzen', { tag: 2 })).err, 'ohne Angabe');
+    assert.ok((await (await rpc(RT.access_token, 'tools/call', { name: 'ort_info_setzen', arguments: { tag: 2, ort: 'x' } })).json()).error, 'Lese-Token');
+  });
+  await test('tipps: anlegen mit Ortssuche (Lage, km, Planungsdaten), aktualisieren per id und Name, nicht gefunden, löschen nur eigene/ungeplante', async () => {
+    const n0 = portOf(2).pois.length;
+    const r = await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [
+      { name: 'Strand Sonnenbucht (erfunden)', art: 'beach', ort: 'Strand Sonnenbucht, Inselort', beschreibung: 'Feiner Sand.', eintritt: 0, oeffnung: 'immer' },
+      { name: 'Nirgends-Turm', ort: 'Nirgends-Turm' }] });
+    assert.ok(!r.err, r.t); assert.match(r.t, /„Strand Sonnenbucht \(erfunden\)“ neu · [\d,]+ km \[k-strand-sonnenbucht-erfunden-[a-z0-9]{4}\]/); assert.match(r.t, /Nicht gefunden .*Nirgends-Turm/);
+    const P = portOf(2).pois, q = P[P.length - 1]; assert.equal(P.length, n0 + 1); assert.equal(q.t, 'beach'); assert.ok(isFinite(q.lat) && q.km > 0 && q.km < 5); assert.equal(q.g.f, 0); assert.equal(q.g.o, 'immer'); assert.ok(q.g.t >= 5 && q.g.s === 60); assert.equal(q.ki.neu, 1);
+    assert.match((await W(RT.access_token, 'tipps', { tag: 2 })).t, new RegExp('\\[' + q.id + '\\].*von Claude angelegt'));
+    // aktualisieren: per id (Beschreibung), per Name (vorhandener Tipp aus der Reise → „geändert“)
+    const u = await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [{ id: q.id, beschreibung: 'Feiner Sand, wenig Schatten.' }, { name: P[0].n, oeffnung: 'tgl. 9–17' }] }); assert.ok(!u.err, u.t);
+    const P2 = portOf(2).pois; assert.equal(P2.length, n0 + 1); assert.equal(P2[P2.length - 1].d, 'Feiner Sand, wenig Schatten.'); assert.equal(P2[0].g.o, 'tgl. 9–17'); assert.equal(P2[0].ki.neu, 0); assert.equal(P2[0].lat, P[0].lat, 'Lage bleibt ohne ort');
+    assert.ok((await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [{ name: 'Ohne Ort' }] })).err, 'neuer Tipp ohne ort');
+    assert.ok((await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [{ id: 'gibts-nicht' }] })).err);
+    assert.ok((await W(WT.access_token, 'tipps_anlegen', { tag: 3, tipps: [{ name: 'X', ort: 'Strand' }] })).err, 'Seetag');
+    assert.ok((await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [{ name: 'X', ort: 'Strand', art: 'boese' }] })).err, 'art nur aus Liste');
+    assert.match((await W(WT.access_token, 'tipp_loeschen', { tag: 2, id: P[0].id })).t, /nur bei Tipps, die Claude selbst angelegt/);
+    S.D.set('trips/' + id + '/planitems/eq', { d: 2, o: 5, ti: q.id, at: '15:00', s: 30 });
+    assert.match((await W(WT.access_token, 'tipp_loeschen', { tag: 2, id: q.id })).t, /im Tagesplan eingeplant/); S.D.delete('trips/' + id + '/planitems/eq');
+    const d = await W(WT.access_token, 'tipp_loeschen', { tag: 2, id: q.id }); assert.ok(!d.err, d.t); assert.equal(portOf(2).pois.length, n0);
+    assert.equal(docs('kilog').filter(x => x.col === 'poi').length, 4);
   });
   await test('reisen: Feld reise in allen Werkzeugen mit Reisedaten, nicht bei Entwürfen', async () => {
     const tl = (await (await rpc(WT.access_token, 'tools/list')).json()).result.tools;

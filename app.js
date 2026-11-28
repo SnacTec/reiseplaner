@@ -381,6 +381,10 @@ const nowMs=()=>Date.now()+SIM_OFF,nowD=()=>new Date(nowMs());
 const DP=RPDP.make({get trip(){return TRIP},get ports(){return D.ports},get plan(){return plan},get picks(){return picks},get din(){return DIN},get ship(){return SHIP},cruise:CRUISE,now:()=>nowMs()});
 const todayStr=()=>DP.todayStr();
 const KUL=window.__T.KUL;
+// Tipps ohne Kartenposition (z. B. von Claude über den Konnektor eingetragen): Position und Entfernung zum Hafen ergänzen
+function poiFix(p){(p.pois||[]).forEach(q=>{if(q.lat==null||q.lon==null)return;if(q.ox==null&&D.maps&&D.maps.ov){const xy=llxy(q.lat,q.lon);q.ox=+xy[0].toFixed(2);q.oy=+xy[1].toFixed(2)}
+  if(q.km==null&&p.lat!=null){const r=Math.PI/180;q.km=+(6371*Math.hypot((q.lon-p.lon)*r*Math.cos((q.lat+p.lat)*r/2),(q.lat-p.lat)*r)).toFixed(1)}})}
+try{D.ports.forEach(poiFix)}catch(e){}
 function kulHTML(p){const own=(o,k)=>o&&typeof o==='object'&&Object.hasOwn(o,k)?o[k]:null,A=x=>Array.isArray(x)?x:[],L=own(KUL.L,p.land),P=own(KUL.P,p.name);if(!L||typeof L!=='object')return '';
   const T=[['g','🏛 Geschichte',A(P).concat(A(L.g))],['p','⚖️ Politik & Alltag',A(L.p)],['k','🎭 Kultur',A(L.k)],['e','🍽 Essen & Trinken',A(L.e)]];
   return '<h3>Land & Leute'+(p.land?' · '+esc(p.land.replace(/\s*\(.*\)$/,'').replace(/^[^,]*, /,'')):'')+'</h3>'+T.map(([k,h,a])=>'<details class="kul"><summary>'+h+'</summary><ul class="tips">'+a.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></details>').join('')+'<p class="src" style="margin:6px 0 0">Eigene Kurzzusammenfassung, Stand 2026, ohne Gewähr.</p>'}
@@ -927,7 +931,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='27.11. · R112';
+const APP_VER='28.11. · R113';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -960,13 +964,15 @@ document.addEventListener('click',async e=>{const r=e.target.closest&&e.target.c
    Rückgängig setzt den Stand vor der Änderung über die normalen Speicherwege der App (Plan, Aufgaben, Ausflüge, Abendessen). */
 async function kiLogLoad(){if(window.__TEST_KILOG)return window.__TEST_KILOG;if(!dbh||TS.mode!=='db')return [];const s=await dbh.collection('kilog').orderBy('at','desc').limit(40).get();return s.docs.map(d=>({id:d.id,...d.data()}))}
 const kiWho=u=>{const m=MEMBERS.find(x=>x.id===u);return m?m.n:''};
-const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v'],ex:['c','n','p','dur','lv','prog','note','rec','sold','orte']};
+const KIK={planitems:['d','n','at','s','t','note','lat','lon','dk','dv'],tasks:['text','done','due','list','note'],picks:['v'],ex:['c','n','p','dur','lv','prog','note','rec','sold','orte'],poi:['n','t','w','d','lat','lon','g'],portinfo:['ort','walk','verdikt','rec','text','tips','tr']};
 function kiProj(L,x){if(!x)return null;if(L.col==='dinner'){const d=+L.doc;return {s:(x.skip||[]).includes(d),o:(x.ov||{})[d]||null}}const o={};(KIK[L.col]||[]).forEach(k=>o[k]=x[k]??null);return o}
 function kiCur(L){
   if(L.col==='planitems'){for(const [d,a] of Object.entries(plan)){const it=(a||[]).find(x=>x.id===L.doc);if(it)return {...it,d:+d}}return null}
   if(L.col==='tasks')return TS.tasks.find(x=>x.id===L.doc)||null;
   if(L.col==='picks'){const k=(L.after||L.before||{}).k;return k in picks?{k,v:picks[k]}:null}
   if(L.col==='ex'){const [d,c]=String(L.doc).split(/:(.*)/s),p=byDay(+d);return (p&&(p.ex||[]).find(x=>String(x.c)===c))||null}
+  if(L.col==='poi'){const [d,c]=String(L.doc).split(/:(.*)/s),p=byDay(+d);return (p&&(p.pois||[]).find(x=>String(x.id)===c))||null}
+  if(L.col==='portinfo'){const p=byDay(+L.doc);if(!p)return null;const o={};KI_PI.forEach(k=>{if(p[k]!=null&&!(Array.isArray(p[k])&&!p[k].length)&&p[k]!=='')o[k]=p[k]});return o}
   if(L.col==='dinner')return DIN;return null}
 function kiUndo(L){
   // Eintrag/Aufgabe nach Claudes Änderung in der App neu gespeichert (neue Kennung) → kein Rückgängig, sonst gäbe es ihn doppelt
@@ -978,16 +984,19 @@ function kiUndo(L){
     savePlan();renderPanel();renderDays();updatePills()}
   else if(L.col==='tasks'){if(B)tsPutTask({...B,id:L.doc});else tsDelTask(L.doc);renderPanel()}
   else if(L.col==='picks'){const k=(B||L.after).k;if(B)picks[k]=B.v;else delete picks[k];persistPicks();renderPanel();renderDays();updatePills()}
-  else if(L.col==='ex'){kiExUndo(L);return true}
+  else if(L.col==='ex'||L.col==='poi'||L.col==='portinfo'){kiExUndo(L);return true}
   else if(L.col==='dinner'){const d=+L.doc;DIN.skip=(DIN.skip||[]).filter(x=>x!==d);if(B&&(B.skip||[]).includes(d))DIN.skip.push(d);DIN.ov={...(DIN.ov||{})};if(B&&B.ov&&B.ov[d])DIN.ov[d]=B.ov[d];else delete DIN.ov[d];dinSave(true);dinRefresh()}
   else return false;
   if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail);
   L.undone=true;return true}
 // Veranstalter-Ausflug (Stammdaten): Stand vor Claude wiederherstellen – in der Reise (tripSave) und sofort in der Anzeige
-async function kiExUndo(L){const [d,c]=String(L.doc).split(/:(.*)/s),B=L.before,put=ex=>{const i=ex.findIndex(x=>String(x.c)===c);if(B){if(i>=0)ex[i]=B;else ex.push(B)}else if(i>=0)ex.splice(i,1)};
-  const p=byDay(+d);if(p){p.ex=p.ex||[];put(p.ex)}
-  L.undone=true;renderPanel();renderDays();updatePills();
-  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===+d);if(q){q.ex=q.ex||[];put(q.ex)}});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000);return}
+const KI_PI=['ort','walk','verdikt','rec','text','tips','tr'];
+async function kiExUndo(L){const [d,c]=String(L.doc).split(/:(.*)/s),B=L.before,col=L.col;
+  const put=q=>{if(col==='portinfo'){KI_PI.forEach(k=>delete q[k]);delete q.kiInfo;if(B)Object.assign(q,JSON.parse(JSON.stringify(B)));return}
+    const f=col==='poi'?'pois':'ex',k=col==='poi'?'id':'c',a=q[f]=q[f]||[],i=a.findIndex(x=>String(x[k])===c),b=B&&JSON.parse(JSON.stringify(B));if(b){if(i>=0)a[i]=b;else a.push(b)}else if(i>=0)a.splice(i,1)};
+  const p=byDay(+d);if(p){put(p);if(col==='poi')poiFix(p)}
+  L.undone=true;renderPanel();renderDays();updatePills();if(col==='poi')mapSoon();
+  try{await tripSave(j=>{const q=(j.ports||[]).find(x=>x.day===+d);if(q)put(q)});if(window.__dropCopy)window.__dropCopy(TRIP_ID)}catch(e){undoToast('Speichern fehlgeschlagen: '+(e.message||e),null,4000);return}
   if(dbh&&TS.mode==='db')dbh.collection('kilog').doc(L.id).set({undone:true,undoneAt:Date.now(),undoneBy:FBX.user?FBX.user.uid:''},{merge:true}).catch(tdFail)}
 function kiLogDlg(){openSheet('<div class="hd"><h3 style="margin:0">Änderungen durch KI</h3></div><div id="kil"><p class="src">wird geladen …</p></div><p class="src" style="margin:10px 0 0">Was Claude über den Konnektor eingetragen oder geändert hat. Einträge im Plan sind mit 🤖 markiert.</p>',async d=>{
   const el=d.querySelector('#kil');let L=[];
@@ -2397,7 +2406,7 @@ function portPanel(p){
     const picked=(p.ex||[]).filter(e=>isPicked(p,e));
     const F=[p.times&&/\d/.test(p.times)?['Liegezeit',p.times]:null,p.walk?['Zu Fuß möglich?',p.walk]:null,(p.ex||[]).length?['Eingeplant',picked.length?eur(picked.reduce((a,e)=>a+(e.p||0),0)):'0 €']:null].filter(Boolean);
     const h=(F.length?`<div class="facts">${F.map(f=>`<div class="fact"><small>${f[0]}</small><b>${esc(f[1])}</b></div>`).join('')}</div>`:'')+
-    (p.ort?`<h3>Der Ort</h3><p>${esc(p.ort)}</p>`:p.text?`<p>${esc(p.text)}</p>`:'')+
+    (p.kiInfo?'<p class="src kinf"><span class="kim">🤖</span> Von Claude ergänzt oder geändert</p>':'')+(p.ort?`<h3>Der Ort</h3><p>${esc(p.ort)}</p>`:p.text?`<p>${esc(p.text)}</p>`:'')+
     (p.verdikt?`<div class="call"><b>Selbst oder Ausflug?</b>${esc(p.verdikt)}</div>`:'')+
     (p.rec?`<div class="call rec"><b>Empfehlung</b>${esc(p.rec)}${p.recCodes&&p.recCodes.length?` <button class="lnk" data-go="ex">Ausflug ansehen ›</button>`:''}</div>`:'')+
     ((p.tips||[]).length?`<h3>Auf eigene Faust</h3><ul class="tips">${p.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:'')+kulHTML(p);
@@ -2407,7 +2416,7 @@ function portPanel(p){
     const list=p.pois.map((q,i)=>({q,i})).filter(({q})=>OSM.f.has(tipCat(q)));
     if(!list.length)return '<p class="empty">Alle Kategorien sind abgewählt. Über „Orte auf der Karte“ (📍 rechts an der Karte) wieder einschalten.</p>';
     return list.map(({q,i})=>{const w=WALK[q.w];
-      return `<div class="card" id="poi${i}" data-i="${i}"><div class="row"><span class="badge ic" style="--c:${CAT[tipCat(q)].c}">${tipIcon(q)}</span><div style="min-width:0"><h4>${esc(q.n)}</h4><div class="tags"><span class="tag">${TYPES[q.t][0]}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">Luftlinie ${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km${q.ca?' (Lage ungefähr)':''}</span></div></div></div><p>${esc(q.d)}</p>${q.g?`<p class="src" style="margin:0 0 2px">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}<div class="acts">${q.g?`<button class="lnk" data-add="${i}">${(plan[p.day]||[]).some(s=>s.i===i)?'✓ Im Tagesplan':'+ Zum Tagesplan'}</button>`:''}<a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">In Karten-App öffnen ›</a>${q.ex?`<button class="lnk" data-ex="${esc(q.ex)}">Ausflug ${esc(q.ex)} ›</button>`:''}</div></div>`}).join('');
+      return `<div class="card" id="poi${i}" data-i="${i}"><div class="row"><span class="badge ic" style="--c:${CAT[tipCat(q)].c}">${tipIcon(q)}</span><div style="min-width:0"><h4>${q.ki?'<span class="kim" title="Von Claude eingetragen oder geändert">🤖</span> ':''}${esc(q.n)}</h4><div class="tags"><span class="tag">${TYPES[q.t][0]}</span>${w?`<span class="tag ${w[1]}">${w[0]}</span>`:''}<span class="tag">Luftlinie ${q.km<0.1?'unter 0,1':String(q.km).replace('.',',')} km${q.ca?' (Lage ungefähr)':''}</span></div></div></div><p>${esc(q.d)}</p>${q.g?`<p class="src" style="margin:0 0 2px">${esc(MODE[q.g.m])} ca. ${q.g.t} Min ab Pier${q.g.o?' · '+esc(q.g.o):''}</p>`:''}<div class="acts">${q.g?`<button class="lnk" data-add="${i}">${(plan[p.day]||[]).some(s=>s.i===i)?'✓ Im Tagesplan':'+ Zum Tagesplan'}</button>`:''}<a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${q.lat},${q.lon}" target="_blank" rel="noopener">In Karten-App öffnen ›</a>${q.ex?`<button class="lnk" data-ex="${esc(q.ex)}">Ausflug ${esc(q.ex)} ›</button>`:''}</div></div>`}).join('');
   };
   const exTab=()=>{
     if(!p.ex||!p.ex.length)return '<p class="empty">Keine '+esc(OP)+'-Ausflüge in den Unterlagen.</p>';

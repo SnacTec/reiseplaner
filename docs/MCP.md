@@ -54,7 +54,11 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
     Fotos kann Claude nicht weitergeben – die fügt ihr in der App beim Ausflug hinzu („📷 Foto hinzufügen ›“).
   - **Orte eines Ausflugs** (Feld `orte` in `ausfluege_anlegen`): nur als Suchtext, der Server sucht sie nahe dem Hafen
     (≤ 200 km); nicht Gefundenes wird gemeldet. In der App antippbar: mit Internet Google Maps, ohne die eigene Karte mit Pin.
-- **Nie:** Reisen direkt anlegen (nur als Entwurf, siehe unten) oder löschen, Stationen/Zeiten, Tipps, An-/Abreise, Unterkünfte, Dateien, private Listen.
+  - **Über den Ort und Tipps** (`ort_info` lesen, `ort_info_setzen`): Ortstext, „Zu Fuß möglich?“, „Selbst oder Ausflug?“,
+    Empfehlung, Tipps auf eigene Faust, Anreise. Nur angegebene Felder, leer = entfernen.
+  - **Orte im Detail** (`tipps` lesen mit Kennung, `tipps_anlegen`, `tipp_loeschen`): bis zu 15 Tipps je Tag; Lage sucht der
+    Server (Suchtext), Entfernung und Planungsdaten werden ergänzt. Löschen nur eigene und nicht eingeplante.
+- **Nie:** Reisen direkt anlegen (nur als Entwurf, siehe unten) oder löschen, Stationen/Zeiten, An-/Abreise, Unterkünfte, Dateien, private Listen.
 - Orte sucht der Server selbst, nahe der Station. Auf See gehen nur Orte an Bord, an Land nur mit „an Bord: …“.
 - Gibt es eine Überschneidung, speichert Claude nichts und fragt nach.
 - **In der App:** Änderungen von Claude tragen ein 🤖. Unter Einstellungen → Konto → „Änderungen durch KI ›“ lässt sich
@@ -78,9 +82,9 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
 ## Nutzen
 Einfach fragen, z. B. „Was machen wir heute?“, „Plan für Tag 3“, „Wann geht morgen der Flug?“,
 „Welche Tipps gibt es für den nächsten Hafen?“, mit Eintragen auch „Trag an Tag 5 Schnorcheln von 10 bis 12 ein“.
-Lesende Werkzeuge: `reisen`, `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `tipps`, `ausfluege`, `aufgaben`, `reise_format`, `reise_pruefen`.
+Lesende Werkzeuge: `reisen`, `reise_info`, `tag_plan`, `jetzt`, `an_abreise`, `suchen`, `ort_info`, `tipps`, `ausfluege`, `aufgaben`, `reise_format`, `reise_pruefen`.
 Eintragende: `eintrag_anlegen`, `eintrag_aendern`, `eintrag_loeschen`, `aufgabe_anlegen`, `aufgabe_erledigt`,
-`abendessen`, `ausflug_waehlen`, `ausfluege_anlegen`, `ausflug_loeschen`, `letzte_aenderungen`, `reise_entwurf_speichern`.
+`abendessen`, `ausflug_waehlen`, `ausfluege_anlegen`, `ausflug_loeschen`, `ort_info_setzen`, `tipps_anlegen`, `tipp_loeschen`, `letzte_aenderungen`, `reise_entwurf_speichern`.
 
 ## Welche Reise?
 - `reisen` listet alle Reisen (vergangen, laufend, geplant) mit Kennung.

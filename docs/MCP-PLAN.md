@@ -424,6 +424,14 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   weg, speichert `ausfluege_anlegen` die Ausflüge trotzdem, behält vorhandene Orte und meldet die fehlenden. Timeout 60 s.
 - **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
 
+### 9.11 Ortsinfos und Tipps über den Konnektor (28.11.2026, Nutzerwunsch: „Reise über Claude ändern“)
+- Weitere Ausnahme von 9.1, nur diese Felder je Tag: `ort`, `walk`, `verdikt`, `rec`, `text`, `tips[]`, `tr[]` (`ort_info_setzen`,
+  Kennzeichen `kiInfo`, Protokoll col `portinfo`) und `pois[]` (`tipps_anlegen`/`tipp_loeschen`, Kennzeichen `ki`, col `poi`).
+- Neue Tipps: feste `id` (`k-<name>-<zufall>`), Lage per Ortssuche (≤ 200 km), `km` und `g` (Wegzeit geschätzt wie im Editor),
+  keine `ox/oy` – die App ergänzt Position/Entfernung beim Start (`poiFix`). Löschen nur `ki.neu` und nicht im Tagesplan (`ti`).
+- Gleicher Schreibweg wie Ausflüge (eine Transaktion auf `trips/<id>`), Rückgängig in der App (`kiExUndo` für ex/poi/portinfo).
+- Stationen, Zeiten, Daten, Ein-/Ausschiffung bleiben für Claude gesperrt.
+
 ### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2
 - **Umgesetzt (Schritt 1):** `config/app.activeTrip` wird nirgends mehr gelesen oder geschrieben.
   - App: erster Start zeigt alle Reisen zur Auswahl (`showPick` im Lader); jede Reise hat „Öffnen ›“ und „Bearbeiten ›“

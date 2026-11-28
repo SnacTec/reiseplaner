@@ -196,16 +196,15 @@ const CODE = /^[A-Za-z0-9][A-Za-z0-9._\/-]{0,11}$/;
 function exWriter(W) {
   const { S, trip, uid, v, X } = W, key = 'trips/' + trip, now = W.now(), op = X.op;
   let seq = 0;
-  const logDoc = (tool, doc, before, after, txt) => [key + '/kilog/' + nid('k'), { uid, at: now, n: seq++, tool, col: 'ex', doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
-  const dayOf = n => { const p = v.ports.find(q => q.day === +n); if (!p) fail(`Einen Tag ${n} gibt es nicht – die Reise hat ${v.ports.length} Tage.`); if (p.kind === 'sea') fail(`Tag ${p.day} ist ein Seetag – dort gibt es keine ${op}-Ausflüge.`); return p; };
-  // Stammdaten der Reise in einer Transaktion ändern (nur ports[Tag].ex), wie tripSave in der App
+  const logDoc = (tool, doc, before, after, txt, col = 'ex') => [key + '/kilog/' + nid('k'), { uid, at: now, n: seq++, tool, col, doc, before: before == null ? null : before, after: after == null ? null : after, txt: clean(txt, 160), undone: false }];
+  const dayOf = (n, sea) => { const p = v.ports.find(q => q.day === +n); if (!p) fail(`Einen Tag ${n} gibt es nicht – die Reise hat ${v.ports.length} Tage.`); if (p.kind === 'sea' && !sea) fail(`Tag ${p.day} ist ein Seetag – dort gibt es keine ${op}-Ausflüge.`); return p; };
+  // Stammdaten der Reise in einer Transaktion ändern (nur ports[Tag]: ex, pois, Ortstexte), wie tripSave in der App
   async function mutate(day, fn) {
     return S.txn(async T => {
       const t = await T.get(key); if (!t) return { e: 'Die Reise gibt es nicht (mehr).' };
       let j; try { j = JSON.parse(t.json || '{}'); } catch (e) { return { e: 'Die Reisedaten sind beschädigt – bitte in der App prüfen.' }; }
       const p = (j.ports || []).find(q => q && q.day === day); if (!p) return { e: `Tag ${day} fehlt in den Reisedaten.` };
-      if (!Array.isArray(p.ex)) p.ex = [];
-      const r = fn(p.ex, T); if (r && (r.e || r.skip)) return r;
+      const r = fn(p, T); if (r && (r.e || r.skip)) return r;
       const json = JSON.stringify(j); if (Buffer.byteLength(json) > 950 * 1024) return { e: 'Die Reisedaten würden zu groß (Firestore-Grenze) – bitte Texte kürzen.' };
       T.set(key, { json, updated: now }, true); return r || {};
     });
@@ -237,7 +236,8 @@ function exWriter(W) {
           if (x) res.push({ n: clean(q.split(',')[0], 60), lat: +(+x.lat).toFixed(6), lon: +(+x.lon).toFixed(6) }); else miss.push(`${L[k].c}: „${q}“`); }
         if (res.length || !down) L[k].f.orte = res; }   // bei Ausfall bisherige Orte nicht löschen
       const ops = [], out = [];
-      const r = await mutate(p.day, (ex, T) => {
+      const r = await mutate(p.day, (port, T) => {
+        const ex = port.ex = Array.isArray(port.ex) ? port.ex : [];
         for (const { c, f } of L) {
           const i = ex.findIndex(e => e && String(e.c) === c), cur = i >= 0 ? ex[i] : null;
           if (!cur && !f.n) return { e: `${c}: Name fehlt (neuer Ausflug).` };
@@ -255,9 +255,90 @@ function exWriter(W) {
       if (r.e) fail('Nicht gespeichert – ' + r.e);
       return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (miss.length ? (down ? `\nOrtssuche gerade nicht erreichbar – diese Orte fehlen noch: ${miss.join(', ')}. Die Ausflüge selbst sind gespeichert; Orte später erneut eintragen oder in der App hinzufügen („📍 Orte ›“).` : `\nNicht gefunden (nahe ${clean(p.name, 40)}), daher weggelassen: ${miss.join(', ')} – genauer benennen und erneut aufrufen, oder in der App hinzufügen.`) : '') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
     },
+    /* „Über den Ort und Tipps“: Texte eines Tages (nur angegebene Felder; '' bzw. [] entfernt das Feld) */
+    async ort_info_setzen(a) {
+      const p = dayOf(a.tag, true), f = {}, S1 = (k, n, x) => { if (x == null) return; f[k] = note(x, n); }, LI = (k, n, m, x) => { if (x == null) return; f[k] = x.map(t => note(t, m)).filter(Boolean).slice(0, n); };
+      S1('ort', 800, a.ort); S1('walk', 200, a.zu_fuss); S1('verdikt', 400, a.selbst_oder_ausflug); S1('rec', 400, a.empfehlung); S1('text', 300, a.kurztext);
+      LI('tips', 12, 300, a.auf_eigene_faust); LI('tr', 8, 300, a.anreise);
+      if (!Object.keys(f).length) fail('Keine Angabe zum Ändern.');
+      const K = ['ort', 'walk', 'verdikt', 'rec', 'text', 'tips', 'tr'], pick = o => { const x = {}; K.forEach(k => { if (o[k] != null && !(Array.isArray(o[k]) && !o[k].length) && o[k] !== '') x[k] = o[k]; }); return x; };
+      let txt = '';
+      const r = await mutate(p.day, (port, T) => {
+        const before = pick(port); Object.entries(f).forEach(([k, x]) => { if (x === '' || (Array.isArray(x) && !x.length)) delete port[k]; else port[k] = x; });
+        const after = pick(port); if (JSON.stringify(before) === JSON.stringify(after)) return { skip: true };
+        port.kiInfo = { uid, at: now };
+        txt = `Ortsinfos an Tag ${p.day} (${p.name}) geändert: ${Object.keys(f).map(k => ({ ort: 'Der Ort', walk: 'Zu Fuß', verdikt: 'Selbst oder Ausflug', rec: 'Empfehlung', text: 'Kurztext', tips: 'Auf eigene Faust', tr: 'Anreise' })[k]).join(', ')}`;
+        const [lk, ld] = logDoc('ort_info_setzen', String(p.day), before, after, txt, 'portinfo'); T.set(lk, ld);
+      });
+      if (r.e) fail(r.e); if (r.skip) return 'Keine Änderung nötig – die Angaben sind schon so.';
+      return 'Gespeichert: ' + clean(txt, 200) + '.\nIn der App erscheint es nach „Neu laden“ (Hinweis kommt automatisch).';
+    },
+
+    /* „Orte im Detail“ (Tipps, pois): anlegen oder aktualisieren (per id oder gleichem Namen); Lage sucht der Server selbst */
+    async tipps_anlegen(a) {
+      const p = dayOf(a.tag); if (p.lat == null) fail(`Für Tag ${p.day} ist keine Lage bekannt – Tipps bitte in der App anlegen.`);
+      const cur0 = p.pois || [], seen = new Set(), L = [], miss = []; let down = false;
+      for (const x of a.tipps) {
+        const ex = x.id != null ? cur0.find(q => q && q.id === x.id) : x.name ? cur0.find(q => q && nrm(q.n) === nrm(x.name)) : null;
+        if (x.id != null && !ex) fail(`Einen Tipp mit der Kennung ${clean(x.id, 40)} gibt es an Tag ${p.day} nicht (Kennungen stehen in tipps).`);
+        if (!ex && !x.name) fail('Name fehlt (neuer Tipp).'); if (!ex && !x.ort) fail(`„${clean(x.name, 60)}“: Ort (Suchtext) fehlt – ohne Lage kann der Tipp nicht auf die Karte.`);
+        const k = ex ? ex.id : null; if (k && seen.has(k)) fail(`Tipp ${clean(k, 40)} steht doppelt in der Liste.`); if (k) seen.add(k);
+        let loc = null;
+        if (x.ort) { const q = clean(x.ort, 100); let R = [];
+          if (!down) { try { R = await W.geo(q, { lat: p.lat, lon: p.lon }); } catch (e) { down = true; } }
+          const h = (R || []).find(r => r && isFinite(r.lat) && isFinite(r.lon) && RPDP.hav(p, r) <= 200);
+          if (h) loc = { lat: +(+h.lat).toFixed(6), lon: +(+h.lon).toFixed(6) }; else { miss.push(`„${q}“`); if (!ex) continue; } }
+        L.push({ ex, x, loc });
+      }
+      const out = [], ops = [];
+      const r = await mutate(p.day, (port, T) => {
+        const P = port.pois = Array.isArray(port.pois) ? port.pois : [];
+        for (const { ex, x, loc } of L) {
+          const i = ex ? P.findIndex(q => q && q.id === ex.id) : -1, cur = i >= 0 ? P[i] : null; if (ex && !cur) return { e: 'Die Tipps wurden inzwischen geändert – bitte tipps neu lesen.' };
+          const nx = cur ? JSON.parse(JSON.stringify(cur)) : { id: 'k-' + nrm(x.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) + '-' + Math.random().toString(36).slice(2, 6) };
+          if (x.name != null) nx.n = clean(x.name, 80); if (x.art) nx.t = x.art; if (!nx.t) nx.t = 'sight';
+          if (x.beschreibung != null) nx.d = note(x.beschreibung, 400);
+          if (loc) { nx.lat = loc.lat; nx.lon = loc.lon; delete nx.ox; delete nx.oy; delete nx.ca; nx.km = +RPDP.hav(p, loc).toFixed(1); }
+          if (x.erreichbar) nx.w = x.erreichbar; if (!nx.w) nx.w = nx.km != null && nx.km <= 1.5 ? 'walk' : 'taxi';
+          const g = { ...(nx.g || {}) }, km = nx.km || 0;
+          g.m = nx.w; if (x.weg_min != null) g.t = x.weg_min; else if (g.t == null || loc) g.t = Math.max(5, Math.round(nx.w === 'walk' ? km * 13 : km * 2.5 + 8));
+          if (x.aufenthalt_min != null) g.s = x.aufenthalt_min; else if (g.s == null) g.s = 60;
+          if (x.eintritt != null) g.f = x.eintritt; else if (!('f' in g)) g.f = null;
+          if (x.oeffnung != null) g.o = clean(x.oeffnung, 80); if (x.notiz != null) g.n = clean(x.notiz, 200);
+          if (g.c == null) g.c = 0; if (!g.u) g.u = '€'; g.v = 0; nx.g = g;
+          const { ki: k0, ...a0 } = cur || {}, { ki: k1, ...a1 } = nx;
+          if (cur && JSON.stringify(a0) === JSON.stringify(a1)) { out.push(`„${clean(nx.n, 60)}“ unverändert [${nx.id}]`); continue; }
+          nx.ki = { uid, at: now, neu: cur ? (cur.ki && cur.ki.neu ? 1 : 0) : 1 };
+          if (cur) P[i] = nx; else P.push(nx);
+          ops.push(logDoc('tipps_anlegen', p.day + ':' + nx.id, cur, nx, `Tipp „${nx.n}“ an Tag ${p.day} ${cur ? 'geändert' : 'angelegt'}`, 'poi'));
+          out.push(`„${clean(nx.n, 60)}“ ${cur ? 'aktualisiert' : 'neu'} · ${nx.km != null ? String(nx.km).replace('.', ',') + ' km' : ''} [${nx.id}]`);
+        }
+        if (!ops.length) return { skip: true };
+        ops.forEach(([k, d]) => T.set(k, d));
+      });
+      if (r.e) fail('Nicht gespeichert – ' + r.e);
+      return `Tipps an Tag ${p.day} (${clean(p.name, 60)}):\n` + (out.length ? out.map(s => '- ' + s).join('\n') : '- nichts gespeichert') +
+        (miss.length ? (down ? `\nOrtssuche gerade nicht erreichbar: ${miss.join(', ')} – neue Tipps ohne Lage wurden nicht angelegt, bitte später erneut.` : `\nNicht gefunden (nahe ${clean(p.name, 40)}): ${miss.join(', ')} – genauer benennen und erneut aufrufen.`) : '') +
+        (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
+    },
+
+    async tipp_loeschen(a) {
+      const p = dayOf(a.tag), id = clean(a.id, 60); let txt = '';
+      if ((v.plan[p.day] || []).some(s => s && !s.x && s.ti === id)) fail('Dieser Tipp ist im Tagesplan eingeplant – bitte erst dort entfernen.');
+      const r = await mutate(p.day, (port, T) => {
+        const P = Array.isArray(port.pois) ? port.pois : [], i = P.findIndex(q => q && q.id === id); if (i < 0) return { e: `An Tag ${p.day} gibt es keinen Tipp mit der Kennung ${id}.` };
+        const cur = P[i]; if (!(cur.ki && cur.ki.neu)) return { e: 'Löschen geht nur bei Tipps, die Claude selbst angelegt hat. Andere bitte in der App bearbeiten.' };
+        P.splice(i, 1); txt = `Tipp „${cur.n}“ an Tag ${p.day} gelöscht`;
+        const [k, d] = logDoc('tipp_loeschen', p.day + ':' + id, cur, null, txt, 'poi'); T.set(k, d);
+      });
+      if (r.e) fail(r.e);
+      return 'Gelöscht: ' + clean(txt, 160) + '.';
+    },
+
     async ausflug_loeschen(a) {
       const p = dayOf(a.tag), c = clean(a.code, 12); let txt = '';
-      const r = await mutate(p.day, (ex, T) => {
+      const r = await mutate(p.day, (port, T) => {
+        const ex = Array.isArray(port.ex) ? port.ex : [];
         const i = ex.findIndex(e => e && String(e.c) === c); if (i < 0) return { e: `An Tag ${p.day} gibt es keinen Ausflug ${c}.` };
         const cur = ex[i]; if (!(cur.ki && cur.ki.neu)) return { e: `Löschen geht nur bei Ausflügen, die Claude selbst angelegt hat. ${c} bitte in der App bearbeiten.` };
         ex.splice(i, 1); txt = `${op}-Ausflug ${c} „${cur.n}“ an Tag ${p.day} gelöscht`;

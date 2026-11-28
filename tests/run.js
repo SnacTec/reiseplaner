@@ -259,6 +259,26 @@ test('ausflüge: Orte als Links (Liste und im Programm), Google Maps online, eig
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('ortsinfos und tipps von Claude: 🤖, Position für neue Tipps, Rückgängig', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), P = t.data.ports[1];
+  const neu = { id: 'k-strand-ab12', n: 'Strand Neu (erfunden)', t: 'beach', w: 'walk', lat: P.lat + 0.004, lon: P.lon + 0.004, d: 'Neu.', ki: { uid: 'u1', at: 1, neu: 1 } };
+  P.pois.push(neu); P.ort = 'Von Claude geändert (erfunden).'; P.kiInfo = { uid: 'u1', at: 1 };
+  const p = await H.open(c, base, t, '#tag-2');
+  await p.evaluate(() => { select(2); }); await p.waitForTimeout(400);
+  const a = await p.evaluate(() => { const q = byDay(2).pois.find(x => x.id === 'k-strand-ab12'); return { ox: q.ox, km: q.km, txt: document.getElementById('panel').innerText }; });
+  ok(isFinite(a.ox) && a.km > 0 && a.km < 2, 'Position/Entfernung fehlt: ' + JSON.stringify({ ox: a.ox, km: a.km }));
+  const m = await p.evaluate(() => { setTab('pois'); return new Promise(r => setTimeout(() => r(document.querySelectorAll('#panel .card .kim').length), 300)); });
+  ok(m >= 1, '🤖 am Tipp fehlt');
+  // Rückgängig: neuer Tipp weg, Ortstext zurück
+  const r = await p.evaluate(o => { window.confirm = () => true;
+    const u1 = kiUndo({ id: 'k1', col: 'poi', doc: '2:k-strand-ab12', before: null, after: o });
+    const u2 = kiUndo({ id: 'k2', col: 'portinfo', doc: '2', before: { ort: 'Alter Ortstext (erfunden).', tips: ['A'] }, after: { ort: 'Von Claude geändert (erfunden).', tips: byDay(2).tips } });
+    return { u1, u2 }; }, neu); await p.waitForTimeout(400);
+  const s = await p.evaluate(() => ({ has: byDay(2).pois.some(x => x.id === 'k-strand-ab12'), ort: byDay(2).ort, tips: byDay(2).tips, ki: !!byDay(2).kiInfo, sv: window.__SAVED.data.ports[1].ort, svp: window.__SAVED.data.ports[1].pois.some(x => x.id === 'k-strand-ab12') }));
+  ok(r.u1 && r.u2 && !s.has && !s.svp && s.ort === 'Alter Ortstext (erfunden).' && s.sv === s.ort && s.tips.join() === 'A' && !s.ki, 'Rückgängig: ' + JSON.stringify(s));
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
