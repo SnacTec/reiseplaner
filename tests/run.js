@@ -289,6 +289,20 @@ test('fabriken entfernt: alte Felder fact/src werden beim Import ignoriert, kein
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('währung: aus dem Land (dayplan.js), Anzeige unter „Über den Ort“, keine Summe der Ausflüge mehr', async ({ browser, base }) => {
+  const R = require(path.join(H.ROOT, 'dayplan.js'));
+  const W = l => (R.curOf({ kind: 'port', land: l }) || {}).c;
+  ok(W('Dominikanische Republik') === 'DOP' && W('St. Lucia') === 'XCD' && W('Vereinigte Staaten von Amerika') === 'USD' && W('Frankreich, Guadeloupe') === 'EUR' && W('Norwegen') === 'NOK' && !W('Musterland'), 'Zuordnung');
+  ok(R.curOf({ kind: 'sea', land: 'Spanien' }) === null && R.curOf({ kind: 'port', land: 'Spanien', cur: 'USD' }).c === 'USD', 'Seetag/Übersteuern');
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'); t.data.ports[3].land = 'Dominikanische Republik';
+  const p = await H.open(c, base, t, '#tag-2');
+  const a = await p.evaluate(() => { select(2); const s = document.getElementById('sec-ov'); s.open = true; return s.innerText; });
+  ok(/Währung\s*Euro \(EUR\)/.test(a) && /💱 Beispiel: Karten/.test(a) && !/Eingeplant/.test(a), 'Tag 2: ' + a.slice(0, 300));
+  const b = await p.evaluate(() => { select(4); const s = document.getElementById('sec-ov'); s.open = true; return s.innerText; });
+  ok(/Dominikanischer Peso \(DOP\)/.test(b), 'Tag 4: ' + b.slice(0, 200));
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

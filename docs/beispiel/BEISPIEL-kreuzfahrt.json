@@ -54,6 +54,8 @@
     "land": "Beispielland",
     "times": "08:00–17:00",
     "tz": 2,
+    "cur": "EUR",
+    "curNote": "Beispiel: Karten werden fast überall angenommen (erfunden).",
     "lat": 39.888,
     "lon": 4.262,
     "walk": "Ja, Altstadt 10 Min",

@@ -54,7 +54,7 @@ Wer schon „nur lesen“ verbunden ist: in Claude den Konnektor trennen und neu
     Fotos kann Claude nicht weitergeben – die fügt ihr in der App beim Ausflug hinzu („📷 Foto hinzufügen ›“).
   - **Orte eines Ausflugs** (Feld `orte` in `ausfluege_anlegen`): nur als Suchtext, der Server sucht sie nahe dem Hafen
     (≤ 200 km); nicht Gefundenes wird gemeldet. In der App antippbar: mit Internet Google Maps, ohne die eigene Karte mit Pin.
-  - **Über den Ort und Tipps** (`ort_info` lesen, `ort_info_setzen`): Ortstext, „Zu Fuß möglich?“, „Selbst oder Ausflug?“,
+  - **Über den Ort und Tipps** (`ort_info` lesen, `ort_info_setzen`): Währung (`waehrung`, nur wenn abweichend vom Land) und Bezahl-Hinweis, Ortstext, „Zu Fuß möglich?“, „Selbst oder Ausflug?“,
     Empfehlung, Tipps auf eigene Faust, Anreise. Nur angegebene Felder, leer = entfernen.
   - **Orte im Detail** (`tipps` lesen mit Kennung, `tipps_anlegen`, `tipp_loeschen`): bis zu 15 Tipps je Tag; Lage sucht der
     Server (Suchtext), Entfernung und Planungsdaten werden ergänzt. Löschen nur eigene und nicht eingeplante.

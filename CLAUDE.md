@@ -95,6 +95,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
 - Karte: unabhängig vom gewählten Tag; ★ = Einträge im Tagesplan (alle Tage), Tipps (`pois`) = gefüllter Kreis mit Symbol,
   Umgebung (OpenStreetMap) = weißer Kreis mit Symbol; gemeinsamer Filter + Legende im 📍-Knopf (`CAT`, `mapPins`, `tipDlg`).
 - Route kommt aus den Reisedaten (`route`, siehe docs/DATEN.md), sonst automatisch (Schiff: Bögen, sonst gerade Linien).
+- Währung je Tag: `RPDP.curOf(p)` (dayplan.js, aus `land`, übersteuerbar `cur`/`curNote`), Kachel unter „Über den Ort“ (statt Summe der Ausflüge).
 - Tagesansicht: Kopf (Datum · Land, Name), eine Infozeile (`infoHTML`: Liegezeit, an Bord, Zeitunterschied mit Sommerzeit
   `deOff`, Wetter; antippen = Details), Tagesplan als eine Karte (`dayView`, Klasse `.dcard`) – dieselbe in „Mein Tag“.
 - Einheitlicher Tages-Stil (Reiseplan, Tageskarte, Mein Tag): Kopf zweizeilig (grau „Tag · Datum · Land“, darunter Ort),

@@ -122,7 +122,40 @@
       return { cls, big, txt, pc, sub: 'Ortszeit jetzt ' + N.hm + ' (' + tzTxt(tzOf(p)) + ') · maßgeblich ist die Bordzeit im Tagesprogramm' } }
     return { pickKey, isPicked, tzOf, todayStr, portNow, deckOf, dinVenue, dinName, dinRow, calc, embOf, embList, dayNow, rowLive, nowNext, aabInfo };
   }
-  const RPDP = { V: 1, addDays, hm, tm, MODE, portWin, hav, leg, durMin, moneyU, legTxt, durTxt, tzTxt, tzOffAt, utcOf, localOf, deOff, tvSum, make };
+  /* ---------- Währung am Ort ----------
+   * Aus dem Land des Tages (deutscher Ländername wie in den Reisedaten), überschreibbar je Tag mit cur (ISO-Code) und curNote (Hinweis).
+   * Tabelle Ländercode → Währung (ISO 4217, Stand 2026); Namen liefert Intl.DisplayNames auf Deutsch. */
+  const CUR = 'AD:EUR AE:AED AF:AFN AG:XCD AI:XCD AL:ALL AM:AMD AO:AOA AR:ARS AS:USD AT:EUR AU:AUD AW:AWG AX:EUR AZ:AZN BA:BAM BB:BBD BD:BDT BE:EUR BF:XOF BG:EUR BH:BHD BI:BIF BJ:XOF BL:EUR BM:BMD BN:BND BO:BOB BQ:USD BR:BRL BS:BSD BT:BTN BW:BWP BY:BYN BZ:BZD ' +
+    'CA:CAD CD:CDF CF:XAF CG:XAF CH:CHF CI:XOF CK:NZD CL:CLP CM:XAF CN:CNY CO:COP CR:CRC CU:CUP CV:CVE CW:XCG CY:EUR CZ:CZK DE:EUR DJ:DJF DK:DKK DM:XCD DO:DOP DZ:DZD EC:USD EE:EUR EG:EGP ER:ERN ES:EUR ET:ETB FI:EUR FJ:FJD FK:FKP FM:USD FO:DKK FR:EUR ' +
+    'GA:XAF GB:GBP GD:XCD GE:GEL GF:EUR GG:GBP GH:GHS GI:GIP GL:DKK GM:GMD GN:GNF GP:EUR GQ:XAF GR:EUR GT:GTQ GU:USD GW:XOF GY:GYD HK:HKD HN:HNL HR:EUR HT:HTG HU:HUF ID:IDR IE:EUR IL:ILS IM:GBP IN:INR IQ:IQD IR:IRR IS:ISK IT:EUR JE:GBP JM:JMD JO:JOD JP:JPY ' +
+    'KE:KES KG:KGS KH:KHR KI:AUD KM:KMF KN:XCD KR:KRW KW:KWD KY:KYD KZ:KZT LA:LAK LB:LBP LC:XCD LI:CHF LK:LKR LR:LRD LS:LSL LT:EUR LU:EUR LV:EUR LY:LYD MA:MAD MC:EUR MD:MDL ME:EUR MF:EUR MG:MGA MH:USD MK:MKD ML:XOF MM:MMK MN:MNT MO:MOP MP:USD MQ:EUR ' +
+    'MR:MRU MS:XCD MT:EUR MU:MUR MV:MVR MW:MWK MX:MXN MY:MYR MZ:MZN NA:NAD NC:XPF NE:XOF NF:AUD NG:NGN NI:NIO NL:EUR NO:NOK NP:NPR NR:AUD NU:NZD NZ:NZD OM:OMR PA:PAB PE:PEN PF:XPF PG:PGK PH:PHP PK:PKR PL:PLN PM:EUR PR:USD PS:ILS PT:EUR PW:USD PY:PYG ' +
+    'QA:QAR RE:EUR RO:RON RS:RSD RU:RUB RW:RWF SA:SAR SB:SBD SC:SCR SD:SDG SE:SEK SG:SGD SH:SHP SI:EUR SJ:NOK SK:EUR SL:SLE SM:EUR SN:XOF SO:SOS SR:SRD SS:SSP ST:STN SV:USD SX:XCG SY:SYP SZ:SZL TC:USD TD:XAF TG:XOF TH:THB TJ:TJS TL:USD TM:TMT TN:TND ' +
+    'TO:TOP TR:TRY TT:TTD TV:AUD TW:TWD TZ:TZS UA:UAH UG:UGX US:USD UY:UYU UZ:UZS VA:EUR VC:XCD VE:VES VG:USD VI:USD VN:VND VU:VUV WF:XPF WS:WST XK:EUR YE:YER YT:EUR ZA:ZAR ZM:ZMW ZW:ZWG';
+  // häufige Schreibweisen, die Intl.DisplayNames anders nennt
+  const CUR_ALIAS = { 'usa': 'US', 'vereinigte staaten von amerika': 'US', 'amerika': 'US', 'england': 'GB', 'schottland': 'GB', 'wales': 'GB', 'grossbritannien': 'GB', 'holland': 'NL', 'tuerkei': 'TR', 'turkiye': 'TR',
+    'st. lucia': 'LC', 'saint lucia': 'LC', 'st. kitts und nevis': 'KN', 'st. vincent und die grenadinen': 'VC', 'st. martin': 'MF', 'sint maarten': 'SX', 'curacao': 'CW', 'bonaire': 'BQ', 'tschechien': 'CZ', 'kanarische inseln': 'ES', 'madeira': 'PT', 'azoren': 'PT', 'balearen': 'ES', 'mallorca': 'ES', 'korsika': 'FR', 'sizilien': 'IT', 'sardinien': 'IT', 'kreta': 'GR', 'hawaii': 'US', 'alaska': 'US', 'florida': 'US' };
+  const curN = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss').replace(/\s+/g, ' ').trim();
+  let curIdx = null;
+  function curIndex() {
+    if (curIdx) return curIdx; curIdx = { byLand: new Map(), byA2: new Map() };
+    let dn = null; try { dn = new Intl.DisplayNames(['de'], { type: 'region' }); } catch (e) {}
+    CUR.split(' ').forEach(x => { const [a2, c] = x.split(':'); curIdx.byA2.set(a2, c); if (dn) { try { const n = dn.of(a2); if (n && n !== a2) curIdx.byLand.set(curN(n), a2); } catch (e) {} } });
+    Object.entries(CUR_ALIAS).forEach(([k, a2]) => curIdx.byLand.set(curN(k), a2));
+    return curIdx;
+  }
+  function curName(c) { try { const n = new Intl.DisplayNames(['de'], { type: 'currency' }).of(c); return n && n !== c ? n : c; } catch (e) { return c; } }
+  // Währung eines Tages: {c:'DOP', n:'Dominikanischer Peso', h:'Hinweis', auto:true|false} oder null (Seetag, Land unbekannt)
+  function curOf(p) {
+    if (!p || p.kind === 'sea') return null;
+    const h = p.curNote ? String(p.curNote) : '';
+    if (/^[A-Z]{3}$/.test(p.cur || '')) return { c: p.cur, n: curName(p.cur), h, auto: false };
+    const I = curIndex(), parts = String(p.land || '').split(/[,;/]|\s+[-–]\s+/).map(s => curN(s.replace(/\(.*?\)/g, ''))).filter(Boolean);
+    for (const s of parts.reverse()) { const a2 = I.byLand.get(s) || (/^[a-z]{2}$/.test(s) ? s.toUpperCase() : null); const c = a2 && I.byA2.get(a2); if (c) return { c, n: curName(c), h, auto: true }; }
+    return h ? { c: '', n: '', h, auto: true } : null;
+  }
+
+  const RPDP = { V: 1, addDays, hm, tm, MODE, portWin, hav, leg, durMin, moneyU, legTxt, durTxt, tzTxt, tzOffAt, utcOf, localOf, deOff, tvSum, curOf, make };
   root.RPDP = RPDP;
   if (typeof module !== 'undefined' && module.exports) module.exports = RPDP;
 })(typeof window !== 'undefined' ? window : globalThis);

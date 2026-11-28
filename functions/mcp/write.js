@@ -258,16 +258,18 @@ function exWriter(W) {
     /* „Über den Ort und Tipps“: Texte eines Tages (nur angegebene Felder; '' bzw. [] entfernt das Feld) */
     async ort_info_setzen(a) {
       const p = dayOf(a.tag, true), f = {}, S1 = (k, n, x) => { if (x == null) return; f[k] = note(x, n); }, LI = (k, n, m, x) => { if (x == null) return; f[k] = x.map(t => note(t, m)).filter(Boolean).slice(0, n); };
+      if (a.waehrung != null) { const c = String(a.waehrung).trim().toUpperCase(); if (c && !/^[A-Z]{3}$/.test(c)) fail('Währung bitte als ISO-Code mit 3 Buchstaben, z. B. USD.'); f.cur = c; }
+      S1('curNote', 200, a.waehrung_hinweis);
       S1('ort', 800, a.ort); S1('walk', 200, a.zu_fuss); S1('verdikt', 400, a.selbst_oder_ausflug); S1('rec', 400, a.empfehlung); S1('text', 300, a.kurztext);
       LI('tips', 12, 300, a.auf_eigene_faust); LI('tr', 8, 300, a.anreise);
       if (!Object.keys(f).length) fail('Keine Angabe zum Ändern.');
-      const K = ['ort', 'walk', 'verdikt', 'rec', 'text', 'tips', 'tr'], pick = o => { const x = {}; K.forEach(k => { if (o[k] != null && !(Array.isArray(o[k]) && !o[k].length) && o[k] !== '') x[k] = o[k]; }); return x; };
+      const K = ['cur', 'curNote', 'ort', 'walk', 'verdikt', 'rec', 'text', 'tips', 'tr'], pick = o => { const x = {}; K.forEach(k => { if (o[k] != null && !(Array.isArray(o[k]) && !o[k].length) && o[k] !== '') x[k] = o[k]; }); return x; };
       let txt = '';
       const r = await mutate(p.day, (port, T) => {
         const before = pick(port); Object.entries(f).forEach(([k, x]) => { if (x === '' || (Array.isArray(x) && !x.length)) delete port[k]; else port[k] = x; });
         const after = pick(port); if (JSON.stringify(before) === JSON.stringify(after)) return { skip: true };
         port.kiInfo = { uid, at: now };
-        txt = `Ortsinfos an Tag ${p.day} (${p.name}) geändert: ${Object.keys(f).map(k => ({ ort: 'Der Ort', walk: 'Zu Fuß', verdikt: 'Selbst oder Ausflug', rec: 'Empfehlung', text: 'Kurztext', tips: 'Auf eigene Faust', tr: 'Anreise' })[k]).join(', ')}`;
+        txt = `Ortsinfos an Tag ${p.day} (${p.name}) geändert: ${Object.keys(f).map(k => ({ cur: 'Währung', curNote: 'Bezahl-Hinweis', ort: 'Der Ort', walk: 'Zu Fuß', verdikt: 'Selbst oder Ausflug', rec: 'Empfehlung', text: 'Kurztext', tips: 'Auf eigene Faust', tr: 'Anreise' })[k]).join(', ')}`;
         const [lk, ld] = logDoc('ort_info_setzen', String(p.day), before, after, txt, 'portinfo'); T.set(lk, ld);
       });
       if (r.e) fail(r.e); if (r.skip) return 'Keine Änderung nötig – die Angaben sind schon so.';

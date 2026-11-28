@@ -5,7 +5,7 @@
 trips/<trip-id>                    Stammdaten der Reise (siehe unten) + json: "<String>"
 trips/<trip-id>/photos/<code>      { c: "<Ausflugscode>", d: "data:image/jpeg;base64,..." }
 trips/<trip-id>/picks|planitems|lists|tasks|drinkfavs|backups   gemeinsame Einträge der Reisenden
-trips/<trip-id>/plandays/meta     { dinner:{…}, cabin, fx, planV2:true }  (alte Tagesdokumente d1…d15 werden nicht mehr genutzt)
+trips/<trip-id>/plandays/meta     { dinner:{…}, cabin, planV2:true }  (alte Tagesdokumente d1…d15 und das Feld fx werden nicht mehr genutzt)
 trips/<trip-id>/stays/<id>         { n, addr, lat, lon, d1 (Anreisetag), d2 (Abreisetag), ci, co, ref, note } – Unterkunft (nicht bei Kreuzfahrt)
 trips/<trip-id>/travel/out|back    { mode: plane|train|car|bus, segs:[{f,t:{n,c,lat,lon,tz}, dd,dt,ad,at (Ortszeit), no, al, seat:{<uid>:"23A"} (Sitzplatz je Mitreisendem), km, min}], ref, note }
 trips/<trip-id>/members/<uid>      { n: Name, l: Buchstabe, c: Farbnummer, ts } – Mitreisende, legt sich bei der ersten Anmeldung selbst an
@@ -55,7 +55,7 @@ Initialen auf Schiff/Fahrzeug kommen automatisch aus den Buchstaben der Mitreise
 ```
 ### Station (`ports[i]`)
 `sid` (feste Kennung, sonst „s<Tag>“), `emb` (nur Kreuzfahrt, Tag 1: `{ci1,ci2,ab,dep,pier}`, letzter Tag: `{arr,w1,w2,bag,grp}`), `day, date, kind (start|port|sea|end), name, land, times ("08:00–18:00"), tz, lat, lon,
-walk, price, ort, verdikt, rec, recCodes, tips[], tr[], pois[], ex[], map, ox, oy, …` (früher auch `fact[]`/`data.src` – entfallen, werden ignoriert)
+walk, price, ort, verdikt, rec, recCodes, cur (ISO-Währung, sonst aus land), curNote, tips[], tr[], pois[], ex[], map, ox, oy, …` (früher auch `fact[]`/`data.src` – entfallen, werden ignoriert)
 - `pois[]`: Tipps vor Ort `{id, n, t (Typ), lat, lon, km, w (zu Fuß), d (Text), g (Anfahrt), ex?}` – `id` fest
   (sonst „t<Tag>_<Index>“); Einträge im Tagesplan verweisen über `ti` darauf (`i` = Position, wird daraus neu bestimmt).
 - `ox, oy, ompp` (Kartenposition): nur bei handgemachter Karte (`maps.ov`) gespeichert; fehlt `maps.ov`, erzeugt

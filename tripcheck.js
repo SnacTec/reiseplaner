@@ -111,6 +111,8 @@
       });
       (p.recCodes || []).forEach(c => { if (!codes.has(c)) warn(`${L}: recCodes enthält ${c}, den es in "ex" nicht gibt.`); });
       (p.pois || []).forEach(q => { if (q && q.ex && !codes.has(q.ex)) warn(`${L}: Tipp „${q.n}“ verweist auf Ausflug ${q.ex}, den es nicht gibt.`); });
+      if (p.cur != null && !/^[A-Z]{3}$/.test(p.cur)) err(`${L}: "cur" muss ein ISO-Währungscode mit 3 Großbuchstaben sein (z. B. "USD").`);
+      if (p.curNote != null && typeof p.curNote !== 'string') err(`${L}: "curNote" muss ein Text sein.`);
       // Fabriken/Plantagen (fact) gibt es nicht mehr – ältere Dateien bleiben gültig, das Feld wird entfernt
       if (p.fact != null) { if (Array.isArray(p.fact) && p.fact.length) warn(`${L}: "fact" (Fabriken/Plantagen) wird nicht mehr angezeigt und ignoriert.`); delete p.fact; }
     });

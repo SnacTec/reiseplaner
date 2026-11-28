@@ -145,6 +145,7 @@ function tipps(v, X, a) {
 function ortInfo(v, X, a) {
   const p = pickDay(v, X, a || {}); if (!p) return HEAD + noDay(v, a);
   const L = [`Ortsinfos Tag ${p.day} · ${fmtDate(p.date)} · ${clean(p.name, 60)}${p.kiInfo ? ' (von Claude ergänzt)' : ''}:`];
+  const cu = RPDP.curOf(p); if (cu && (cu.c || cu.h)) L.push('Währung: ' + (cu.c ? clean(cu.n, 40) + (cu.n !== cu.c ? ' (' + cu.c + ')' : '') + (cu.auto ? ' – aus dem Land' : '') : 'unbekannt') + (cu.h ? ' · Hinweis: ' + clean(cu.h, 200) : ''));
   if (p.text) L.push('Kurztext: ' + clean(p.text, 300)); if (p.ort) L.push('Der Ort: ' + clean(p.ort, 800)); if (p.walk) L.push('Zu Fuß möglich? ' + clean(p.walk, 200));
   if (p.verdikt) L.push('Selbst oder Ausflug? ' + clean(p.verdikt, 400)); if (p.rec) L.push('Empfehlung: ' + clean(p.rec, 400));
   if ((p.tips || []).length) L.push('Auf eigene Faust:\n' + p.tips.map(t => '- ' + clean(t, 300)).join('\n'));
@@ -176,7 +177,7 @@ const TOOLS = [
   { name: 'suchen', title: 'Suchen', description: 'Sucht in Reisezielen, eigenen Einträgen, Tipps, Ausflügen und Orten an Bord.', inputSchema: { type: 'object', additionalProperties: false, properties: { text: { type: 'string', minLength: 2, maxLength: 60 } }, required: ['text'] }, run: suchen },
   { name: 'aufgaben', title: 'ToDos', description: 'Gemeinsame ToDo-Listen mit offenen Aufgaben (Kennung in eckigen Klammern). alle = true zeigt auch erledigte.', inputSchema: { type: 'object', additionalProperties: false, properties: { alle: { type: 'boolean' } } }, run: aufgaben },
   { name: 'ausfluege', title: 'Veranstalter-Ausflüge', max: 80000, description: 'Veranstalter-Ausflüge mit allen Angaben (Code, Preis, Dauer, Schwierigkeit, Programm, Hinweise, empfohlen, ausverkauft, gewählt). Mit tag/datum/wann für einen Tag, ohne Angabe alle Tage.', inputSchema: DAY, run: ausfluege },
-  { name: 'ort_info', title: 'Ortsinfos', description: 'Bereich „Über den Ort und Tipps“ eines Tages: Kurztext, Beschreibung des Ortes, zu Fuß möglich?, selbst oder Ausflug?, Empfehlung, Tipps auf eigene Faust, Anreise im Hafen. Ohne Angabe: heute.', inputSchema: DAY, run: ortInfo },
+  { name: 'ort_info', title: 'Ortsinfos', description: 'Bereich „Über den Ort und Tipps“ eines Tages: Währung, Kurztext, Beschreibung des Ortes, zu Fuß möglich?, selbst oder Ausflug?, Empfehlung, Tipps auf eigene Faust, Anreise im Hafen. Ohne Angabe: heute.', inputSchema: DAY, run: ortInfo },
   { name: 'tipps', title: 'Tipps', description: 'Tipps (Sehenswürdigkeiten, Strände usw.) für einen Reisetag mit Entfernung und kurzer Beschreibung. Ohne Angabe: heute.', inputSchema: DAY, run: tipps },
   { name: 'reisen', title: 'Alle Reisen', noload: true, description: 'Liste aller Reisen (vergangen, laufend, geplant) mit Kennung. Die anderen Werkzeuge nehmen ohne Angabe die laufende bzw. nächste Reise; eine andere mit reise = Kennung oder Titel.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run: (v, X, a, w) => reisenList(w) },
@@ -242,10 +243,12 @@ function WRITE_TOOLS() {
         hinweis: S('Hinweise, z. B. „Badesachen mitnehmen“ (max. 800 Zeichen)', { maxLength: 1600 }), empfohlen: { type: 'boolean' }, ausverkauft: { type: 'boolean' },
         orte: { type: 'array', minItems: 0, maxItems: 8, description: 'Orte, die der Ausflug besucht (z. B. „Leuchtturm Punta X“), als Suchtext – der Server sucht sie nahe dem Hafen; nie Koordinaten angeben. Ersetzt die bisherige Liste, [] = keine Orte.', items: { type: 'string', minLength: 3, maxLength: 100 } } } } } },
       ['tag', 'ausfluege'], (v, X, a, w) => exWriter(w).ausfluege_anlegen(a), { destructiveHint: true, idempotentHint: true }),
-    W('ort_info_setzen', 'Ortsinfos ändern', 'Ändert den Bereich „Über den Ort und Tipps“ eines Tages. Nur angegebene Felder werden geändert; leerer Text bzw. leere Liste entfernt das Feld. Vorher ort_info lesen. Eigene Formulierungen, nichts erfinden.',
+    W('ort_info_setzen', 'Ortsinfos ändern', 'Ändert den Bereich „Über den Ort und Tipps“ eines Tages (auch Währung und Bezahl-Hinweis). Nur angegebene Felder werden geändert; leerer Text bzw. leere Liste entfernt das Feld. Vorher ort_info lesen. Eigene Formulierungen, nichts erfinden.',
       { tag: I('Reisetag', 1, 400), kurztext: S('Kurzer Text (max. 300 Zeichen), v. a. für Seetage, Start und Ende', { maxLength: 600 }), ort: S('1–5 Sätze über den Ort (max. 800 Zeichen)', { maxLength: 1600 }),
         zu_fuss: S('Zu Fuß möglich?, z. B. „Ja, Altstadt 15 Min“ (max. 200)', { maxLength: 400 }), selbst_oder_ausflug: S('Selbst oder Ausflug? – kurze Einschätzung (max. 400)', { maxLength: 800 }),
         empfehlung: S('Empfehlung in einem Satz (max. 400)', { maxLength: 800 }),
+        waehrung: S('Währung als ISO-Code (z. B. „USD“), nur wenn sie vom Land abweicht; leer = wieder automatisch aus dem Land', { maxLength: 3 }),
+        waehrung_hinweis: S('Hinweis zum Bezahlen, z. B. „US-Dollar wird fast überall angenommen“ (max. 200); leer = entfernen', { maxLength: 400 }),
         auf_eigene_faust: { type: 'array', minItems: 0, maxItems: 12, description: 'Tipps auf eigene Faust (ersetzt die Liste)', items: { type: 'string', minLength: 1, maxLength: 600 } },
         anreise: { type: 'array', minItems: 0, maxItems: 8, description: 'Hinweise zur Anreise im Hafen/Ort: Taxi, Shuttle, Tender (ersetzt die Liste)', items: { type: 'string', minLength: 1, maxLength: 600 } } },
       ['tag'], (v, X, a, w) => exWriter(w).ort_info_setzen(a), { destructiveHint: true, idempotentHint: true }),

@@ -1,6 +1,6 @@
 // Service Worker: App offline verfügbar machen.
 // Bei jeder Änderung an den App-Dateien VERSION erhöhen.
-const VERSION = 'v113';
+const VERSION = 'v114';
 const APP = 'rp-app-' + VERSION;
 const LIB = 'rp-lib-v1';     // Firebase-SDK und Schriften (versioniert, ändern sich nicht)
 const TILES = 'rp-tiles-v1';

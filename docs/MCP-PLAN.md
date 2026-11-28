@@ -431,6 +431,9 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   keine `ox/oy` – die App ergänzt Position/Entfernung beim Start (`poiFix`). Löschen nur `ki.neu` und nicht im Tagesplan (`ti`).
 - Gleicher Schreibweg wie Ausflüge (eine Transaktion auf `trips/<id>`), Rückgängig in der App (`kiExUndo` für ex/poi/portinfo).
 - Stationen, Zeiten, Daten, Ein-/Ausschiffung bleiben für Claude gesperrt.
+- **Währung** (R115): `RPDP.curOf(p)` in `dayplan.js` (Land → ISO-Code über eingebaute Tabelle + `Intl.DisplayNames`), Felder
+  `cur`/`curNote` je Tag; `ort_info` zeigt sie, `ort_info_setzen` ändert sie (`waehrung`, `waehrung_hinweis`). Summe „Eingeplant“ und
+  die ungenutzten Wechselkurse `FX` (usd/dop) aus der App entfernt.
 
 ### 9.9 Keine „aktive Reise“ mehr (27.11.2026) und geplanter Schritt 2
 - **Umgesetzt (Schritt 1):** `config/app.activeTrip` wird nirgends mehr gelesen oder geschrieben.

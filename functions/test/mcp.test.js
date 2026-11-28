@@ -593,6 +593,14 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
     assert.ok((await W(WT.access_token, 'ort_info_setzen', { tag: 2 })).err, 'ohne Angabe');
     assert.ok((await (await rpc(RT.access_token, 'tools/call', { name: 'ort_info_setzen', arguments: { tag: 2, ort: 'x' } })).json()).error, 'Lese-Token');
   });
+  await test('währung: ort_info zeigt sie (aus Land oder gesetzt), ort_info_setzen ändert Code und Hinweis, leer = automatisch', async () => {
+    assert.match((await W(RT.access_token, 'ort_info', { tag: 2 })).t, /Währung: Euro \(EUR\) · Hinweis: Beispiel: Karten/);
+    const r = await W(WT.access_token, 'ort_info_setzen', { tag: 2, waehrung: 'usd', waehrung_hinweis: 'Dollar überall (erfunden).' }); assert.ok(!r.err, r.t); assert.match(r.t, /Währung, Bezahl-Hinweis/);
+    assert.equal(portOf(2).cur, 'USD'); assert.match((await W(RT.access_token, 'ort_info', { tag: 2 })).t, /Währung: US-Dollar \(USD\) · Hinweis: Dollar überall/);
+    assert.ok((await W(WT.access_token, 'ort_info_setzen', { tag: 2, waehrung: 'E1' })).err, 'ungültiger Code');
+    await W(WT.access_token, 'ort_info_setzen', { tag: 2, waehrung: '', waehrung_hinweis: '' }); assert.ok(!('cur' in portOf(2)) && !('curNote' in portOf(2)));
+    assert.ok(!/Währung/.test((await W(RT.access_token, 'ort_info', { tag: 2 })).t), 'Beispielland hat keine bekannte Währung');
+  });
   await test('tipps: anlegen mit Ortssuche (Lage, km, Planungsdaten), aktualisieren per id und Name, nicht gefunden, löschen nur eigene/ungeplante', async () => {
     const n0 = portOf(2).pois.length;
     const r = await W(WT.access_token, 'tipps_anlegen', { tag: 2, tipps: [

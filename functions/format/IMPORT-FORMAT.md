@@ -88,6 +88,8 @@ Reisenden bleiben erhalten, siehe Abschnitt 11).
 | `lat`, `lon` | ja (außer `sea`) | Lage des Hafens bzw. Ortes |
 | `land` | empfohlen | Land, z. B. „Spanien“; verknüpft mit `kul.L` und `info` |
 | `tz` | empfohlen | Zeitzone dieses Tages (Stunden zu UTC) |
+| `cur` | nein | Währung als ISO-Code (`"USD"`), nur wenn sie vom Land abweicht – sonst ermittelt die App sie aus `land` |
+| `curNote` | nein | Hinweis zum Bezahlen, z. B. „US-Dollar wird fast überall angenommen“ |
 | `times` | Kreuzfahrt | Liegezeit `"08:00–18:00"`; bei `start`/`end` ein Wort wie `"Einschiffung"`/`"Rückkehr"` |
 | `text` | nein | kurze Beschreibung (v. a. für Seetage, Start und Ende) |
 | `ort` | nein | 1–3 Sätze über den Ort |
