@@ -279,6 +279,16 @@ test('ortsinfos und tipps von Claude: 🤖, Position für neue Tipps, Rückgäng
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('fabriken entfernt: alte Felder fact/src werden beim Import ignoriert, kein Bereich mehr', async ({ browser, base }) => {
+  const o = H.trip('kreuzfahrt'); o.data.ports[1].fact = [{ n: 'Alte Fabrik (erfunden)', how: 'Taxi' }]; o.data.src = { a: ['Quelle', 'https://example.com/'] };
+  const r = H.tripCheck(o); ok(r.ok && !('fact' in r.trip.data.ports[1]) && !('src' in r.trip.data) && r.warnings.some(w => /fact/.test(w)), 'Prüfung: ' + JSON.stringify(r.warnings));
+  const c = await H.context(browser), p = await H.open(c, base, o, '#tag-2');
+  const t = await p.evaluate(() => { select(2); return document.getElementById('panel').innerText; });
+  ok(!/Fabriken/.test(t), 'Bereich noch da');
+  ok(!(await p.$('#sec-fa')), 'Abschnitt Fabriken noch da');
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

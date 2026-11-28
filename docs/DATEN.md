@@ -55,7 +55,7 @@ Initialen auf Schiff/Fahrzeug kommen automatisch aus den Buchstaben der Mitreise
 ```
 ### Station (`ports[i]`)
 `sid` (feste Kennung, sonst „s<Tag>“), `emb` (nur Kreuzfahrt, Tag 1: `{ci1,ci2,ab,dep,pier}`, letzter Tag: `{arr,w1,w2,bag,grp}`), `day, date, kind (start|port|sea|end), name, land, times ("08:00–18:00"), tz, lat, lon,
-walk, price, ort, verdikt, rec, recCodes, tips[], tr[], pois[], ex[], fact[], map, ox, oy, …`
+walk, price, ort, verdikt, rec, recCodes, tips[], tr[], pois[], ex[], map, ox, oy, …` (früher auch `fact[]`/`data.src` – entfallen, werden ignoriert)
 - `pois[]`: Tipps vor Ort `{id, n, t (Typ), lat, lon, km, w (zu Fuß), d (Text), g (Anfahrt), ex?}` – `id` fest
   (sonst „t<Tag>_<Index>“); Einträge im Tagesplan verweisen über `ti` darauf (`i` = Position, wird daraus neu bestimmt).
 - `ox, oy, ompp` (Kartenposition): nur bei handgemachter Karte (`maps.ov`) gespeichert; fehlt `maps.ov`, erzeugt

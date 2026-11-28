@@ -1158,7 +1158,7 @@ html[data-xmas] .hb.on{color:#14532d}
   const fail=(t)=>gate('<p class="bad">'+t+'</p><button onclick="location.reload()">Neu laden</button>');
   // Import-Datei -> Struktur für app.js
   const fromFile=o=>({id:o.id,trip:o.trip,shipName:o.ship&&o.ship.name,shipNote:o.ship&&o.ship.deckNote,
-    D:{ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,photos:o.photos||{}},KUL:o.data.kul||{L:{},P:{}},QUIZ:o.data.quiz||[],INFO:o.data.info||{},NOTES:o.data.notes||[],
+    D:{ports:o.data.ports,maps:o.data.maps,route:o.data.route||null,photos:o.photos||{}},KUL:o.data.kul||{L:{},P:{}},QUIZ:o.data.quiz||[],INFO:o.data.info||{},NOTES:o.data.notes||[],
     SHIP:o.ship?o.ship.data:{dk:[],cab:{},lifts:{}},DRINKS:o.ship?o.ship.drinks:{groups:[]}});
   /* Reisedaten-Kopie auf dem Gerät (IndexedDB rp-cache): Start ohne Warten aufs Netz */
   const cdb=()=>new Promise(res=>{try{const r=indexedDB.open('rp-cache',1);r.onupgradeneeded=()=>r.result.createObjectStore('trip');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}});
@@ -1212,7 +1212,7 @@ html[data-xmas] .hb.on{color:#14532d}
   // neu=true (Entwurf von Claude): nur neue Reisen, vorhandenes Schiff bleibt unverändert
   async function importTrip(o,neu){
     const tr=neu?Object.fromEntries(['title','kind','start','end','tz','region','ship','operator','arrival','vehicle','look','special','seasons'].filter(k=>k in o.trip).map(k=>[k,o.trip[k]])):o.trip;
-    const t=Object.assign({},tr,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,src:o.data.src,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()}),ref=db.collection('trips').doc(o.id);
+    const t=Object.assign({},tr,{json:JSON.stringify({ports:o.data.ports,maps:o.data.maps,route:o.data.route||null,kul:o.data.kul,quiz:o.data.quiz,info:o.data.info,notes:o.data.notes}),updated:Date.now()}),ref=db.collection('trips').doc(o.id);
     // Entwurf: Prüfen und Anlegen in einer Transaktion (tippen beide gleichzeitig, gewinnt einer, nichts wird überschrieben)
     if(neu)await db.runTransaction(async T=>{if((await T.get(ref)).exists)throw new Error('Eine Reise mit der Kennung „'+o.id+'“ gibt es schon – nichts überschrieben.');T.set(ref,t)});
     else await ref.set(t);
@@ -1255,12 +1255,12 @@ html[data-xmas] .hb.on{color:#14532d}
       const t=ts.data(),j=JSON.parse(t.json||'{}');delete t.json;
       let ship=null;if(t.ship){const ss=await G(db.collection('ships').doc(t.ship));if(ss.exists)ship=ss.data()}
       const ph={};const ps=await G(db.collection('trips').doc(id).collection('photos'));ps.docs.forEach(d=>{const x=d.data();ph[x.c||d.id]=x.d});
-      const T={id,trip:t,shipName:ship&&ship.name,shipNote:ship&&ship.deckNote,D:{ports:j.ports||[],maps:j.maps||{},src:j.src||{},route:j.route||null,photos:ph},KUL:j.kul||{L:{},P:{}},QUIZ:j.quiz||[],INFO:j.info||{},NOTES:j.notes||[],
+      const T={id,trip:t,shipName:ship&&ship.name,shipNote:ship&&ship.deckNote,D:{ports:j.ports||[],maps:j.maps||{},route:j.route||null,photos:ph},KUL:j.kul||{L:{},P:{}},QUIZ:j.quiz||[],INFO:j.info||{},NOTES:j.notes||[],
         SHIP:ship?JSON.parse(ship.json):{dk:[],cab:{},lifts:{}},DRINKS:ship&&ship.drinks?JSON.parse(ship.drinks):{groups:[]}};
       cput(id,T);ls('rp-lasttrip',id);if(auth.currentUser)ls('rp-uid',auth.currentUser.uid);
       if(started){if(JSON.stringify((window.__T||{}).trip)!==JSON.stringify(t)||Object.keys(ph).length!==Object.keys(((window.__T||{}).D||{}).photos||{}).length)dispatchEvent(new CustomEvent('rp-trip-updated'));return}
       ungate();
-      start({id,trip:t,shipName:ship&&ship.name,shipNote:ship&&ship.deckNote,D:{ports:j.ports||[],maps:j.maps||{},src:j.src||{},route:j.route||null,photos:ph},KUL:j.kul||{L:{},P:{}},QUIZ:j.quiz||[],INFO:j.info||{},NOTES:j.notes||[],
+      start({id,trip:t,shipName:ship&&ship.name,shipNote:ship&&ship.deckNote,D:{ports:j.ports||[],maps:j.maps||{},route:j.route||null,photos:ph},KUL:j.kul||{L:{},P:{}},QUIZ:j.quiz||[],INFO:j.info||{},NOTES:j.notes||[],
         SHIP:ship?JSON.parse(ship.json):{dk:[],cab:{},lifts:{}},DRINKS:ship&&ship.drinks?JSON.parse(ship.drinks):{groups:[]}});
       // im Hintergrund vom Server auffrischen, damit Änderungen beim nächsten Start da sind
       setTimeout(()=>{if(navigator.onLine===false)return;db.collection('trips').doc(id).get({source:'server'}).catch(()=>{});db.collection('trips').doc(id).collection('photos').get({source:'server'}).catch(()=>{});if(t.ship)db.collection('ships').doc(t.ship).get({source:'server'}).catch(()=>{})},8000);

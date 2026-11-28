@@ -43,7 +43,6 @@
     },
     "pois": [],
     "ex": [],
-    "fact": [],
     "tips": [],
     "tr": []
    },
@@ -183,16 +182,6 @@
       "prog": "Erfundene Bootsfahrt.",
       "sold": 1
      }
-    ],
-    "fact": [
-     {
-      "n": "Salzgarten Beta (erfunden)",
-      "what": "Beispiel: Führung durch die Salzbecken",
-      "when": "Werktags (erfunden)",
-      "how": "Taxi, 15 Min",
-      "rel": "Erfundene Quelle",
-      "src": "bsp"
-     }
     ]
    },
    {
@@ -204,7 +193,6 @@
     "text": "Erfundener Seetag.",
     "pois": [],
     "ex": [],
-    "fact": [],
     "tips": [],
     "tr": []
    },
@@ -250,8 +238,7 @@
       }
      }
     ],
-    "ex": [],
-    "fact": []
+    "ex": []
    },
    {
     "day": 5,
@@ -273,18 +260,11 @@
     },
     "pois": [],
     "ex": [],
-    "fact": [],
     "tips": [],
     "tr": []
    }
   ],
   "maps": {},
-  "src": {
-   "bsp": [
-    "Erfundene Beispielquelle",
-    "https://example.com/"
-   ]
-  },
   "kul": {
    "L": {
     "Beispielland": {

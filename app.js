@@ -368,8 +368,8 @@ function fMenu(id,day){const f=FILES.find(x=>x.id===id);if(!f)return;const ds=da
 document.addEventListener('click',e=>{const o=e.target.closest&&e.target.closest('[data-fopen]');if(o){e.stopPropagation();e.preventDefault();if(window.__lpRecent())return;fOpen(o.dataset.fopen,o.dataset.fday);return}
   const a=e.target.closest&&e.target.closest('[data-fadd]');if(a){e.stopPropagation();e.preventDefault();fDayDlg(fKey(a.dataset.fadd))}},true);
 const D=window.__T.D;
-/* Veranstalter-Ausflüge, Fabriken und Quellen gibt es nur in Reisen aus einer Import-Datei – sonst ausblenden */
-const HAS_EX=D.ports.some(p=>(p.ex||[]).length),HAS_FA=D.ports.some(p=>(p.fact||[]).length),HAS_SRC=Object.keys(D.src||{}).length>0;
+/* Veranstalter-Ausflüge gibt es nur, wenn Daten da sind – sonst ausblenden */
+const HAS_EX=D.ports.some(p=>(p.ex||[]).length);
 const SRC0=(()=>{try{const sc=[...document.scripts].find(x=>!x.src&&x.textContent.includes('const TYPES='));const bd=document.body.cloneNode(true);bd.querySelectorAll('script').forEach(x=>x.remove());return{main:sc?sc.textContent:null,body:bd.innerHTML,css:[...document.querySelectorAll('style')].map(x=>x.textContent).join('\n')}}catch(e){return null}})();
 const TYPES={sight:['Sehenswürdigkeit','--t-sight'],beach:['Strand','--t-beach'],nature:['Natur','--t-nature'],factory:['Fabrik / Plantage','--t-factory'],town:['Ort / Stadt','--t-town']};
 const WALK={walk:['Zu Fuß vom Hafen','g'],taxi:['Taxi nötig','y'],tour:['Nur per Ausflug oder Tour','y']};
@@ -931,7 +931,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='28.11. · R113';
+const APP_VER='28.11. · R114';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -2371,30 +2371,22 @@ $('#ov').addEventListener('click',ev=>{if(ev.target.id==='ov')closeDlg()});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.sfx');if(!b)return;const i=b.parentNode.querySelector('input');i.value='';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()});
 addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('#ov').hidden){ev.stopPropagation();closeDlg()}},true);
 function extraHTML(){
-  const fx=D.ports.flatMap(p=>(p.fact||[]).map(f=>({p,f}))).map(({p,f})=>
-    `<tr class="clk" data-d="${p.day}"><td>${fmtDate(p.date)}</td><td>${esc(p.name)}</td><td>${esc(f.n)}</td><td>${esc(f.how)}</td></tr>`).join('');
-  return `${HAS_FA?`<h3>Fabriken, Plantagen, Manufakturen</h3><div class="tw"><table class="t"><tr><th>Datum</th><th>Hafen</th><th>Was</th><th>Wie</th></tr>${fx}</table></div>`:''}
-  ${(window.__T.NOTES||[]).length?'<h3>Hinweise vor der Buchung</h3><ul class="tips">'+window.__T.NOTES.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}
-  <p class="src">Karte: Küstenlinien © OpenStreetMap-Mitwirkende (ODbL) und Natural Earth, vereinfacht. Offline-Ortsliste: GeoNames (CC BY 4.0).${HAS_EX?' Gestrichelte Pins: Lage ungefähr.':''} Route schematisch.</p>
-  ${HAS_SRC?`<p class="src">Quellen der Fabrik-Angaben: ${Object.values(D.src).map(s=>`<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}</p>`:''}`}
+  return `${(window.__T.NOTES||[]).length?'<h3>Hinweise vor der Buchung</h3><ul class="tips">'+window.__T.NOTES.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}
+  <p class="src">Karte: Küstenlinien © OpenStreetMap-Mitwirkende (ODbL) und Natural Earth, vereinfacht. Offline-Ortsliste: GeoNames (CC BY 4.0).${HAS_EX?' Gestrichelte Pins: Lage ungefähr.':''} Route schematisch.</p>`}
 function homePanel(){
   const SM=summary();window._sumText=SM.text;
   const rows=D.ports.filter(p=>p.kind==='port').map(p=>{
     const rec=(p.ex||[]).filter(e=>isPicked(p,e)).map(e=>e.c).join(', ')||'–';
     return `<tr class="clk" data-d="${p.day}"><td>${p.day}</td><td>${fmtDate(p.date)}</td><td><b>${esc(p.name)}</b></td>${HAS_EX?`<td>${esc(rec)}</td><td>${esc(p.walk||'')}</td>`:''}</tr>`}).join('');
-  const fx=D.ports.flatMap(p=>(p.fact||[]).map(f=>({p,f}))).map(({p,f})=>
-    `<tr class="clk" data-d="${p.day}"><td>${fmtDate(p.date)}</td><td>${esc(p.name)}</td><td>${esc(f.n)}</td><td>${esc(f.how)}</td></tr>`).join('');
   return `<div class="eyebrow">Gesamtüberblick</div><h2>Route und Plan</h2>
-  <p>Klicke einen Hafen auf der Karte oder einen Tag oben an. Dann siehst du ${HAS_EX?`die Sehenswürdigkeiten des Ortes, die ${esc(OP)}-Ausflüge und alle Fabriken und Plantagen`:'den Tagesplan und die Tipps des Ortes'}.</p>
+  <p>Klicke einen Hafen auf der Karte oder einen Tag oben an. Dann siehst du ${HAS_EX?`die Sehenswürdigkeiten des Ortes und die ${esc(OP)}-Ausflüge`:'den Tagesplan und die Tipps des Ortes'}.</p>
   ${HAS_EX?SM.html:''}
   <div class="legend">${Object.entries(TYPES).map(([k,v])=>`<span><i style="--c:var(${v[1]})"></i>${v[0]}</span>`).join('')}<span><i style="--c:var(--port)"></i>Hafen</span></div>
   <p><button class="chip btn" data-trip>Alle Tagespläne ansehen</button></p>
   <h3>Reiseplan</h3><div class="tw"><table class="t"><tr><th>Tag</th><th>Datum</th><th>Hafen</th>${HAS_EX?'<th>Ausflug</th><th>Zu Fuß?</th>':''}</tr>${rows}</table></div>
   ${HAS_EX?'<p class="src">Die Summe oben ändert sich, wenn du in einem Hafen Ausflüge an- oder abwählst.</p>':''}
-  ${HAS_FA?`<h3>Fabriken, Plantagen, Manufakturen</h3><div class="tw"><table class="t"><tr><th>Datum</th><th>Hafen</th><th>Was</th><th>Wie</th></tr>${fx}</table></div>`:''}
   ${(window.__T.NOTES||[]).length?'<h3>Hinweise vor der Buchung</h3><ul class="tips">'+window.__T.NOTES.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}
-  <p class="src">Karte: Küstenlinien © OpenStreetMap-Mitwirkende (ODbL) und Natural Earth, vereinfacht. Offline-Ortsliste: GeoNames (CC BY 4.0).${HAS_EX?' Gestrichelte Pins: Lage ungefähr.':''} Route schematisch.</p>
-  ${HAS_SRC?`<p class="src">Quellen der Fabrik-Angaben: ${Object.values(D.src).map(s=>`<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}</p>`:''}`;
+  <p class="src">Karte: Küstenlinien © OpenStreetMap-Mitwirkende (ODbL) und Natural Earth, vereinfacht. Offline-Ortsliste: GeoNames (CC BY 4.0).${HAS_EX?' Gestrichelte Pins: Lage ungefähr.':''} Route schematisch.</p>`;
 }
 function head(p){
   const land=(p.land||'').split(',').pop().replace(/\s*\(Inselstaat\)/,'').trim();
@@ -2429,14 +2421,9 @@ function portPanel(p){
       <div class="acts"><button type="button" class="lnk" data-exph="${esc(e.c)}" data-exday="${p.day}">📷 Foto ${ph?'ändern':'hinzufügen'} ›</button><button type="button" class="lnk" data-exoe="${esc(e.c)}" data-exday="${p.day}">📍 Orte ›</button></div></div>`}).join('');
   };
   const plTab=()=>plannerHTML(p);
-  const faTab=()=>{
-    if(!p.fact||!p.fact.length)return '<p class="empty">Hier gibt es nach meinem Wissen keine Fabrik- oder Plantagenbesuche.</p>';
-    return p.fact.map(f=>`<div class="card"><div class="row"><span class="badge" style="--c:var(--t-factory)">F</span><div><h4>${esc(f.n)}</h4><p>${esc(f.what)}</p></div></div><div class="tags"><span class="tag">${esc(f.when)}</span><span class="tag">${esc(f.how)}</span><span class="tag ${/Unterlagen|Offizieller/.test(f.rel)?'g':'y'}">Quelle: ${esc(f.rel)}</span></div>${f.src?`<div class="acts"><a class="lnk" href="${D.src[f.src][1]}" target="_blank" rel="noopener">Quelle öffnen ›</a></div>`:''}</div>`).join('')
-      +`<p class="src">Grün: Veranstalter-Unterlagen oder offizielle Quelle. Gelb: Anbieter, Forum oder nicht belegt, vor der Buchung prüfen.</p>`;
-  };
-  const nPoi=p.pois.length,nEx=(p.ex||[]).length,nFa=(p.fact||[]).length;
+  const nPoi=p.pois.length,nEx=(p.ex||[]).length;
   const sec=(k,t,n,b)=>`<details class="sec" data-sec="${k}" id="sec-${k}" ${openSec.has(k)?'open':''}><summary><b>${t}</b>${n!=null?`<span>${n}</span>`:''}</summary>${b}</details>`;
-  return head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'')+(nFa?sec('fa','Fabriken und Plantagen',nFa,faTab()):'');
+  return head(p)+tipHTML('port')+aabHTML(p)+infoHTML(p)+dayView(p)+addArea(p)+sec('ov','Über den Ort und Tipps',null,ovTab())+(nPoi?sec('poi','Orte im Detail',nPoi,poiTab()):'')+(nEx?sec('ex',esc(OP)+'-Ausflüge im Detail',nEx,exTab()):'');
 }
 function renderPanel(){
   const a=$('#panel');const keep=a.scrollTop;

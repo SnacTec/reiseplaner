@@ -108,7 +108,7 @@
 
   /* Eine Station */
   function station(i, isNew) {
-    const t = isNew ? { sid: 'n' + Date.now().toString(36), kind: 'port', name: '', times: '', text: '', pois: [], ex: [], fact: [], tips: [], tr: [] } : clone(E.ports[i]); t.pois = t.pois || [];
+    const t = isNew ? { sid: 'n' + Date.now().toString(36), kind: 'port', name: '', times: '', text: '', pois: [], ex: [], tips: [], tr: [] } : clone(E.ports[i]); t.pois = t.pois || [];
     const m = /(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/.exec(t.times || ''); let t1 = m ? m[1] : '', t2 = m ? m[2] : '', pos = i, res = [], tmr = 0;
     const render = () => {
       const n = E.ports.length + (isNew ? 1 : 0), canSea = cruise() && !(t.kind === 'start' || t.kind === 'end');

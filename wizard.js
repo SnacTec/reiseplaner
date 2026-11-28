@@ -121,7 +121,7 @@
   function draftPorts() {
     return W.days.map((d, i) => { const k = kindOf(i), p = { day: i + 1, date: d.date, kind: k, name: k === 'sea' ? 'Seetag' : d.name, land: k === 'sea' ? '' : d.land || '',
       times: k === 'port' && cruise() ? (d.t1 && d.t2 ? d.t1 + '–' + d.t2 : '') : k === 'start' ? 'Einschiffung' : k === 'end' ? 'Rückkehr' : '',
-      text: d.note || (k === 'sea' ? 'Seetag.' : ''), pois: [], ex: [], fact: [], tips: [], tr: [] };
+      text: d.note || (k === 'sea' ? 'Seetag.' : ''), pois: [], ex: [], tips: [], tr: [] };
       if (d.emb && (k === 'start' || k === 'end')) p.emb = d.emb;
       if (k !== 'sea') { p.lat = d.lat; p.lon = d.lon; } return p; });
   }
@@ -167,7 +167,7 @@
     let id = slug; try { const ex = new Set((await Promise.race([window.__listTrips(), new Promise((_, no) => setTimeout(() => no(0), 5000))])).map(t => t.id)); let n = 2; while (ex.has(id)) id = slug + '-' + n++; } catch (e) {}
     const trip = { title: W.title, kind: W.kind, start: W.start, end: W.end, ship: null, tz: P[0].tz, region, arrival: W.arrival || 'plane', vehicle: W.vehicle || defVeh(W.kind) };
     if (cruise() && W.operator) trip.operator = W.operator;
-    return { format: 'reiseplaner-trip-1', id, trip, data: { ports: P, maps: {}, src: {}, kul: { L: {}, P: {} }, quiz: [], info: {}, notes: [] } };
+    return { format: 'reiseplaner-trip-1', id, trip, data: { ports: P, maps: {}, kul: { L: {}, P: {} }, quiz: [], info: {}, notes: [] } };
   }
 
   window.WIZ = { open() {

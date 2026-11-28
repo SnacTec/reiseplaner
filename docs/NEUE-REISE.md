@@ -5,9 +5,9 @@ Zwei Wege:
   Grunddaten → Stationen (Ortssuche weltweit, „Wie Vortag“, bei Kreuzfahrt Hafen/Seetag + Zeiten) → Vorschau → anlegen.
   Ergebnis: Reise nur mit Stationen; Karte (`mapgen.js` + `world.json`), Route, Zeitzonen (Open-Meteo) entstehen automatisch.
   Wird nur auf dem eigenen Gerät geöffnet (`rp-trip`).
-- **Import-Datei von Claude** (unten): mit recherchierten Inhalten – Tipps, Veranstalter-Ausflüge, Fabriken,
-  Länder-Infos, Quiz, ggf. Deckplan/Getränke und handgemachte Karte. Diese Bereiche zeigt die App **nur**, wenn
-  die Daten vorhanden sind (`HAS_EX`, `HAS_FA`, `HAS_SRC` in app.js).
+- **Import-Datei von Claude** (unten): mit recherchierten Inhalten – Tipps, Veranstalter-Ausflüge,
+  Länder-Infos, Quiz, ggf. Deckplan/Getränke und handgemachte Karte. Ausflüge zeigt die App **nur**, wenn
+  Daten vorhanden sind (`HAS_EX` in app.js).
 
 ## 1. Unterlagen und Wünsche sammeln (mit dem Nutzer klären)
 - Buchungsbestätigung/Reiseroute: Daten, Orte, Zeiten; ggf. Ausflugskatalog (PDF/Screenshots).

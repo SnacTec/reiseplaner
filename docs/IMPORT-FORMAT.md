@@ -42,7 +42,6 @@ Reiseunterlagen eine solche Datei erstellen sollen. Sie soll ohne weiteres Vorwi
     "ports": [ … ein Eintrag je Tag … ],   Pflicht
     "maps":  {},                            leer lassen (Karte erzeugt die App)
     "route": { … } ,                        optional
-    "src":   { … Quellen … },               optional
     "kul":   { … Land & Leute … },           optional
     "quiz":  [ … Quizfragen … ],            optional
     "notes": [ … Hinweise … ]               optional
@@ -101,7 +100,6 @@ Reisenden bleiben erhalten, siehe Abschnitt 11).
 | `tr` | nein | Liste Hinweise zur Anreise im Hafen (Taxi, Shuttle, Tender) |
 | `pois` | nein | Tipps/Sehenswertes, siehe 5.1 |
 | `ex` | nein | Veranstalter-Ausflüge, siehe 5.2 |
-| `fact` | nein | Fabriken/Plantagen/Manufakturen, siehe 5.3 |
 | `emb` | nein | nur Kreuzfahrt, Tag 1 bzw. letzter Tag, siehe 5.4 |
 | `sid` | nein | feste Kennung des Tages; fehlt sie, setzt die App `"s<Tag>"` |
 
@@ -150,10 +148,9 @@ Mehrere Nächte am selben Ort: einfach mehrere Tage mit gleichem `name`/`lat`/`l
 
 Fotos dazu optional in `photos` mit dem Code als Schlüssel (siehe 8).
 
-### 5.3 `fact` – Fabriken, Plantagen, Manufakturen
-
-`{ "n": "Rumfabrik X", "what": "Führung mit Verkostung", "when": "Mo–Fr", "how": "Taxi 15 Min", "rel": "offizielle Webseite", "src": "x" }`
-`src` verweist auf einen Schlüssel in `data.src`.
+### 5.3 `fact` – entfällt
+Fabriken/Plantagen als eigener Bereich gibt es nicht mehr. Weglassen; ältere Dateien bleiben gültig, das Feld wird ignoriert.
+Fabriken oder Plantagen als Ausflugsziel einfach als Tipp mit Art `factory` eintragen (siehe 5.1).
 
 ### 5.4 `emb` – Ein- und Ausschiffung (nur Kreuzfahrt)
 
@@ -183,8 +180,8 @@ die Straßenroute automatisch. Wer einen bestimmten Verlauf will:
 `a`/`b` = Tagesnummern aufeinanderfolgender Orte (Seetage überspringen); `c` = Bézier-Punkte in Dreiergruppen;
 `p` = Zwischenpunkte einer Linie; `sea` = Lage der Seetage.
 
-### 6.3 `src` – Quellen
-`{ "kurzname": ["Titel der Quelle", "https://…"] }` – wird bei Fabriken angezeigt.
+### 6.3 `src` – entfällt
+Gehörte zu den Fabrik-Angaben (5.3). Weglassen; ältere Dateien bleiben gültig, das Feld wird ignoriert.
 
 ### 6.4 `kul` – Land & Leute
 ```json

@@ -102,7 +102,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   Dateien hängen an Tagen (`days`) oder An-/Abreise (`tv`). Chips mit Erklärung per `data-hint`.
   Ziehgriff unter der Karte (klein/mittel/groß, `rp-map-size`). Wischen in der Infozeile wechselt den Tag nicht.
 - Reisearten: `CRUISE` (kreuzfahrt oder Schiff) steuert die Wortwahl; `V()` macht aus Hafen → Ort usw.
-  Veranstalter-Ausflüge, Fabriken, Quellen nur, wenn Daten da sind (`HAS_EX`, `HAS_FA`, `HAS_SRC`).
+  Veranstalter-Ausflüge nur, wenn Daten da sind (`HAS_EX`). Bereich „Fabriken und Plantagen“ (`fact`, `data.src`) entfernt (R114).
 - Neue Reise: Assistent (Einstellungen → Reisen); Bearbeiten nur für die geöffnete Reise (`editOpen`, `tripSave`,
   `dayRemap` nummeriert Einträge/Ausflüge/Abendessen/Dateien um). Tipps haben feste `id`, Plan-Einträge `ti`.
 - Google Maps teilen → Eintrag (`shareCheck`), Kurzlinks über Cloud Function `mapLink`, Pins werden offline nachgeholt.

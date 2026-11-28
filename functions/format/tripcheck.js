@@ -68,7 +68,7 @@
       if (p.tz == null && t.tz == null) warn(`${L}: keine Zeitzone ("tz") – die App nimmt UTC an.`);
       if (cruise && p.kind === 'port' && p.times && !/^\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}/.test(p.times)) warn(`${L}: "times" sollte „HH:MM–HH:MM“ sein (Liegezeit), ist: "${p.times}".`);
       if (!p.sid) { p.sid = 's' + p.day; }
-      ['tips', 'tr', 'pois', 'ex', 'fact'].forEach(k => { if (p[k] != null && !Array.isArray(p[k])) err(`${L}: "${k}" muss eine Liste sein.`); });
+      ['tips', 'tr', 'pois', 'ex'].forEach(k => { if (p[k] != null && !Array.isArray(p[k])) err(`${L}: "${k}" muss eine Liste sein.`); });
       if (p.emb && !cruise) { delete p.emb; warn(`${L}: "emb" (Ein-/Ausschiffung) nur bei Kreuzfahrten – entfernt.`); }
       if (p.emb) Object.entries(p.emb).forEach(([k, v]) => { if (['ci1', 'ci2', 'ab', 'dep', 'arr', 'w1', 'w2', 'bag'].includes(k) && !isTime(v)) err(`${L}: emb.${k} muss „HH:MM“ sein.`); });
       /* Tipps */
@@ -111,7 +111,8 @@
       });
       (p.recCodes || []).forEach(c => { if (!codes.has(c)) warn(`${L}: recCodes enthält ${c}, den es in "ex" nicht gibt.`); });
       (p.pois || []).forEach(q => { if (q && q.ex && !codes.has(q.ex)) warn(`${L}: Tipp „${q.n}“ verweist auf Ausflug ${q.ex}, den es nicht gibt.`); });
-      (p.fact || []).forEach((f, j) => { if (!f || !f.n) err(`${L}, Fabrik/Plantage ${j + 1}: "n" fehlt.`); if (f && f.src && !(d.src || {})[f.src]) warn(`${L}: Quelle "${f.src}" fehlt in data.src.`); });
+      // Fabriken/Plantagen (fact) gibt es nicht mehr – ältere Dateien bleiben gültig, das Feld wird entfernt
+      if (p.fact != null) { if (Array.isArray(p.fact) && p.fact.length) warn(`${L}: "fact" (Fabriken/Plantagen) wird nicht mehr angezeigt und ignoriert.`); delete p.fact; }
     });
     if (cruise) {
       if (P[0] && P[0].kind !== 'start') warn('Tag 1 sollte bei Kreuzfahrten kind "start" (Einschiffung) haben.');
@@ -139,8 +140,9 @@
       else if (q[3].includes(q[2])) err(`quiz[${i}]: die richtige Antwort steht auch bei den falschen.`);
       if (q[0] === 's' && !o.ship) warn(`quiz[${i}]: Kategorie "s" (Schiff) ohne Schiff – wird ausgeblendet.`);
     });
-    /* data.info wird nicht mehr angezeigt – wird ignoriert */
-    ['src', 'kul', 'info'].forEach(k => { if (d[k] == null) d[k] = k === 'kul' ? { L: {}, P: {} } : {}; });
+    /* data.info wird nicht mehr angezeigt – wird ignoriert; data.src (Quellen der früheren Fabrik-Angaben) entfällt */
+    if (d.src != null) delete d.src;
+    ['kul', 'info'].forEach(k => { if (d[k] == null) d[k] = k === 'kul' ? { L: {}, P: {} } : {}; });
     ['quiz', 'notes'].forEach(k => { if (d[k] == null) d[k] = []; });
     /* Fotos */
     Object.entries(o.photos || {}).forEach(([k, v]) => { if (typeof v !== 'string' || !/^data:image\//.test(v)) err(`photos["${k}"] muss eine data:image/…-Adresse sein.`); else if (v.length > 900000) err(`photos["${k}"] ist zu groß (max. ca. 650 KB je Bild, Firestore-Grenze 1 MB).`); if (!P.some(p => (p.ex || []).some(e => e.c === k))) warn(`photos["${k}"]: kein Ausflug mit Code ${k}.`); });
