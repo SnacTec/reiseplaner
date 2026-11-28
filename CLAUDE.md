@@ -87,7 +87,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
     App: 🤖, `kiExUndo`, Listener auf `trips/<id>` → „Neu laden“; Fotos nur in der App (`exPhotoDlg`, `exPh`).
     App: Ausflüge anlegen/bearbeiten/löschen (`exEditDlg`, `exDelete`; Code-Wechsel nimmt Wahl und Foto mit).
     Orte je Ausflug `ex[].orte` (`exOrteHTML`, `exProgHTML`, `exOrtOpen`: online Google Maps, offline `MAPMARK`-Pin; `exOrteDlg`). Teil-Import gemerkt, nicht gebaut.
-  - Ortsinfos/Tipps: `ort_info`, `ort_info_setzen`, `tipps_anlegen`, `tipp_loeschen` (gleicher Schreibweg, `kiInfo`/`ki`); App `poiFix` ergänzt Position.
+  - „Über den Ort“ / „Tipps vor Ort“ (früher „Über den Ort und Tipps“ / „Orte im Detail“): `ort_info`, `ort_info_setzen`, `tipps_anlegen`, `tipp_loeschen` (gleicher Schreibweg, `kiInfo`/`ki`); App `poiFix` ergänzt Position.
   - Ortssuche des Servers: `geo.js` (Photon → Nominatim, Fehler im Log `firebase functions:log --only mcp`).
   - Server-Tests: `node functions/test/mcp.test.js`.
   - Hochladen nur `firebase deploy --only functions:mcp` (Nutzer, Cloud Shell).

@@ -426,7 +426,7 @@ nahe der Station, und speichert den Treffer mit dem Vermerk „Ort automatisch g
   ausdrückliche Bitte; je Ausflug Protokoll/Rückgängig. App: Ausflüge anlegen/bearbeiten/löschen (`exEditDlg`, `exDelete`, `exStore`).
 - **Gemerkt, nicht gebaut:** Teil-Import nur für Ausflüge (`reiseplaner-ausfluege-1`, gleiche Zusammenführ-Logik).
 
-### 9.11 Ortsinfos und Tipps über den Konnektor (28.11.2026, Nutzerwunsch: „Reise über Claude ändern“)
+### 9.11 „Über den Ort“ und „Tipps vor Ort“ über den Konnektor (28.11.2026, Nutzerwunsch: „Reise über Claude ändern“)
 - Weitere Ausnahme von 9.1, nur diese Felder je Tag: `ort`, `walk`, `verdikt`, `rec`, `text`, `tips[]`, `tr[]` (`ort_info_setzen`,
   Kennzeichen `kiInfo`, Protokoll col `portinfo`) und `pois[]` (`tipps_anlegen`/`tipp_loeschen`, Kennzeichen `ki`, col `poi`).
 - Neue Tipps: feste `id` (`k-<name>-<zufall>`), Lage per Ortssuche (≤ 200 km), `km` und `g` (Wegzeit geschätzt wie im Editor),

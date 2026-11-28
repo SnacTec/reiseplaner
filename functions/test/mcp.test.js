@@ -586,7 +586,7 @@ async function test(name, fn) { try { await fn(); results.push('PASS  ' + name);
   const portOf = d => JSON.parse(S.D.get('trips/' + id).json).ports.find(p => p.day === d);
   clock += 3700e3; RT = await tokens(); WT = await tokens({ access: 'write' });   // neues Stundenfenster für die Schreibgrenze
   await test('ortsinfos: lesen, Felder setzen und leeren, Seetag-Kurztext, Protokoll, Rest unverändert', async () => {
-    const a = (await W(RT.access_token, 'ort_info', { tag: 2 })).t; assert.match(a, /Ortsinfos Tag 2/); assert.match(a, /Auf eigene Faust:\n- /);
+    const a = (await W(RT.access_token, 'ort_info', { tag: 2 })).t; assert.match(a, /Über den Ort · Tag 2/); assert.match(a, /Auf eigene Faust:\n- /);
     const p0 = portOf(2), j0 = JSON.parse(S.D.get('trips/' + id).json);
     const r = await W(WT.access_token, 'ort_info_setzen', { tag: 2, ort: 'Neuer Text über den Ort (erfunden).', auf_eigene_faust: ['Erster Tipp', 'Zweiter Tipp'], anreise: [] });
     assert.ok(!r.err, r.t); assert.match(r.t, /Der Ort, Auf eigene Faust, Anreise/);

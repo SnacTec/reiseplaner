@@ -255,7 +255,7 @@ function exWriter(W) {
       if (r.e) fail('Nicht gespeichert – ' + r.e);
       return `${op}-Ausflüge an Tag ${p.day} (${clean(p.name, 60)}) gespeichert:\n` + out.map(s => '- ' + s).join('\n') + (miss.length ? (down ? `\nOrtssuche gerade nicht erreichbar – diese Orte fehlen noch: ${miss.join(', ')}. Die Ausflüge selbst sind gespeichert; Orte später erneut eintragen oder in der App hinzufügen („📍 Orte ›“).` : `\nNicht gefunden (nahe ${clean(p.name, 40)}), daher weggelassen: ${miss.join(', ')} – genauer benennen und erneut aufrufen, oder in der App hinzufügen.`) : '') + (ops.length ? '\nIn der App erscheinen sie nach „Neu laden“ (Hinweis kommt automatisch).' : '');
     },
-    /* „Über den Ort und Tipps“: Texte eines Tages (nur angegebene Felder; '' bzw. [] entfernt das Feld) */
+    /* Bereich „Über den Ort“: Texte eines Tages (nur angegebene Felder; '' bzw. [] entfernt das Feld) */
     async ort_info_setzen(a) {
       const p = dayOf(a.tag, true), f = {}, S1 = (k, n, x) => { if (x == null) return; f[k] = note(x, n); }, LI = (k, n, m, x) => { if (x == null) return; f[k] = x.map(t => note(t, m)).filter(Boolean).slice(0, n); };
       if (a.waehrung != null) { const c = String(a.waehrung).trim().toUpperCase(); if (c && !/^[A-Z]{3}$/.test(c)) fail('Währung bitte als ISO-Code mit 3 Buchstaben, z. B. USD.'); f.cur = c; }
@@ -269,14 +269,14 @@ function exWriter(W) {
         const before = pick(port); Object.entries(f).forEach(([k, x]) => { if (x === '' || (Array.isArray(x) && !x.length)) delete port[k]; else port[k] = x; });
         const after = pick(port); if (JSON.stringify(before) === JSON.stringify(after)) return { skip: true };
         port.kiInfo = { uid, at: now };
-        txt = `Ortsinfos an Tag ${p.day} (${p.name}) geändert: ${Object.keys(f).map(k => ({ cur: 'Währung', curNote: 'Bezahl-Hinweis', ort: 'Der Ort', walk: 'Zu Fuß', verdikt: 'Selbst oder Ausflug', rec: 'Empfehlung', text: 'Kurztext', tips: 'Auf eigene Faust', tr: 'Anreise' })[k]).join(', ')}`;
+        txt = `„Über den Ort“ an Tag ${p.day} (${p.name}) geändert: ${Object.keys(f).map(k => ({ cur: 'Währung', curNote: 'Bezahl-Hinweis', ort: 'Der Ort', walk: 'Zu Fuß', verdikt: 'Selbst oder Ausflug', rec: 'Empfehlung', text: 'Kurztext', tips: 'Auf eigene Faust', tr: 'Anreise' })[k]).join(', ')}`;
         const [lk, ld] = logDoc('ort_info_setzen', String(p.day), before, after, txt, 'portinfo'); T.set(lk, ld);
       });
       if (r.e) fail(r.e); if (r.skip) return 'Keine Änderung nötig – die Angaben sind schon so.';
       return 'Gespeichert: ' + clean(txt, 200) + '.\nIn der App erscheint es nach „Neu laden“ (Hinweis kommt automatisch).';
     },
 
-    /* „Orte im Detail“ (Tipps, pois): anlegen oder aktualisieren (per id oder gleichem Namen); Lage sucht der Server selbst */
+    /* „Tipps vor Ort“ (pois): anlegen oder aktualisieren (per id oder gleichem Namen); Lage sucht der Server selbst */
     async tipps_anlegen(a) {
       const p = dayOf(a.tag); if (p.lat == null) fail(`Für Tag ${p.day} ist keine Lage bekannt – Tipps bitte in der App anlegen.`);
       const cur0 = p.pois || [], seen = new Set(), L = [], miss = []; let down = false;
