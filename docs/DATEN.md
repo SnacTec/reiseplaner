@@ -99,6 +99,8 @@ Neue Person = E-Mail in die Regeln aufnehmen → Person meldet sich an → ersch
 
 ## Quiz
 `trips/<id>/plandays/quiz_<uid>`: `{ uid, name, l, pts, n, ok, best, cat:{l|g|s|r:{n,ok}}, daily:{ "YYYY-MM-DD": {ok, t (ms), done} } }`.
+`trips/<id>/plandays/duel_<Datum>`: `{ qs:[{k,c,t,q,z,a,o,x}], date, ts }` – die 5 Duell-Fragen des Tages, beim ersten Spielen festgehalten (für alle gleich, auch wenn sich die Reisedaten ändern).
+Fragen-Kennungen `k` kommen aus dem Inhalt (eigene Fragen: Frage + Antwort, Land & Leute: Land + Thema + Satz), nicht aus der Position.
 - Rangliste, Live-Hinweise (überholt/Gleichstand), Abzeichen werden daraus in der App berechnet.
 - Tages-Duell: 5 Fragen je Tag, für alle gleich (Zufall aus Reise-ID + Datum, `qzDailyQs`). Ein Versuch pro Tag.
   Tagessieg zählt, wenn mindestens 2 gespielt haben (heute erst, wenn alle Mitreisenden fertig sind); Gleichstand → schnellere Zeit.

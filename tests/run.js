@@ -348,6 +348,22 @@ test('fenster: drei Größen beim Ziehen (Standard, Mitte, fast oben), nach unte
   await c.close(); ok(!p.errs.length, p.errs.join(' | '));
 });
 
+test('quiz: feste Kennungen (unabhängig von der Reihenfolge), Tages-Duell bleibt bei geänderten Daten gleich', async ({ browser, base }) => {
+  const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');
+  const r = await p.evaluate(async () => {
+    const own = () => qzPool().filter(q => /^m|^ku/.test(q.k)).map(q => q.k + '|' + q.q + '|' + (q.z || '')).sort();
+    const k1 = own(); QZQ.reverse(); QZP = null; const k2 = own();
+    const d1 = qzDailyQs().map(q => q.k); await qzDuelFreeze(qzDailyQs());
+    D.ports.forEach(x => { if (x.kind === 'port') x.name = x.name + ' Neu'; }); QZQ.push(['l', 'Neue Frage (erfunden)?', 'A', ['B', 'C', 'D'], '']); QZP = null;
+    const d2 = qzDailyQs().map(q => q.k), stored = JSON.parse(localStorage.getItem('rp-' + TRIP_ID + '-duel'));
+    return { same: JSON.stringify(k1) === JSON.stringify(k2), n: k1.length, d1, d2, st: stored && stored.date === TODAY && stored.qs.length };
+  });
+  ok(r.same && r.n > 3, 'Kennungen hängen von der Reihenfolge ab'); ok(r.d1.length >= 3 && JSON.stringify(r.d1) === JSON.stringify(r.d2), 'Duell geändert: ' + r.d1 + ' / ' + r.d2); ok(r.st === r.d1.length, 'nicht gespeichert');
+  // Duell spielen (Fragen kommen aus dem gespeicherten Stand)
+  await p.evaluate(() => { quizDlg(); }); await p.waitForTimeout(400);
+  await c.close(); ok(!p.errs.length, p.errs.join(' | '));
+});
+
 /* ---------- Tagesplan ---------- */
 test('tagesplan: Eintrag hinzufügen und Reihenfolge Ab Schiff → … → Zurück an Bord', async ({ browser, base }) => {
   const c = await H.context(browser), t = H.trip('kreuzfahrt'), p = await H.open(c, base, t, '#tag-2');

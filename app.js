@@ -964,7 +964,7 @@ document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest
   if(a.hasAttribute('data-fbretry')){fbRetry();return}
   if(a.hasAttribute('data-fbin'))fbSignIn();else if(a.hasAttribute('data-fbout'))fbSignOut();else fbSignOut()});
 function fbBtns(){if(!FBX.on||!FBX.user)return '';return (fbFix==='lp'?` <button class="chip btn" data-fbfix style="padding:2px 8px">Verbindung reparieren</button>`:fbFix==='retry'?` <button class="chip btn" data-fbretry style="padding:2px 8px">Neu verbinden</button>`:'')+` <button class="chip" data-fbout style="padding:2px 8px">Abmelden</button>`}
-const APP_VER='28.11. · R117';
+const APP_VER='28.11. · R118';
 function kontoHTML(){if(!FBX.on)return '';
   return '<b style="font-size:13px">Konto</b><p class="src" style="margin:2px 0 8px">'+(FBX.user?'Angemeldet als '+esc(FBX.user.email||'')+'. Auswahl, eigene Einträge, Listen und Favoriten werden gemeinsam gespeichert.':'Nicht angemeldet.')+'</p>'+
    (FBX.user?'<div class="osmrow" style="margin:0 0 10px"><span>🏠 Zuhause</span><div>'+(homeGet()?'<b>'+esc(homeGet().n||'')+'</b>'+(homeGet().a?'<br><small>'+esc(homeGet().a)+'</small>':'')+'<br>':'<span class="src">noch nicht festgelegt</span><br>')+'<button class="lnk" data-homeset>'+(homeGet()?'Ändern ›':'Festlegen ›')+'</button><small class="src" style="display:block">Wird bei An- und Abreise als Vorschlag angeboten. Gespeichert in deinem Konto.</small></div></div>'+
@@ -1125,7 +1125,7 @@ async function tdInit(){
     db.collection('plandays').onSnapshot({includeMetadataChanges:true},s=>{if(s.metadata.fromCache)return;
       {const m=s.docs.find(x=>x.id==='meta'),dn=m&&m.data().dinner;if(dn)DSYNC=JSON.parse(JSON.stringify(dn));if(dn&&JSON.stringify(dn)!==JSON.stringify(DIN)){DIN={at:'',dk:null,dv:null,s:90,table:'',skip:[],ov:{},...dn};dinSave(false);rerender()}else if(!dn&&DIN.at)dinSave(true)}
       {const m=s.docs.find(x=>x.id==='meta'),c=m&&m.data().cabin;if(m&&(c||null)!==myCab()){try{c?localStorage.setItem('rp-'+TRIP_ID+'-cabin',String(c)):localStorage.removeItem('rp-'+TRIP_ID+'-cabin')}catch(e){}}else if(!m&&myCab())setCab(myCab())}
-      s.docs.forEach(x=>{if(x.id.startsWith('quiz_'))qzRemote(x.id,x.data())});
+      s.docs.forEach(x=>{if(x.id.startsWith('quiz_'))qzRemote(x.id,x.data());else if(x.id.startsWith('duel_'))qzDuelRemote(x.id,x.data())});
       syncSeen();const lg={};s.docs.forEach(d=>{const x=d.data();if(/^d\d+$/.test(d.id)&&x&&x.d!=null&&(x.items||[]).length)lg[x.d]=x.items});
       const m=s.docs.find(x=>x.id==='meta');PI.legacy=lg;PI.v2=!!(m&&m.data().planV2);PI.metaSeen=true;planMigrate()},e=>fbReadErr(e));
     const PI={};
@@ -3299,7 +3299,7 @@ function qzName(){const m=memMe();return m?m.n:((typeof FAV!=='undefined'&&FAV.l
 function qzRemote(id,x){QZR[id]=x;if(FBX.user&&id==='quiz_'+FBX.user.uid){if(x.n>QZ.n){QZ.pts=x.pts;QZ.n=x.n;QZ.ok=x.ok;QZ.best=Math.max(QZ.best,x.best||0);if(x.cat)QZ.cat=x.cat}QZ.daily=Object.assign({},x.daily||{},QZ.daily||{});qzSave(false)}
   if(document.getElementById('qzroot')&&qzView!=='game'){const r=document.querySelector('.qpod');if(r&&qzView==='lobby')try{quizDlg.refresh&&quizDlg.refresh()}catch(e){}}}
 function qzPool(){if(QZP)return QZP;const P=[];
-  QZQ.forEach((q,i)=>P.push({k:'m'+i,c:q[0],t:q[0]==='g'?'Getränke':q[0]==='r'?'Eure Reise':'Land & Leute',q:q[1],a:q[2],w:q[3],x:q[4]}));
+  QZQ.forEach(q=>P.push({k:'m'+qzHash(String(q[1])+'|'+String(q[2])).toString(36),c:q[0],t:q[0]==='g'?'Getränke':q[0]==='r'?'Eure Reise':'Land & Leute',q:q[1],a:q[2],w:q[3],x:q[4]}));
   const ports=D.ports.filter(p=>p.kind==='port'),lands=[...new Set(ports.map(p=>qzLand(p.land)))],pnames=[...new Set(ports.map(p=>p.name))];
   ports.forEach(p=>{
     P.push({k:'pl'+p.day,c:'l',t:'Häfen',q:'In welchem Land bzw. Gebiet liegt '+p.name+'?',a:qzLand(p.land),w:()=>lands.filter(l=>l!==qzLand(p.land)),x:p.ort});
@@ -3309,7 +3309,7 @@ function qzPool(){if(QZP)return QZP;const P=[];
   const MASK=KUL.maskRe?new RegExp(KUL.maskRe,'g'):(()=>{const esc2=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const W=new Set();D.ports.forEach(p=>{if(p.name)p.name.split(/\s*\/\s*/).forEach(x=>x.length>3&&W.add(x));(p.land||'').split(/,\s*/).forEach(x=>{x=x.replace(/\s*\(.*\)$/,'');if(x.length>3)W.add(x)})});Object.keys(KUL.L||{}).forEach(x=>{x=x.replace(/\s*\(.*\)$/,'').replace(/^.*?, /,'');if(x.length>3)W.add(x)});(KUL.mask||[]).forEach(x=>W.add(x));const a=[...W].sort((x,y)=>y.length-x.length).map(esc2);return new RegExp(a.join('|'),'g')})();
   const TOP={g:'Geschichte',p:'Politik & Alltag',k:'Kultur',e:'Essen & Trinken'};
   Object.entries(KUL.L).forEach(([L,o])=>Object.keys(TOP).forEach(t=>(o[t]||[]).forEach((txt,i)=>{const m=txt.replace(MASK,'…');if(m.split('…').length>3||/Turk|^Die … \(Kariben\)/.test(m))return;
-    P.push({k:'ku'+L.slice(0,6)+t+i,c:'l',t:'Land & Leute · '+TOP[t],q:'Zu welchem Land passt das?',z:m,a:qzLand(L),w:()=>Object.keys(KUL.L).map(qzLand).filter(x=>x!==qzLand(L)),x:txt})})));
+    P.push({k:'ku'+qzHash(L+'|'+t+'|'+txt).toString(36),c:'l',t:'Land & Leute · '+TOP[t],q:'Zu welchem Land passt das?',z:m,a:qzLand(L),w:()=>Object.keys(KUL.L).map(qzLand).filter(x=>x!==qzLand(L)),x:txt})})));
   // Schiff
   if(typeof SHIP!=='undefined'){const all=[];SHIP.dk.forEach(([n,nm,V])=>V.forEach((v,i)=>all.push({n,nm,v,i})));
     const cnt={};all.forEach(o=>{const b=o.v[0].replace(/\s*\(.*\)$/,'');cnt[b]=(cnt[b]||0)+1});
@@ -3337,7 +3337,16 @@ function qzNext(){const P=qzPool();const W={l:4,g:3,s:2,r:1};let c=qzCat;
 /* ---------- Tages-Duell: 5 Fragen, für alle gleich (aus Datum + Reise ausgelost) ---------- */
 const qzHash=s=>{let h=2166136261;for(const c of s)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0};
 const qzRng=seed=>()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
-function qzDailyQs(){const P=qzPool(),R=qzRng(qzHash(TRIP_ID+'|'+TODAY)),sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+/* Tages-Duell festhalten: beim ersten Spielen des Tages werden die 5 Fragen gespeichert (plandays/duel_<Datum>, für alle gleich,
+   auf dem Gerät zusätzlich rp-<reise>-duel). Ändern sich danach die Reisedaten, bleibt das Duell trotzdem dasselbe. */
+let QZDUEL={};try{const x=JSON.parse(localStorage.getItem('rp-'+TRIP_ID+'-duel')||'null');if(x&&x.date&&Array.isArray(x.qs))QZDUEL[x.date]=x.qs}catch(e){}
+const qzDuelPlain=Q=>Q.map(q=>{const o={};['k','c','t','q','z','a','o','x','dk'].forEach(k=>{if(q[k]!=null)o[k]=q[k]});return o});
+const qzDuelOk=Q=>Array.isArray(Q)&&Q.length>0&&Q.every(q=>q&&typeof q.q==='string'&&Array.isArray(q.o)&&q.o.includes(q.a));
+function qzDuelRemote(id,x){const d=id.slice(5);if(x&&qzDuelOk(x.qs)){QZDUEL[d]=x.qs;if(d===TODAY&&qzDQ&&!(QZ.day&&QZ.day.date===TODAY&&QZ.day.i>0))qzDQ=null}}
+async function qzDuelFreeze(Q){const plain=qzDuelPlain(Q);try{localStorage.setItem('rp-'+TRIP_ID+'-duel',JSON.stringify({date:TODAY,qs:plain}))}catch(e){}QZDUEL[TODAY]=plain;
+  if(!(dbh&&TS.mode==='db'&&FBX.real))return plain;const ref=dbh.collection('plandays').doc('duel_'+TODAY);
+  try{return await FBX.real.runTransaction(async T=>{const s=await T.get(ref);if(s.exists&&qzDuelOk(s.data().qs))return s.data().qs;T.set(ref,{qs:plain,date:TODAY,ts:Date.now()});return plain})}catch(e){return plain}}
+function qzDailyQs(){if(qzDuelOk(QZDUEL[TODAY]))return QZDUEL[TODAY].map(q=>({...q,done:null}));const P=qzPool(),R=qzRng(qzHash(TRIP_ID+'|'+TODAY)),sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
   const cats=sh(['l','l','g','s','r'].filter(c=>P.some(q=>q.c===c)));const used=new Set(),out=[];
   for(const c of cats){const L=P.filter(q=>q.c===c&&!used.has(q.k)).sort((a,b)=>a.k<b.k?-1:1);if(!L.length)continue;const q=L[Math.floor(R()*L.length)];used.add(q.k);
     const wr=sh([...new Set(typeof q.w==='function'?q.w():q.w)].filter(x=>x&&x!==q.a).sort()).slice(0,3);out.push({...q,o:sh([q.a,...wr]),done:null})}
@@ -3403,7 +3412,7 @@ function quizDlg(mode){
       root.querySelectorAll('[data-c]').forEach(x=>x.onclick=()=>{qzMode='free';qzCat=x.dataset.c;qzCur=null;go('game')});
       root.querySelectorAll('[data-v]').forEach(x=>x.onclick=()=>go(x.dataset.v))};
     const drawQ=()=>{let q,head;
-      if(qzMode==='daily'){qzDQ=qzDQ||qzDailyQs();let st=qzDay();if(!st){st=QZ.day={date:TODAY,i:0,ok:0,t0:Date.now(),t:0,res:[]};qzSave(false)}
+      if(qzMode==='daily'){qzDQ=qzDQ||qzDailyQs();let st=qzDay();if(!st){st=QZ.day={date:TODAY,i:0,ok:0,t0:Date.now(),t:0,res:[]};qzSave(false);if(!qzDuelOk(QZDUEL[TODAY])){const Q0=qzDQ;qzDuelFreeze(Q0).then(Q=>{if(Q!==qzDuelPlain(Q0)&&qzDuelOk(Q)&&JSON.stringify(Q.map(x=>x.k))!==JSON.stringify(Q0.map(x=>x.k))&&st.i===0){qzDQ=Q.map(q=>({...q,done:null}));qzCur=null;try{go('game')}catch(e){}}})}}
         if(!(qzCur&&qzCur.daily)){if(st.done||st.i>=qzDQ.length){qzMode='free';qzCur=null;return go('lobby')}qzCur=Object.assign({},qzDQ[st.i],{daily:1,idx:st.i,done:null})}
         q=qzCur;head='Frage '+(q.idx+1)+' von '+qzDQ.length+' · '+esc(q.t)}
       else{if(qzCur&&qzCur.daily)qzCur=null;q=qzCur||qzNext();head=esc(q.t)}

@@ -71,7 +71,7 @@ Die Git-Historie wurde am 25.11.2026 bereinigt (ein einziger Start-Commit) – n
   (pdf.js) zeigt die App selbst an; lange drücken auf eine Datei → „Von Tag lösen“.
 - Offline/Sync: Start aus Gerätespeicher (SW stale-while-revalidate, Reise-Kopie in IndexedDB), feldgenaues Speichern,
   Tagesplan je Eintrag (`planitems`), Upload-Warteschlange – Details in `docs/DATEN.md`.
-- Spiele: Quiz (Lobby mit Podest, Tages-Duell, Rangliste, Abzeichen; Punkte je Reise in Firestore),
+- Spiele: Quiz (Lobby mit Podest, Tages-Duell – festgehalten in `plandays/duel_<Datum>`, Rangliste, Abzeichen; Punkte je Reise in Firestore; Fragen-Kennung aus dem Inhalt),
   Spider Solitaire (eigene Umsetzung, Spielstand/Statistik nur auf dem Gerät: `rp-spider`, `rp-spider-stats`).
 
 - Eintrag: Ortssuche findet auch Orte an Bord (`shipFind`, setzt `dk/dv`); „Wiederholen bis Tag N“ (Feld `rep`, Kopien je Tag mit `rep`-Kennung, Überschneidungen: auslassen oder trotzdem). Zuhause + Spider je Konto in `config/user_<uid>`.
